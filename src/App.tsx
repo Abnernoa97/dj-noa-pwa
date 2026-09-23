@@ -29,6 +29,14 @@ function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
   return next.toISOString();
 }
 
+function relativeReminderDueAt(event: EventItem, daysBefore: number, relativeTime?: string) {
+  const time = relativeTime || event.time || '09:00';
+  const due = new Date(`${event.date}T${time}:00`);
+  if (Number.isNaN(due.getTime())) return undefined;
+  due.setDate(due.getDate() - Math.max(0, daysBefore));
+  return due.toISOString();
+}
+
 export default function App() {
   const [view, setView] = useState<AppView>('home');
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -104,21 +112,40 @@ export default function App() {
     await refresh();
   };
 
-  const executeAction = async (action: AssistantAction) => {
+  const executeAction = async (action: AssistantAction, refs: Map<string, string>, createdEvents: Map<string, EventItem>) => {
     const now = new Date().toISOString();
-    if (action.type === 'create_event') await db.events.add({ id: uid(), title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now });
+    if (action.type === 'create_event') {
+      const id = uid();
+      const event: EventItem = { id, title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now };
+      await db.events.add(event);
+      if (action.ref) {
+        refs.set(action.ref, id);
+        createdEvents.set(action.ref, event);
+      }
+    }
     if (action.type === 'update_event') {
       const patch = { title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status, updatedAt: now };
       await db.events.update(action.eventId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
     }
     if (action.type === 'delete_event') await db.events.delete(action.eventId);
-    if (action.type === 'create_reminder') await db.reminders.add({ id: uid(), title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
+    if (action.type === 'create_reminder') {
+      const linkedEventId = action.eventId || (action.eventRef ? refs.get(action.eventRef) : undefined);
+      let dueAt = action.dueAt;
+      if (!dueAt && action.relativeToEventDaysBefore !== undefined) {
+        const linkedEvent = action.eventRef ? createdEvents.get(action.eventRef) : events.find((item) => item.id === linkedEventId);
+        if (linkedEvent) dueAt = relativeReminderDueAt(linkedEvent, action.relativeToEventDaysBefore, action.relativeTime);
+      }
+      await db.reminders.add({ id: uid(), title: action.title, dueAt, done: false, eventId: linkedEventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
+    }
     if (action.type === 'update_reminder') {
       const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now };
       await db.reminders.update(action.reminderId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
     }
     if (action.type === 'delete_reminder') await db.reminders.delete(action.reminderId);
-    if (action.type === 'add_sheet_row') await db.sheetRows.add({ id: uid(), label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, values: action.values || {}, createdAt: now, updatedAt: now });
+    if (action.type === 'add_sheet_row') {
+      const linkedEventId = action.eventId || (action.eventRef ? refs.get(action.eventRef) : undefined);
+      await db.sheetRows.add({ id: uid(), label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: linkedEventId, values: action.values || {}, createdAt: now, updatedAt: now });
+    }
     if (action.type === 'update_sheet_row') {
       const current = await db.sheetRows.get(action.rowId);
       if (current) {
@@ -150,7 +177,9 @@ export default function App() {
     setBusy(true);
     try {
       const response = await askAssistant(clean, { events, reminders, sheetRows });
-      for (const action of response.actions) await executeAction(action);
+      const refs = new Map<string, string>();
+      const createdEvents = new Map<string, EventItem>();
+      for (const action of response.actions) await executeAction(action, refs, createdEvents);
       await db.history.add({ id: uid(), command: clean, result: response.reply, createdAt: new Date().toISOString() });
       setAssistantReply(response.reply);
       setCommand('');
@@ -231,7 +260,7 @@ export default function App() {
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
+      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. crea el evento y agrega sus pendientes" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
       {eventEditorOpen && <EventEditor event={selectedEvent} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
