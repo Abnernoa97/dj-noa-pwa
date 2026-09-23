@@ -5,6 +5,7 @@ import App from './App';
 import './styles.css';
 import './events.css';
 import './calendar.css';
+import './sheet.css';
 
 registerSW({ immediate: true });
 
