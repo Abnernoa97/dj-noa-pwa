@@ -277,6 +277,10 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.pathname === '/api/health' && request.method === 'GET') {
+      return Response.json({ ok: true, service: 'dj-noa-worker', ai: true, push: true });
+    }
+
     if (url.pathname === '/api/assistant' && request.method === 'POST') return handleAssistant(request, env);
 
     if (url.pathname.startsWith('/api/push/') || url.pathname.startsWith('/api/reminders/')) {
