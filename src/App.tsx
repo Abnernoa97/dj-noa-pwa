@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bell, CalendarDays, Check, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus, Send, Sparkles, X } from 'lucide-react';
-import { format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
+import { Bell, CalendarDays, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus, Send, Sparkles, X } from 'lucide-react';
+import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { askAssistant } from './assistant';
 import CalendarWorkspace from './CalendarWorkspace';
 import { EventEditor, EventsView, type EventDraft } from './EventWorkspace';
+import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
+import { scheduleReminderNotifications } from './reminderNotifications';
 import type { AppView, AssistantAction, EventItem, ReminderItem, SheetColumn, SheetRow } from './types';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
@@ -19,6 +21,12 @@ function safeDate(value?: string) {
 function sheetKey(name: string) {
   const clean = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   return `custom_${clean || Date.now()}`;
+}
+
+function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
+  const current = parseISO(dueAt);
+  const next = repeat === 'daily' ? addDays(current, 1) : repeat === 'weekly' ? addWeeks(current, 1) : repeat === 'monthly' ? addMonths(current, 1) : current;
+  return next.toISOString();
 }
 
 export default function App() {
@@ -48,6 +56,7 @@ export default function App() {
   };
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => scheduleReminderNotifications(reminders), [reminders]);
 
   const upcoming = useMemo(() => {
     const today = new Date();
@@ -60,7 +69,7 @@ export default function App() {
 
   const total = useMemo(() => sheetRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), [sheetRows]);
   const openReminders = reminders.filter((item) => !item.done).length;
-  const focusReminders = useMemo(() => reminders.filter((item) => !item.done).slice(0, 3), [reminders]);
+  const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
 
   const openEventEditor = (event?: EventItem) => {
@@ -93,7 +102,12 @@ export default function App() {
       await db.events.update(action.eventId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
     }
     if (action.type === 'delete_event') await db.events.delete(action.eventId);
-    if (action.type === 'create_reminder') await db.reminders.add({ id: uid(), title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, createdAt: now });
+    if (action.type === 'create_reminder') await db.reminders.add({ id: uid(), title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
+    if (action.type === 'update_reminder') {
+      const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now, lastNotifiedAt: action.dueAt ? undefined : undefined };
+      await db.reminders.update(action.reminderId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
+    }
+    if (action.type === 'delete_reminder') await db.reminders.delete(action.reminderId);
     if (action.type === 'add_sheet_row') await db.sheetRows.add({ id: uid(), label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, values: action.values || {}, createdAt: now, updatedAt: now });
     if (action.type === 'update_sheet_row') {
       const current = await db.sheetRows.get(action.rowId);
@@ -160,7 +174,12 @@ export default function App() {
   };
 
   const toggleReminder = async (item: ReminderItem) => {
-    await db.reminders.update(item.id, { done: !item.done });
+    const now = new Date().toISOString();
+    if (!item.done && item.repeat && item.repeat !== 'none' && item.dueAt) {
+      await db.reminders.update(item.id, { dueAt: nextReminderDate(item.dueAt, item.repeat), done: false, lastCompletedAt: now, lastNotifiedAt: undefined, updatedAt: now });
+    } else {
+      await db.reminders.update(item.id, { done: !item.done, lastCompletedAt: !item.done ? now : item.lastCompletedAt, updatedAt: now });
+    }
     await refresh();
   };
 
@@ -188,14 +207,14 @@ export default function App() {
         {view === 'events' && <EventsView events={events} onOpen={openEventEditor} onCreate={() => openEventEditor()} />}
         {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} onOpenEvent={openEventEditor} />}
         {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
-        {view === 'reminders' && <RemindersView items={reminders} onToggle={toggleReminder} onAssistant={() => setAssistantOpen(true)} />}
+        {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
       </main>
 
       <button className={`voice-orb ${listening ? 'listening' : ''}`} onClick={startListening} aria-label="Hablar con DJ NOA">{listening ? <MicOff size={28} /> : <Mic size={28} />}<span>{listening ? 'ESCUCHANDO' : 'HABLAR'}</span></button>
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. cambia el gasto de transporte a 12,000" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
+      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. recuérdame mañana a las 10 confirmar audio" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
       {eventEditorOpen && <EventEditor event={selectedEvent} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
@@ -203,8 +222,4 @@ export default function App() {
 
 function NavButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
   return <button className={`nav-button ${active ? 'active' : ''}`} onClick={onClick}>{icon}<span>{label}</span></button>;
-}
-
-function RemindersView({ items, onToggle, onAssistant }: { items: ReminderItem[]; onToggle: (item: ReminderItem) => void; onAssistant: () => void }) {
-  return <section className="page-card"><div className="page-title-row"><div><p className="eyebrow">FOCUS</p><h2>Recordatorios</h2></div><button className="round-plus" onClick={onAssistant}><Plus size={20} /></button></div><div className="reminder-list">{items.length ? items.map((item) => <button key={item.id} className={`reminder-row ${item.done ? 'done' : ''}`} onClick={() => onToggle(item)}><span className="check-circle">{item.done && <Check size={15} />}</span><div><strong>{item.title}</strong><small>{item.dueAt ? format(parseISO(item.dueAt), "d MMM · HH:mm", { locale: es }) : 'Sin fecha'}</small></div></button>) : <div className="empty-table">Nada pendiente. Buenísimo.</div>}</div></section>;
 }
