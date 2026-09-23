@@ -11,8 +11,9 @@ const schema = {
       items: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['create_event', 'update_event', 'delete_event', 'create_reminder', 'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column', 'navigate', 'query_total', 'none'] },
+          type: { type: 'string', enum: ['create_event', 'update_event', 'delete_event', 'create_reminder', 'update_reminder', 'delete_reminder', 'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column', 'navigate', 'query_total', 'none'] },
           eventId: { type: 'string' },
+          reminderId: { type: 'string' },
           rowId: { type: 'string' },
           title: { type: 'string' },
           date: { type: 'string' },
@@ -21,6 +22,10 @@ const schema = {
           address: { type: 'string' },
           notes: { type: 'string' },
           dueAt: { type: 'string' },
+          priority: { type: 'string', enum: ['low', 'normal', 'high'] },
+          repeat: { type: 'string', enum: ['none', 'daily', 'weekly', 'monthly'] },
+          notificationEnabled: { type: 'boolean' },
+          done: { type: 'boolean' },
           label: { type: 'string' },
           category: { type: 'string' },
           amount: { type: 'number' },
@@ -56,18 +61,21 @@ export default {
     if (!body.command?.trim()) return Response.json({ error: 'command_required' }, { status: 400, headers: cors });
 
     const system = [
-      'You are DJ NOA, the command interpreter for a private one-person event operations and spreadsheet app.',
+      'You are DJ NOA, the command interpreter for a private one-person event operations, reminders and spreadsheet app.',
       'The user speaks Spanish. Return concise Spanish.',
       'Convert the command into safe structured actions only.',
       'Dates must be ISO YYYY-MM-DD. Date-times must be ISO 8601. Times should be HH:mm.',
       'For money, return plain numeric amounts with no symbols.',
       'For existing events use exact eventId values from context. Never invent ids.',
+      'For existing reminders use exact reminderId values from context. Never invent reminder ids.',
       'For existing spreadsheet rows use exact rowId values from context. Never invent row ids.',
+      'For reminders, use create_reminder, update_reminder or delete_reminder. Include dueAt when a date/time is requested, priority for urgency, repeat for recurrence, and notificationEnabled only when explicitly relevant.',
+      'Only delete a reminder when the user clearly asks to delete it. If the target reminder is ambiguous, return none and ask which one.',
       'Use add_sheet_row to create a new row, update_sheet_row to change a row, and delete_sheet_row only when the user explicitly asks to delete a row.',
       'Use add_sheet_column when the user asks for a new spreadsheet column. For a calculated column use columnType formula and preserve the requested formula.',
       'For update_sheet_row include only fields explicitly requested. Custom cell changes go inside values.',
       'Use query_total for questions about totals and include category/status filters when the request contains them.',
-      'If a target row or event is ambiguous, return type none and ask a short follow-up.',
+      'If a target row, reminder or event is ambiguous, return type none and ask one short follow-up.',
       'Never perform a destructive action unless the user clearly asked for it.'
     ].join(' ');
 
