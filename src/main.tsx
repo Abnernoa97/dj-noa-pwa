@@ -6,6 +6,7 @@ import './styles.css';
 import './events.css';
 import './calendar.css';
 import './sheet.css';
+import './reminders.css';
 
 registerSW({ immediate: true });
 
