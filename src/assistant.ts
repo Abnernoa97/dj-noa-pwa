@@ -1,5 +1,5 @@
 import { addDays, format } from 'date-fns';
-import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow, SheetStatus } from './types';
+import type { AssistantResponse, AppView, EventItem, ReminderItem, ReminderPriority, ReminderRepeat, SheetRow, SheetStatus } from './types';
 
 type Context = { events: EventItem[]; reminders: ReminderItem[]; sheetRows: SheetRow[] };
 
@@ -17,8 +17,11 @@ function normalize(value: string) {
 
 function parseDate(command: string): string | undefined {
   const lower = command.toLowerCase();
+  if (/\bpasado mañana\b/.test(lower)) return format(addDays(new Date(), 2), 'yyyy-MM-dd');
   if (/\bmañana\b/.test(lower)) return format(addDays(new Date(), 1), 'yyyy-MM-dd');
   if (/\bhoy\b/.test(lower)) return format(new Date(), 'yyyy-MM-dd');
+  const inDays = command.match(/\ben\s+(\d{1,2})\s+d[ií]as?\b/i);
+  if (inDays) return format(addDays(new Date(), Number(inDays[1])), 'yyyy-MM-dd');
   const iso = command.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
   if (iso) return iso[0];
   const latin = command.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](20\d{2})\b/);
@@ -38,6 +41,14 @@ function parseTime(command: string): string | undefined {
   if (suffix === 'am' && hour === 12) hour = 0;
   if (hour > 23) return undefined;
   return `${String(hour).padStart(2, '0')}:00`;
+}
+
+function parseDueAt(command: string): string | undefined {
+  const date = parseDate(command);
+  const time = parseTime(command);
+  if (!date && !time) return undefined;
+  const day = date || format(new Date(), 'yyyy-MM-dd');
+  return new Date(`${day}T${time || '09:00'}:00`).toISOString();
 }
 
 function parseAmount(value: string) {
@@ -66,6 +77,22 @@ function findEvent(command: string, context: Context): EventItem | undefined {
   return best && best.score > 0 ? best.event : undefined;
 }
 
+function findReminder(command: string, context: Context): ReminderItem | undefined {
+  if (!context.reminders.length) return undefined;
+  const haystack = normalize(command);
+  let best: { reminder: ReminderItem; score: number } | undefined;
+  for (const reminder of context.reminders) {
+    let score = 0;
+    for (const candidate of [reminder.title, reminder.notes || '']) {
+      const clean = normalize(candidate);
+      if (clean && haystack.includes(clean)) score += clean.length + 20;
+      for (const token of clean.split(' ')) if (token.length > 3 && haystack.includes(token)) score += token.length;
+    }
+    if (!best || score > best.score) best = { reminder, score };
+  }
+  return best && best.score > 0 ? best.reminder : context.reminders.length === 1 ? context.reminders[0] : undefined;
+}
+
 function findSheetRow(command: string, context: Context): SheetRow | undefined {
   if (!context.sheetRows.length) return undefined;
   const haystack = normalize(command);
@@ -85,6 +112,35 @@ function findSheetRow(command: string, context: Context): SheetRow | undefined {
 function extractAfter(command: string, label: RegExp): string | undefined {
   const match = command.match(label);
   return match?.[1]?.trim().replace(/[.,;]+$/, '') || undefined;
+}
+
+function reminderPriority(command: string): ReminderPriority | undefined {
+  if (/\b(urgente|alta prioridad|prioridad alta|muy importante)\b/i.test(command)) return 'high';
+  if (/\b(baja prioridad|prioridad baja)\b/i.test(command)) return 'low';
+  if (/\b(prioridad normal|normal)\b/i.test(command)) return 'normal';
+  return undefined;
+}
+
+function reminderRepeat(command: string): ReminderRepeat | undefined {
+  if (/\b(cada d[ií]a|diario|diaria|diariamente)\b/i.test(command)) return 'daily';
+  if (/\b(cada semana|semanal|semanalmente)\b/i.test(command)) return 'weekly';
+  if (/\b(cada mes|mensual|mensualmente)\b/i.test(command)) return 'monthly';
+  if (/\b(no repetir|sin repetir|una sola vez)\b/i.test(command)) return 'none';
+  return undefined;
+}
+
+function cleanReminderTitle(command: string) {
+  return command
+    .replace(/^.*?\b(recu[eé]rdame|recordatorio)\b\s*(que\s+)?/i, '')
+    .replace(/\b(hoy|mañana|pasado mañana)\b/gi, '')
+    .replace(/\ben\s+\d{1,2}\s+d[ií]as?\b/gi, '')
+    .replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]20\d{2}\b/g, '')
+    .replace(/\b20\d{2}-\d{2}-\d{2}\b/g, '')
+    .replace(/\ba\s+las\s+\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?/gi, '')
+    .replace(/\b(cada d[ií]a|diario|diaria|diariamente|cada semana|semanal|semanalmente|cada mes|mensual|mensualmente)\b/gi, '')
+    .replace(/\b(urgente|alta prioridad|prioridad alta|baja prioridad|prioridad baja)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function localFallback(command: string, context: Context): AssistantResponse {
@@ -138,9 +194,34 @@ function localFallback(command: string, context: Context): AssistantResponse {
     if (amount !== undefined) return { reply: `Listo. Agregué $${amount.toLocaleString('es-MX')} a la tabla.`, actions: [{ type: 'add_sheet_row', label: detail, category: detail.split(' ')[0] || 'General', amount, status: 'pending' }] };
   }
 
+  if (/\b(borra|elimina)\b.*\b(recordatorio|tarea)\b/i.test(command)) {
+    const reminder = findReminder(command, context);
+    if (!reminder) return { reply: 'No encontré qué recordatorio quieres eliminar.', actions: [{ type: 'none', message: 'Recordatorio no identificado.' }] };
+    return { reply: `Eliminando ${reminder.title}.`, actions: [{ type: 'delete_reminder', reminderId: reminder.id }] };
+  }
+
+  if (/\b(cambia|mueve|edita|modifica|actualiza|marca|reabre|repite)\b.*\b(recordatorio|tarea)\b/i.test(command)) {
+    const reminder = findReminder(command, context);
+    if (!reminder) return { reply: 'No pude identificar el recordatorio.', actions: [{ type: 'none', message: 'Recordatorio no identificado.' }] };
+    const dueAt = parseDueAt(command);
+    const priority = reminderPriority(command);
+    const repeat = reminderRepeat(command);
+    const notes = extractAfter(command, /nota(?:s)?\s+(?:a|por|es)?\s*([^;]+)/i);
+    const done = /\b(hecho|hecha|completado|completada|terminado|terminada)\b/i.test(command) ? true : /\b(reabre|pendiente otra vez)\b/i.test(command) ? false : undefined;
+    const notificationEnabled = /\b(sin notificaciones|desactiva (?:la )?notificaci[oó]n|sin aviso)\b/i.test(command) ? false : /\b(activa (?:la )?notificaci[oó]n|con aviso)\b/i.test(command) ? true : undefined;
+    if (!dueAt && !priority && !repeat && !notes && done === undefined && notificationEnabled === undefined) return { reply: 'Dime qué quieres cambiar: fecha, hora, prioridad, repetición, notas o estado.', actions: [{ type: 'none', message: 'Falta el cambio.' }] };
+    return { reply: `Listo. Actualicé ${reminder.title}.`, actions: [{ type: 'update_reminder', reminderId: reminder.id, dueAt, priority, repeat, notes, done, notificationEnabled }] };
+  }
+
   if (/\b(recu[eé]rdame|recordatorio)\b/i.test(command)) {
-    const title = command.replace(/^.*?(recu[eé]rdame|recordatorio)\s+(que\s+)?/i, '').trim();
-    return { reply: title ? `Recordatorio creado: ${title}.` : 'Dime qué quieres recordar.', actions: title ? [{ type: 'create_reminder', title }] : [{ type: 'none', message: 'Falta el texto del recordatorio.' }] };
+    const title = cleanReminderTitle(command);
+    if (!title) return { reply: 'Dime qué quieres recordar.', actions: [{ type: 'none', message: 'Falta el texto del recordatorio.' }] };
+    const dueAt = parseDueAt(command);
+    const priority = reminderPriority(command) || 'normal';
+    const repeat = reminderRepeat(command) || 'none';
+    const event = findEvent(command, context);
+    const when = dueAt ? ` para ${new Date(dueAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}` : '';
+    return { reply: `Recordatorio creado${when}: ${title}.`, actions: [{ type: 'create_reminder', title, dueAt, priority, repeat, eventId: event?.id, notificationEnabled: true }] };
   }
 
   if (/\b(borra|elimina)\b.*\b(evento|boda|show|fiesta)\b/i.test(command)) {
