@@ -72,6 +72,16 @@ export default function App() {
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
 
+  const speakReply = (text: string) => {
+    if (!('speechSynthesis' in window) || !text.trim()) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-MX';
+    utterance.rate = 0.98;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const openEventEditor = (event?: EventItem) => {
     setSelectedEvent(event || null);
     setEventEditorOpen(true);
@@ -104,7 +114,7 @@ export default function App() {
     if (action.type === 'delete_event') await db.events.delete(action.eventId);
     if (action.type === 'create_reminder') await db.reminders.add({ id: uid(), title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
     if (action.type === 'update_reminder') {
-      const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now, lastNotifiedAt: action.dueAt ? undefined : undefined };
+      const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now };
       await db.reminders.update(action.reminderId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
     }
     if (action.type === 'delete_reminder') await db.reminders.delete(action.reminderId);
@@ -127,9 +137,14 @@ export default function App() {
       await db.sheetColumns.add(column);
     }
     if (action.type === 'navigate') setView(action.view);
+    if (action.type === 'open_map') {
+      const event = events.find((item) => item.id === action.eventId);
+      const destination = event?.address || event?.venue;
+      if (destination) window.location.assign(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`);
+    }
   };
 
-  const runCommand = async (text = command) => {
+  const runCommand = async (text = command, speak = false) => {
     const clean = text.trim();
     if (!clean || busy) return;
     setBusy(true);
@@ -139,6 +154,7 @@ export default function App() {
       await db.history.add({ id: uid(), command: clean, result: response.reply, createdAt: new Date().toISOString() });
       setAssistantReply(response.reply);
       setCommand('');
+      if (speak) speakReply(response.reply);
       await refresh();
     } finally {
       setBusy(false);
@@ -152,6 +168,7 @@ export default function App() {
       setAssistantOpen(true);
       return;
     }
+    window.speechSynthesis?.cancel();
     const recognition = new Recognition();
     recognition.lang = 'es-MX';
     recognition.interimResults = false;
@@ -160,7 +177,7 @@ export default function App() {
       const transcript = event.results[0][0].transcript;
       setCommand(transcript);
       setAssistantOpen(true);
-      void runCommand(transcript);
+      void runCommand(transcript, true);
     };
     recognition.onerror = () => {
       setListening(false);
@@ -214,7 +231,7 @@ export default function App() {
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. recuérdame mañana a las 10 confirmar audio" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
+      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
       {eventEditorOpen && <EventEditor event={selectedEvent} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
