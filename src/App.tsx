@@ -51,6 +51,8 @@ export default function App() {
 
   const total = useMemo(() => sheetRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), [sheetRows]);
   const openReminders = reminders.filter((item) => !item.done).length;
+  const focusReminders = useMemo(() => reminders.filter((item) => !item.done).slice(0, 3), [reminders]);
+  const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
 
   const executeAction = async (action: AssistantAction) => {
     const now = new Date().toISOString();
@@ -129,16 +131,22 @@ export default function App() {
       <div className="background-shade" aria-hidden="true" />
 
       <header className="topbar">
-        <div><p className="eyebrow">PERSONAL OPERATIONS</p><h1>DJ NOA</h1></div>
-        <button className="status-pill" onClick={() => setAssistantOpen(true)}><Sparkles size={15} /> AI READY</button>
+        <div>
+          <h1>DJ NOA</h1>
+          <p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p>
+        </div>
+        <button className="status-pill" onClick={() => setAssistantOpen(true)}><Sparkles size={15} /> IA</button>
       </header>
 
       <main className="content">
         {view === 'home' && (
           <section className="home-view">
-            <div className="hero-copy">
-              <p>{format(new Date(), "EEEE, d 'de' MMMM", { locale: es }).toUpperCase()}</p>
-              <h2>Todo lo importante,<br />sin perder tiempo.</h2>
+            <div className="home-summary">
+              <div>
+                <span>HOY</span>
+                <strong>{todayEventCount ? `${todayEventCount} evento${todayEventCount > 1 ? 's' : ''}` : 'Sin eventos hoy'}</strong>
+              </div>
+              <button onClick={startListening}><Mic size={18} /> Hablar con DJ NOA</button>
             </div>
 
             <article className="glass-card next-event-card">
@@ -150,19 +158,34 @@ export default function App() {
                     <h3>{upcoming.title}</h3>
                     <p>{upcoming.time || 'Horario pendiente'}{upcoming.venue ? ` · ${upcoming.venue}` : ''}</p>
                     {(upcoming.address || upcoming.venue) && (
-                      <a className="direction-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(upcoming.address || upcoming.venue || '')}`} target="_blank" rel="noreferrer"><Navigation size={16} /> CÓMO LLEGAR</a>
+                      <a className="direction-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(upcoming.address || upcoming.venue || '')}`} target="_blank" rel="noreferrer"><Navigation size={16} /> Cómo llegar</a>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="empty-state"><p>No hay eventos próximos.</p><button onClick={() => setAssistantOpen(true)}><Plus size={16} /> Crear con voz</button></div>
+                <div className="empty-state"><p>No hay eventos próximos.</p><button onClick={() => setAssistantOpen(true)}><Plus size={16} /> Crear evento</button></div>
               )}
             </article>
 
+            <div className="section-label-row"><span>ACCESOS RÁPIDOS</span></div>
             <div className="quick-grid">
-              <button className="glass-card quick-card" onClick={() => setView('calendar')}><CalendarDays size={22} /><span>Calendario</span><strong>{events.length}</strong></button>
-              <button className="glass-card quick-card" onClick={() => setView('sheet')}><FileSpreadsheet size={22} /><span>Excel</span><strong>{money.format(total)}</strong></button>
-              <button className="glass-card quick-card" onClick={() => setView('reminders')}><Bell size={22} /><span>Pendientes</span><strong>{openReminders}</strong></button>
+              <button className="glass-card quick-card" onClick={() => setView('calendar')}><div className="quick-icon"><CalendarDays size={21} /></div><div><span>Calendario</span><strong>{events.length} eventos</strong></div></button>
+              <button className="glass-card quick-card" onClick={() => setView('sheet')}><div className="quick-icon"><FileSpreadsheet size={21} /></div><div><span>Excel</span><strong>{money.format(total)}</strong></div></button>
+              <button className="glass-card quick-card" onClick={() => setView('reminders')}><div className="quick-icon"><Bell size={21} /></div><div><span>Recordatorios</span><strong>{openReminders} pendientes</strong></div></button>
+              <button className="glass-card quick-card add-card" onClick={() => setAssistantOpen(true)}><div className="quick-icon"><Plus size={21} /></div><div><span>Crear</span><strong>Por voz o texto</strong></div></button>
+            </div>
+
+            <div className="section-label-row"><span>LO SIGUIENTE</span><button onClick={() => setView('reminders')}>Ver todo</button></div>
+            <div className="focus-list">
+              {focusReminders.length ? focusReminders.map((item) => (
+                <button key={item.id} className="focus-row" onClick={() => void toggleReminder(item)}>
+                  <span className="focus-check" />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.dueAt ? format(parseISO(item.dueAt), "d MMM · HH:mm", { locale: es }) : 'Sin fecha'}</small>
+                  </div>
+                </button>
+              )) : <div className="focus-empty">Nada pendiente por ahora.</div>}
             </div>
           </section>
         )}
