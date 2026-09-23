@@ -3,6 +3,7 @@ import type { ReminderItem } from './types';
 
 const MAX_DELAY = 24 * 60 * 60 * 1000;
 const RECENT_OVERDUE = 15 * 60 * 1000;
+const DEVICE_TOKEN_KEY = 'djnoa.pushDeviceToken';
 
 function apiUrl(path: string) {
   return `${window.location.origin}${path}`;
@@ -20,13 +21,13 @@ export function notificationSupport() {
   return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 }
 
-export async function ensurePushSubscription(): Promise<boolean> {
-  if (!notificationSupport() || Notification.permission !== 'granted' || !navigator.onLine) return false;
+export async function ensurePushSubscription(): Promise<string | null> {
+  if (!notificationSupport() || Notification.permission !== 'granted' || !navigator.onLine) return null;
   try {
     const keyResponse = await fetch(apiUrl('/api/push/key'), { cache: 'no-store' });
-    if (!keyResponse.ok) return false;
+    if (!keyResponse.ok) return null;
     const { publicKey } = await keyResponse.json() as { publicKey?: string };
-    if (!publicKey) return false;
+    if (!publicKey) return null;
 
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
@@ -37,14 +38,19 @@ export async function ensurePushSubscription(): Promise<boolean> {
       });
     }
 
+    const existingToken = localStorage.getItem(DEVICE_TOKEN_KEY) || undefined;
     const response = await fetch(apiUrl('/api/push/subscribe'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(subscription.toJSON())
+      body: JSON.stringify({ subscription: subscription.toJSON(), deviceToken: existingToken })
     });
-    return response.ok;
+    if (!response.ok) return null;
+    const payload = await response.json() as { deviceToken?: string };
+    if (!payload.deviceToken) return null;
+    localStorage.setItem(DEVICE_TOKEN_KEY, payload.deviceToken);
+    return payload.deviceToken;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -57,8 +63,8 @@ export async function requestReminderPermission(): Promise<NotificationPermissio
 
 export async function syncRemoteReminders(items: ReminderItem[]): Promise<boolean> {
   if (!notificationSupport() || Notification.permission !== 'granted' || !navigator.onLine) return false;
-  const subscribed = await ensurePushSubscription();
-  if (!subscribed) return false;
+  const deviceToken = await ensurePushSubscription();
+  if (!deviceToken) return false;
 
   try {
     const reminders = items
@@ -75,7 +81,7 @@ export async function syncRemoteReminders(items: ReminderItem[]): Promise<boolea
 
     const response = await fetch(apiUrl('/api/reminders/sync'), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-dj-noa-device': deviceToken },
       body: JSON.stringify({ reminders })
     });
     return response.ok;
@@ -85,9 +91,13 @@ export async function syncRemoteReminders(items: ReminderItem[]): Promise<boolea
 }
 
 export async function testRemoteNotification(): Promise<boolean> {
-  if (!(await ensurePushSubscription())) return false;
+  const deviceToken = await ensurePushSubscription();
+  if (!deviceToken) return false;
   try {
-    const response = await fetch(apiUrl('/api/push/test'), { method: 'POST' });
+    const response = await fetch(apiUrl('/api/push/test'), {
+      method: 'POST',
+      headers: { 'x-dj-noa-device': deviceToken }
+    });
     return response.ok;
   } catch {
     return false;
