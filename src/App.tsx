@@ -39,6 +39,7 @@ export default function App() {
   const [assistantReply, setAssistantReply] = useState('Dime qué necesitas y lo hago.');
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [aiOnline, setAiOnline] = useState<boolean | null>(null);
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
@@ -57,6 +58,34 @@ export default function App() {
 
   useEffect(() => { void refresh(); }, []);
   useEffect(() => scheduleReminderNotifications(reminders), [reminders]);
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      if (!navigator.onLine) {
+        if (active) setAiOnline(false);
+        return;
+      }
+      try {
+        const response = await fetch('/api/health', { cache: 'no-store' });
+        const payload = await response.json() as { service?: string };
+        if (active) setAiOnline(response.ok && payload.service === 'dj-noa-worker');
+      } catch {
+        if (active) setAiOnline(false);
+      }
+    };
+    const onOnline = () => void check();
+    const onOffline = () => setAiOnline(false);
+    void check();
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    const timer = window.setInterval(() => void check(), 60_000);
+    return () => {
+      active = false;
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const upcoming = useMemo(() => {
     const today = new Date();
@@ -205,7 +234,7 @@ export default function App() {
       <div className="background-photo" aria-hidden="true" />
       <div className="background-shade" aria-hidden="true" />
 
-      <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div><button className="status-pill" onClick={() => setAssistantOpen(true)}><Sparkles size={15} /> IA</button></header>
+      <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div><button className="status-pill" onClick={() => setAssistantOpen(true)} title={aiOnline === true ? 'IA online' : aiOnline === false ? 'Modo local' : 'Comprobando IA'}><Sparkles size={15} /> IA</button></header>
 
       <main className="content">
         {view === 'home' && (
@@ -231,7 +260,7 @@ export default function App() {
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA AI</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
+      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
       {eventEditorOpen && <EventEditor event={selectedEvent} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
