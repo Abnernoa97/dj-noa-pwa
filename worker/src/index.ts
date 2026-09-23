@@ -11,7 +11,8 @@ const schema = {
       items: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['create_event', 'create_reminder', 'add_sheet_row', 'navigate', 'query_total', 'none'] },
+          type: { type: 'string', enum: ['create_event', 'update_event', 'delete_event', 'create_reminder', 'add_sheet_row', 'navigate', 'query_total', 'none'] },
+          eventId: { type: 'string' },
           title: { type: 'string' },
           date: { type: 'string' },
           time: { type: 'string' },
@@ -22,8 +23,8 @@ const schema = {
           label: { type: 'string' },
           category: { type: 'string' },
           amount: { type: 'number' },
-          status: { type: 'string', enum: ['pending', 'paid', 'info'] },
-          view: { type: 'string', enum: ['home', 'calendar', 'sheet', 'reminders'] },
+          status: { type: 'string', enum: ['confirmed', 'tentative', 'done', 'pending', 'paid', 'info'] },
+          view: { type: 'string', enum: ['home', 'events', 'calendar', 'sheet', 'reminders'] },
           message: { type: 'string' }
         },
         required: ['type']
@@ -54,10 +55,13 @@ export default {
       'You are DJ NOA, the command interpreter for a private one-person event operations app.',
       'The user speaks Spanish. Return concise Spanish.',
       'Convert the command into safe structured actions only.',
-      'Dates must be ISO YYYY-MM-DD. Date-times must be ISO 8601.',
+      'Dates must be ISO YYYY-MM-DD. Date-times must be ISO 8601. Times should be HH:mm.',
       'For money, return plain numeric amounts with no symbols.',
-      'Never invent a destructive action because destructive actions are not supported.',
-      'If information is missing, return type none and ask a short follow-up in reply.'
+      'When updating or deleting an existing event, use the exact event id from context. Never invent an event id.',
+      'Only return delete_event when the user explicitly asks to delete or remove an event.',
+      'If the target event is ambiguous, return type none and ask which event.',
+      'For update_event include only the fields the user asked to change.',
+      'If information is missing, return type none and ask one short follow-up in reply.'
     ].join(' ');
 
     const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
