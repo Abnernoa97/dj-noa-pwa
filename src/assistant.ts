@@ -1,5 +1,5 @@
 import { addDays, format } from 'date-fns';
-import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
+import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow, SheetStatus } from './types';
 
 type Context = { events: EventItem[]; reminders: ReminderItem[]; sheetRows: SheetRow[] };
 
@@ -10,6 +10,10 @@ const viewWords: Array<[RegExp, AppView]> = [
   [/(recordatorios|tareas)/i, 'reminders'],
   [/(inicio|home)/i, 'home']
 ];
+
+function normalize(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 function parseDate(command: string): string | undefined {
   const lower = command.toLowerCase();
@@ -36,8 +40,9 @@ function parseTime(command: string): string | undefined {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
-function normalize(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+function parseAmount(value: string) {
+  const number = Number(value.replace(/[$,\s]/g, ''));
+  return Number.isFinite(number) ? number : undefined;
 }
 
 function findEvent(command: string, context: Context): EventItem | undefined {
@@ -51,8 +56,7 @@ function findEvent(command: string, context: Context): EventItem | undefined {
   let best: { event: EventItem; score: number } | undefined;
   for (const event of context.events) {
     let score = 0;
-    const candidates = [event.title, event.venue || '', event.address || ''].filter(Boolean);
-    for (const candidate of candidates) {
+    for (const candidate of [event.title, event.venue || '', event.address || ''].filter(Boolean)) {
       const clean = normalize(candidate);
       if (clean && haystack.includes(clean)) score += clean.length + 20;
       for (const token of clean.split(' ')) if (token.length > 3 && haystack.includes(token)) score += token.length;
@@ -60,6 +64,22 @@ function findEvent(command: string, context: Context): EventItem | undefined {
     if (!best || score > best.score) best = { event, score };
   }
   return best && best.score > 0 ? best.event : undefined;
+}
+
+function findSheetRow(command: string, context: Context): SheetRow | undefined {
+  if (!context.sheetRows.length) return undefined;
+  const haystack = normalize(command);
+  let best: { row: SheetRow; score: number } | undefined;
+  for (const row of context.sheetRows) {
+    let score = 0;
+    for (const candidate of [row.label, row.category, row.notes || '']) {
+      const clean = normalize(candidate);
+      if (clean && haystack.includes(clean)) score += clean.length + 20;
+      for (const token of clean.split(' ')) if (token.length > 3 && haystack.includes(token)) score += token.length;
+    }
+    if (!best || score > best.score) best = { row, score };
+  }
+  return best && best.score > 0 ? best.row : context.sheetRows.length === 1 ? context.sheetRows[0] : undefined;
 }
 
 function extractAfter(command: string, label: RegExp): string | undefined {
@@ -75,18 +95,47 @@ function localFallback(command: string, context: Context): AssistantResponse {
     }
   }
 
-  if (/(cu[aá]nto|total|suma).*(excel|tabla|gastos|registrado)/i.test(command)) {
-    const total = context.sheetRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    return { reply: `El total registrado es $${total.toLocaleString('es-MX')}.`, actions: [{ type: 'query_total' }] };
+  if (/\b(crea|agrega|añade)\b.*\bcolumna\b/i.test(command)) {
+    const name = extractAfter(command, /\bcolumna\s+(?:llamada\s+)?([^,;]+?)(?=\s+(?:con\s+f[oó]rmula|tipo)\b|$)/i);
+    if (!name) return { reply: 'Dime el nombre de la nueva columna.', actions: [{ type: 'none', message: 'Falta nombre de columna.' }] };
+    const formula = extractAfter(command, /(?:con\s+)?f[oó]rmula\s+(.+)$/i);
+    const columnType = formula ? 'formula' as const : /\bmoneda\b/i.test(command) ? 'currency' as const : /\bfecha\b/i.test(command) ? 'date' as const : /\bn[uú]mero\b/i.test(command) ? 'number' as const : 'text' as const;
+    return { reply: `Creé la columna ${name}.`, actions: [{ type: 'add_sheet_column', name, columnType, formula }] };
+  }
+
+  if (/\b(borra|elimina)\b.*\b(gasto|fila|movimiento|registro)\b/i.test(command)) {
+    const row = findSheetRow(command, context);
+    if (!row) return { reply: 'No encontré qué fila quieres eliminar.', actions: [{ type: 'none', message: 'Fila no identificada.' }] };
+    return { reply: `Eliminando ${row.label}.`, actions: [{ type: 'delete_sheet_row', rowId: row.id }] };
+  }
+
+  if (/\b(cambia|edita|modifica|actualiza|marca)\b.*\b(gasto|fila|movimiento|registro|transporte|hotel|vuelo|audio|pago|anticipo|saldo|comida|renta)\b/i.test(command)) {
+    const row = findSheetRow(command, context);
+    if (!row) return { reply: 'No encontré qué fila quieres cambiar.', actions: [{ type: 'none', message: 'Fila no identificada.' }] };
+    const amountMatch = command.match(/(?:monto\s+)?(?:a|en)\s+(?:\$\s*)?([\d.,]+)\s*(?:pesos|mxn)?\b/i);
+    const amount = amountMatch ? parseAmount(amountMatch[1]) : undefined;
+    const status: SheetStatus | undefined = /\b(pagado|pagada|liquidado|liquidada)\b/i.test(command) ? 'paid' : /\b(pendiente)\b/i.test(command) ? 'pending' : /\b(info|informaci[oó]n)\b/i.test(command) ? 'info' : undefined;
+    const category = extractAfter(command, /categor[ií]a\s+(?:a|por|es)?\s*([^,;]+)/i);
+    const notes = extractAfter(command, /nota(?:s)?\s+(?:a|por|es)?\s*([^;]+)/i);
+    if (amount === undefined && !status && !category && !notes) return { reply: 'Dime qué quieres cambiar: monto, estado, categoría o notas.', actions: [{ type: 'none', message: 'Falta el cambio.' }] };
+    return { reply: `Listo. Actualicé ${row.label}.`, actions: [{ type: 'update_sheet_row', rowId: row.id, amount, status, category, notes }] };
+  }
+
+  if (/(cu[aá]nto|total|suma|gast[eé]).*(excel|tabla|gastos|registrado|transporte|hotel|vuelo|audio|comida|renta)/i.test(command)) {
+    const normalized = normalize(command);
+    const category = [...new Set(context.sheetRows.map((row) => row.category))].find((item) => normalized.includes(normalize(item)));
+    const status: SheetStatus | undefined = /\bpagad[oa]s?\b/i.test(command) ? 'paid' : /\bpendientes?\b/i.test(command) ? 'pending' : undefined;
+    const matches = context.sheetRows.filter((row) => (!category || row.category === category) && (!status || row.status === status));
+    const total = matches.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const detail = category ? ` en ${category}` : status ? ` ${status === 'paid' ? 'pagado' : 'pendiente'}` : '';
+    return { reply: `El total${detail} es $${total.toLocaleString('es-MX')}.`, actions: [{ type: 'query_total', category, status }] };
   }
 
   const amountMatch = command.match(/(?:agrega|añade|registra|pon)\s+(?:\$\s*)?([\d.,]+)\s*(?:pesos|mxn)?\s+(?:de|en|para)?\s*(.*)/i);
   if (amountMatch && /(excel|gasto|transporte|hotel|vuelo|audio|pago|anticipo|saldo|comida|renta)/i.test(command)) {
-    const amount = Number(amountMatch[1].replace(/,/g, ''));
+    const amount = parseAmount(amountMatch[1]);
     const detail = amountMatch[2].replace(/\b(al|a la|en el|en la)?\s*(excel|tabla)\b/gi, '').trim() || 'Movimiento';
-    if (Number.isFinite(amount)) {
-      return { reply: `Listo. Agregué $${amount.toLocaleString('es-MX')} a la tabla.`, actions: [{ type: 'add_sheet_row', label: detail, category: detail.split(' ')[0] || 'General', amount, status: 'pending' }] };
-    }
+    if (amount !== undefined) return { reply: `Listo. Agregué $${amount.toLocaleString('es-MX')} a la tabla.`, actions: [{ type: 'add_sheet_row', label: detail, category: detail.split(' ')[0] || 'General', amount, status: 'pending' }] };
   }
 
   if (/\b(recu[eé]rdame|recordatorio)\b/i.test(command)) {
@@ -132,11 +181,11 @@ export async function askAssistant(command: string, context: Context): Promise<A
       const response = await fetch(`${workerUrl.replace(/\/$/, '')}/api/assistant`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ command, now: new Date().toISOString(), context: { events: context.events.slice(0, 30), reminders: context.reminders.slice(0, 30), sheetRows: context.sheetRows.slice(0, 60) } })
+        body: JSON.stringify({ command, now: new Date().toISOString(), context: { events: context.events.slice(0, 30), reminders: context.reminders.slice(0, 30), sheetRows: context.sheetRows.slice(0, 80) } })
       });
       if (response.ok) return (await response.json()) as AssistantResponse;
     } catch {
-      // Keep working locally if the Worker or internet is unavailable.
+      // Local fallback keeps the app useful offline.
     }
   }
   return localFallback(command, context);
