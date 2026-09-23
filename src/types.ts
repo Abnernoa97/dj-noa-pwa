@@ -79,6 +79,7 @@ export type AssistantAction =
   | { type: 'delete_sheet_row'; rowId: string }
   | { type: 'add_sheet_column'; name: string; key?: string; columnType?: SheetColumn['type']; formula?: string }
   | { type: 'navigate'; view: AppView }
+  | { type: 'open_map'; eventId: string }
   | { type: 'query_total'; category?: string; status?: SheetStatus }
   | { type: 'none'; message?: string };
 
