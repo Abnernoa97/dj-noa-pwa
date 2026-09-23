@@ -3,7 +3,7 @@ import { Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'luci
 import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db, uid } from './db';
-import { notificationSupport, requestReminderPermission } from './reminderNotifications';
+import { notificationSupport, requestReminderPermission, syncRemoteReminders } from './reminderNotifications';
 import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from './types';
 
 type Props = {
@@ -64,7 +64,11 @@ export default function ReminderWorkspace({ items, events, onChanged, onAssistan
     await onChanged();
   };
 
-  const enableNotifications = async () => setPermission(await requestReminderPermission());
+  const enableNotifications = async () => {
+    const next = await requestReminderPermission();
+    setPermission(next);
+    if (next === 'granted') await syncRemoteReminders(items);
+  };
 
   return (
     <section className="page-card reminders-workspace">
@@ -82,7 +86,7 @@ export default function ReminderWorkspace({ items, events, onChanged, onAssistan
       {permission !== 'granted' && (
         <button className="notification-permission" onClick={() => void enableNotifications()} disabled={permission === 'unsupported'}>
           <Bell size={16} />
-          <span><strong>{permission === 'unsupported' ? 'Notificaciones no disponibles' : 'Activar notificaciones'}</strong><small>{permission === 'denied' ? 'Permiso bloqueado en el navegador' : 'DJ NOA podrá avisarte cuando llegue la hora'}</small></span>
+          <span><strong>{permission === 'unsupported' ? 'Notificaciones no disponibles' : 'Activar notificaciones'}</strong><small>{permission === 'denied' ? 'Permiso bloqueado en el navegador' : 'DJ NOA podrá avisarte aunque cierres la app'}</small></span>
         </button>
       )}
 
