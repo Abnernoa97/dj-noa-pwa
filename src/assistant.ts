@@ -252,11 +252,11 @@ function localFallback(command: string, context: Context): AssistantResponse {
     return { reply: `Evento creado para ${date}${time ? ` a las ${time}` : ''}.`, actions: [{ type: 'create_event', title, date, time, venue }] };
   }
 
-  return { reply: 'Todavía no puedo resolver ese comando sin conexión. Cuando conectemos el Worker de IA podré interpretar órdenes más libres.', actions: [{ type: 'none', message: 'Comando no reconocido localmente.' }] };
+  return { reply: 'Todavía no puedo resolver ese comando sin conexión. Cuando haya internet usaré la IA completa.', actions: [{ type: 'none', message: 'Comando no reconocido localmente.' }] };
 }
 
 export async function askAssistant(command: string, context: Context): Promise<AssistantResponse> {
-  const workerUrl = (localStorage.getItem('djnoa.workerUrl') || import.meta.env.VITE_DJNOA_WORKER_URL || '').trim();
+  const workerUrl = (localStorage.getItem('djnoa.workerUrl') || import.meta.env.VITE_DJNOA_WORKER_URL || window.location.origin).trim();
   if (workerUrl && navigator.onLine) {
     try {
       const response = await fetch(`${workerUrl.replace(/\/$/, '')}/api/assistant`, {
