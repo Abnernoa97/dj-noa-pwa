@@ -11,8 +11,9 @@ const schema = {
       items: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['create_event', 'update_event', 'delete_event', 'create_reminder', 'add_sheet_row', 'navigate', 'query_total', 'none'] },
+          type: { type: 'string', enum: ['create_event', 'update_event', 'delete_event', 'create_reminder', 'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column', 'navigate', 'query_total', 'none'] },
           eventId: { type: 'string' },
+          rowId: { type: 'string' },
           title: { type: 'string' },
           date: { type: 'string' },
           time: { type: 'string' },
@@ -24,6 +25,11 @@ const schema = {
           category: { type: 'string' },
           amount: { type: 'number' },
           status: { type: 'string', enum: ['confirmed', 'tentative', 'done', 'pending', 'paid', 'info'] },
+          name: { type: 'string' },
+          key: { type: 'string' },
+          columnType: { type: 'string', enum: ['text', 'number', 'currency', 'date', 'formula'] },
+          formula: { type: 'string' },
+          values: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean', 'null'] } },
           view: { type: 'string', enum: ['home', 'events', 'calendar', 'sheet', 'reminders'] },
           message: { type: 'string' }
         },
@@ -44,24 +50,25 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
     const url = new URL(request.url);
-    if (url.pathname !== '/api/assistant' || request.method !== 'POST') {
-      return Response.json({ ok: true, service: 'DJ NOA AI' }, { headers: cors });
-    }
+    if (url.pathname !== '/api/assistant' || request.method !== 'POST') return Response.json({ ok: true, service: 'DJ NOA AI' }, { headers: cors });
 
     const body = await request.json() as { command?: string; now?: string; context?: unknown };
     if (!body.command?.trim()) return Response.json({ error: 'command_required' }, { status: 400, headers: cors });
 
     const system = [
-      'You are DJ NOA, the command interpreter for a private one-person event operations app.',
+      'You are DJ NOA, the command interpreter for a private one-person event operations and spreadsheet app.',
       'The user speaks Spanish. Return concise Spanish.',
       'Convert the command into safe structured actions only.',
       'Dates must be ISO YYYY-MM-DD. Date-times must be ISO 8601. Times should be HH:mm.',
       'For money, return plain numeric amounts with no symbols.',
-      'When updating or deleting an existing event, use the exact event id from context. Never invent an event id.',
-      'Only return delete_event when the user explicitly asks to delete or remove an event.',
-      'If the target event is ambiguous, return type none and ask which event.',
-      'For update_event include only the fields the user asked to change.',
-      'If information is missing, return type none and ask one short follow-up in reply.'
+      'For existing events use exact eventId values from context. Never invent ids.',
+      'For existing spreadsheet rows use exact rowId values from context. Never invent row ids.',
+      'Use add_sheet_row to create a new row, update_sheet_row to change a row, and delete_sheet_row only when the user explicitly asks to delete a row.',
+      'Use add_sheet_column when the user asks for a new spreadsheet column. For a calculated column use columnType formula and preserve the requested formula.',
+      'For update_sheet_row include only fields explicitly requested. Custom cell changes go inside values.',
+      'Use query_total for questions about totals and include category/status filters when the request contains them.',
+      'If a target row or event is ambiguous, return type none and ask a short follow-up.',
+      'Never perform a destructive action unless the user clearly asked for it.'
     ].join(' ');
 
     const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
