@@ -48,10 +48,10 @@ self.addEventListener('pushsubscriptionchange', (event) => {
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(subscription.toJSON())
+        body: JSON.stringify({ subscription: subscription.toJSON() })
       });
     } catch {
-      // The app will repair the subscription next time it opens.
+      // The app will repair and re-associate the device next time it opens.
     }
   })());
 });
