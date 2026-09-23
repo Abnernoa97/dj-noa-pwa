@@ -27,6 +27,22 @@ class DJNoaDB extends Dexie {
       const now = new Date().toISOString();
       await Promise.all(rows.map((row) => tx.table('sheetRows').update(row.id, { updatedAt: row.updatedAt || now, values: row.values || {} })));
     });
+    this.version(3).stores({
+      events: 'id,date,status,updatedAt',
+      reminders: 'id,dueAt,done,eventId,priority,repeat,updatedAt,createdAt',
+      sheetRows: 'id,category,status,eventId,createdAt,updatedAt',
+      sheetColumns: 'id,key,position,createdAt',
+      history: 'id,createdAt'
+    }).upgrade(async (tx) => {
+      const reminders = await tx.table('reminders').toArray();
+      const now = new Date().toISOString();
+      await Promise.all(reminders.map((item) => tx.table('reminders').update(item.id, {
+        priority: item.priority || 'normal',
+        repeat: item.repeat || 'none',
+        notificationEnabled: item.notificationEnabled ?? true,
+        updatedAt: item.updatedAt || now
+      })));
+    });
   }
 }
 
