@@ -143,6 +143,81 @@ function cleanReminderTitle(command: string) {
     .trim();
 }
 
+function eventSummary(event: EventItem) {
+  const when = `${event.date}${event.time ? ` a las ${event.time}` : ''}`;
+  const where = event.venue || event.address;
+  return `${event.title}, ${when}${where ? `, en ${where}` : ''}`;
+}
+
+function localReadOnlyQuery(command: string, context: Context): AssistantResponse | null {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+
+  if (/\b(ll[eé]vame|c[oó]mo llego|abre maps|abrir maps|navega|ruta)\b/i.test(command)) {
+    const event = findEvent(command, context) || [...context.events].sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)).find((item) => item.date >= today);
+    if (!event) return { reply: 'No encuentro un evento para abrir la ruta.', actions: [{ type: 'none', message: 'Evento no identificado.' }] };
+    if (!event.address && !event.venue) return { reply: `${event.title} todavía no tiene dirección ni venue.`, actions: [{ type: 'none', message: 'Evento sin dirección.' }] };
+    return { reply: `Abriendo la ruta para ${event.title}.`, actions: [{ type: 'open_map', eventId: event.id }] };
+  }
+
+  if (/\b(d[oó]nde es|direcci[oó]n|lugar)\b/i.test(command) && /\b(evento|boda|show|fiesta|pr[oó]ximo)\b/i.test(command)) {
+    const event = findEvent(command, context) || [...context.events].sort((a, b) => a.date.localeCompare(b.date)).find((item) => item.date >= today);
+    if (!event) return { reply: 'No encontré ese evento.', actions: [{ type: 'none' }] };
+    const place = event.address || event.venue;
+    return { reply: place ? `${event.title}: ${place}.` : `${event.title} todavía no tiene lugar registrado.`, actions: [{ type: 'none' }] };
+  }
+
+  if (/\b(que tengo|qué tengo|mi agenda|eventos tengo|cual es mi proximo evento|cuál es mi próximo evento|proximo evento|próximo evento)\b/i.test(command)) {
+    if (/\b(pr[oó]ximo|siguiente)\b/i.test(command)) {
+      const event = [...context.events].sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)).find((item) => item.date >= today && item.status !== 'done');
+      return event ? { reply: `Tu próximo evento es ${eventSummary(event)}.`, actions: [{ type: 'none' }] } : { reply: 'No tienes eventos próximos registrados.', actions: [{ type: 'none' }] };
+    }
+
+    let start = today;
+    let end = today;
+    let label = 'hoy';
+    if (/\bmañana\b/i.test(command)) {
+      start = tomorrow;
+      end = tomorrow;
+      label = 'mañana';
+    } else if (/\b(semana|pr[oó]ximos 7 d[ií]as)\b/i.test(command)) {
+      end = format(addDays(new Date(), 6), 'yyyy-MM-dd');
+      label = 'en los próximos 7 días';
+    }
+    const matches = context.events.filter((item) => item.date >= start && item.date <= end && item.status !== 'done').sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`));
+    if (!matches.length) return { reply: `No tienes eventos ${label}.`, actions: [{ type: 'none' }] };
+    const list = matches.slice(0, 4).map(eventSummary).join('; ');
+    const extra = matches.length > 4 ? ` y ${matches.length - 4} más` : '';
+    return { reply: `Tienes ${matches.length} ${matches.length === 1 ? 'evento' : 'eventos'} ${label}: ${list}${extra}.`, actions: [{ type: 'none' }] };
+  }
+
+  if (/\b(que tareas|qué tareas|que recordatorios|qué recordatorios|pendientes tengo|tareas pendientes|recordatorios pendientes|urgentes tengo)\b/i.test(command)) {
+    let matches = context.reminders.filter((item) => !item.done);
+    let label = 'pendientes';
+    if (/\bhoy\b/i.test(command)) {
+      matches = matches.filter((item) => item.dueAt?.slice(0, 10) === today);
+      label = 'para hoy';
+    } else if (/\bmañana\b/i.test(command)) {
+      matches = matches.filter((item) => item.dueAt?.slice(0, 10) === tomorrow);
+      label = 'para mañana';
+    } else if (/\b(urgente|urgentes|alta prioridad)\b/i.test(command)) {
+      matches = matches.filter((item) => item.priority === 'high');
+      label = 'de alta prioridad';
+    }
+    matches.sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999'));
+    if (!matches.length) return { reply: `No tienes tareas ${label}.`, actions: [{ type: 'none' }] };
+    const list = matches.slice(0, 5).map((item) => `${item.title}${item.dueAt ? `, ${new Date(item.dueAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}` : ''}`).join('; ');
+    const extra = matches.length > 5 ? ` y ${matches.length - 5} más` : '';
+    return { reply: `Tienes ${matches.length} ${matches.length === 1 ? 'tarea' : 'tareas'} ${label}: ${list}${extra}.`, actions: [{ type: 'none' }] };
+  }
+
+  if (/^ayuda$/i.test(command.trim()) || /\b(que puedes hacer|qué puedes hacer)\b/i.test(command)) {
+    return { reply: 'Puedo crear y editar eventos, gastos y recordatorios; decirte qué tienes hoy o mañana; calcular totales; abrir secciones; y llevarte al próximo evento.', actions: [{ type: 'none' }] };
+  }
+
+  return null;
+}
+
 function localFallback(command: string, context: Context): AssistantResponse {
   for (const [pattern, view] of viewWords) {
     if (/^(abre|ve a|mu[eé]strame|muestra|ir a)/i.test(command) && pattern.test(command)) {
@@ -256,6 +331,9 @@ function localFallback(command: string, context: Context): AssistantResponse {
 }
 
 export async function askAssistant(command: string, context: Context): Promise<AssistantResponse> {
+  const quick = localReadOnlyQuery(command, context);
+  if (quick) return quick;
+
   const workerUrl = (localStorage.getItem('djnoa.workerUrl') || import.meta.env.VITE_DJNOA_WORKER_URL || window.location.origin).trim();
   if (workerUrl && navigator.onLine) {
     try {
