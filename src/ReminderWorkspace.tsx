@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db, uid } from './db';
-import { notificationSupport, requestReminderPermission, syncRemoteReminders } from './reminderNotifications';
+import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';
 import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from './types';
 
 type Props = {
@@ -40,6 +40,18 @@ function dueText(item: ReminderItem) {
 export default function ReminderWorkspace({ items, events, onChanged, onAssistant }: Props) {
   const [editor, setEditor] = useState<ReminderItem | null | undefined>(undefined);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => notificationSupport() ? Notification.permission : 'unsupported');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [testingNotification, setTestingNotification] = useState(false);
+
+  useEffect(() => {
+    const refreshPermission = () => setPermission(notificationSupport() ? Notification.permission : 'unsupported');
+    document.addEventListener('visibilitychange', refreshPermission);
+    window.addEventListener('focus', refreshPermission);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshPermission);
+      window.removeEventListener('focus', refreshPermission);
+    };
+  }, []);
 
   const pending = useMemo(() => [...items].filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')), [items]);
   const done = useMemo(() => [...items].filter((item) => item.done).sort((a, b) => (b.lastCompletedAt || b.updatedAt || b.createdAt).localeCompare(a.lastCompletedAt || a.updatedAt || a.createdAt)), [items]);
@@ -64,11 +76,41 @@ export default function ReminderWorkspace({ items, events, onChanged, onAssistan
     await onChanged();
   };
 
-  const enableNotifications = async () => {
-    const next = await requestReminderPermission();
-    setPermission(next);
-    if (next === 'granted') await syncRemoteReminders(items);
+  const handleNotifications = async () => {
+    setNotificationMessage('');
+    if (permission === 'unsupported' || permission === 'denied') return;
+
+    if (permission !== 'granted') {
+      const next = await requestReminderPermission();
+      setPermission(next);
+      if (next === 'granted') {
+        const synced = await syncRemoteReminders(items);
+        setNotificationMessage(synced ? 'Notificaciones activadas.' : 'Permiso activado. Preparando conexión remota…');
+      }
+      return;
+    }
+
+    setTestingNotification(true);
+    const sent = await testRemoteNotification();
+    setTestingNotification(false);
+    setNotificationMessage(sent ? 'Prueba enviada. Debe aparecer en unos segundos.' : 'No se pudo enviar la prueba todavía.');
   };
+
+  const notificationTitle = permission === 'granted'
+    ? 'Notificaciones activas'
+    : permission === 'denied'
+      ? 'Notificaciones bloqueadas'
+      : permission === 'unsupported'
+        ? 'Notificaciones no disponibles'
+        : 'Activar notificaciones';
+
+  const notificationDetail = permission === 'granted'
+    ? (testingNotification ? 'Enviando prueba…' : 'Toca aquí para enviar una notificación de prueba')
+    : permission === 'denied'
+      ? 'Actívalas desde los permisos de esta app o del navegador'
+      : permission === 'unsupported'
+        ? 'Este navegador no permite Web Push'
+        : 'DJ NOA podrá avisarte aunque cierres la app';
 
   return (
     <section className="page-card reminders-workspace">
@@ -83,12 +125,15 @@ export default function ReminderWorkspace({ items, events, onChanged, onAssistan
         <div><span>ALTA PRIORIDAD</span><strong>{high}</strong></div>
       </div>
 
-      {permission !== 'granted' && (
-        <button className="notification-permission" onClick={() => void enableNotifications()} disabled={permission === 'unsupported'}>
-          <Bell size={16} />
-          <span><strong>{permission === 'unsupported' ? 'Notificaciones no disponibles' : 'Activar notificaciones'}</strong><small>{permission === 'denied' ? 'Permiso bloqueado en el navegador' : 'DJ NOA podrá avisarte aunque cierres la app'}</small></span>
-        </button>
-      )}
+      <button
+        className={`notification-permission ${permission === 'granted' ? 'is-active' : ''}`}
+        onClick={() => void handleNotifications()}
+        disabled={permission === 'unsupported' || permission === 'denied' || testingNotification}
+      >
+        <Bell size={16} />
+        <span><strong>{notificationTitle}</strong><small>{notificationDetail}</small></span>
+      </button>
+      {notificationMessage && <div className="notification-feedback">{notificationMessage}</div>}
 
       <ReminderSection title="HOY" items={today} onToggle={toggle} onOpen={setEditor} />
       <ReminderSection title="PRÓXIMOS" items={pending.filter((item) => !item.dueAt || !isToday(parseISO(item.dueAt)))} onToggle={toggle} onOpen={setEditor} />
