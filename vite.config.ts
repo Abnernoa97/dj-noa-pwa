@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'icon-maskable.svg', 'dj-noa-bg.jpg'],
+      includeAssets: ['icon.svg', 'icon-maskable.svg', 'dj-noa-bg.jpg', 'push-sw.js'],
       manifest: {
         name: 'DJ NOA',
         short_name: 'DJ NOA',
@@ -24,7 +24,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,jpg,jpeg,png,webp,woff2}'],
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        importScripts: ['push-sw.js']
       }
     })
   ]
