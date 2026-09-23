@@ -7,10 +7,7 @@ interface Env {
   ASSETS: Fetcher;
 }
 
-type VapidKeys = {
-  publicKey: string;
-  privateKey: string;
-};
+type VapidKeys = { publicKey: string; privateKey: string };
 
 type RemoteReminder = {
   id: string;
@@ -20,6 +17,14 @@ type RemoteReminder = {
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly';
   notificationEnabled?: boolean;
   done?: boolean;
+  retryAt?: string;
+};
+
+type DeviceState = {
+  subscription: PushSubscription;
+  reminders: Record<string, RemoteReminder>;
+  sent: Record<string, string>;
+  updatedAt: string;
 };
 
 const VAPID_SUBJECT = 'https://dj-noa-pwa.soloaplicaciones97.workers.dev';
@@ -34,39 +39,38 @@ export class ReminderScheduler extends DurableObject<Env> {
     return keys;
   }
 
-  private async getSubscriptions(): Promise<PushSubscription[]> {
-    return (await this.ctx.storage.get<PushSubscription[]>('subscriptions')) || [];
+  private async getDevices(): Promise<Record<string, DeviceState>> {
+    return (await this.ctx.storage.get<Record<string, DeviceState>>('devices')) || {};
   }
 
-  private async getReminders(): Promise<Record<string, RemoteReminder>> {
-    return (await this.ctx.storage.get<Record<string, RemoteReminder>>('reminders')) || {};
+  private async putDevices(devices: Record<string, DeviceState>) {
+    await this.ctx.storage.put('devices', devices);
   }
 
-  private async scheduleNext(reminders?: Record<string, RemoteReminder>) {
-    const current = reminders || await this.getReminders();
-    const times = Object.values(current)
-      .filter((item) => item.notificationEnabled !== false && !item.done && item.dueAt)
-      .map((item) => new Date(item.dueAt).getTime())
-      .filter(Number.isFinite);
+  private effectiveTime(item: RemoteReminder) {
+    return new Date(item.retryAt || item.dueAt).getTime();
+  }
 
+  private async scheduleNext(devices?: Record<string, DeviceState>) {
+    const current = devices || await this.getDevices();
+    const times: number[] = [];
+    for (const device of Object.values(current)) {
+      for (const item of Object.values(device.reminders)) {
+        if (item.notificationEnabled === false || item.done || !item.dueAt) continue;
+        const time = this.effectiveTime(item);
+        if (Number.isFinite(time)) times.push(time);
+      }
+    }
     if (!times.length) {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-
-    const next = Math.min(...times);
-    await this.ctx.storage.setAlarm(Math.max(Date.now() + 500, next));
+    await this.ctx.storage.setAlarm(Math.max(Date.now() + 500, Math.min(...times)));
   }
 
-  private async sendPush(reminder: RemoteReminder): Promise<boolean> {
-    const subscriptions = await this.getSubscriptions();
-    if (!subscriptions.length) return false;
-
+  private async sendPush(subscription: PushSubscription, reminder: RemoteReminder): Promise<'sent' | 'temporary' | 'dead'> {
     const vapid = await this.getVapidKeys();
     webpush.setVapidDetails(VAPID_SUBJECT, vapid.publicKey, vapid.privateKey);
-
-    const dead = new Set<string>();
-    let temporaryFailure = false;
     const body = JSON.stringify({
       title: reminder.priority === 'high' ? 'DJ NOA · IMPORTANTE' : 'DJ NOA',
       body: reminder.title,
@@ -75,22 +79,18 @@ export class ReminderScheduler extends DurableObject<Env> {
       icon: '/icon.svg',
       badge: '/icon.svg'
     });
-
-    await Promise.all(subscriptions.map(async (subscription) => {
-      try {
-        await webpush.sendNotification(subscription, body, { TTL: 3600, urgency: reminder.priority === 'high' ? 'high' : 'normal' });
-      } catch (error) {
-        const statusCode = error instanceof webpush.WebPushError ? error.statusCode : 0;
-        if (statusCode === 404 || statusCode === 410) dead.add(subscription.endpoint);
-        else if (statusCode >= 500 || statusCode === 0) temporaryFailure = true;
-      }
-    }));
-
-    if (dead.size) {
-      await this.ctx.storage.put('subscriptions', subscriptions.filter((item) => !dead.has(item.endpoint)));
+    try {
+      await webpush.sendNotification(subscription, body, { TTL: 3600, urgency: reminder.priority === 'high' ? 'high' : 'normal' });
+      return 'sent';
+    } catch (error) {
+      const statusCode = error instanceof webpush.WebPushError ? error.statusCode : 0;
+      if (statusCode === 404 || statusCode === 410) return 'dead';
+      return 'temporary';
     }
+  }
 
-    return temporaryFailure;
+  private tokenFrom(request: Request) {
+    return request.headers.get('x-dj-noa-device')?.trim() || '';
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -102,60 +102,96 @@ export class ReminderScheduler extends DurableObject<Env> {
     }
 
     if (url.pathname === '/api/push/subscribe' && request.method === 'POST') {
-      const subscription = await request.json() as PushSubscription;
+      const body = await request.json() as { subscription?: PushSubscription; deviceToken?: string };
+      const subscription = body.subscription;
       if (!subscription?.endpoint || !subscription.keys?.auth || !subscription.keys?.p256dh) {
         return Response.json({ error: 'invalid_subscription' }, { status: 400 });
       }
-      const subscriptions = await this.getSubscriptions();
-      const next = subscriptions.filter((item) => item.endpoint !== subscription.endpoint);
-      next.push(subscription);
-      await this.ctx.storage.put('subscriptions', next);
-      return Response.json({ ok: true, subscriptions: next.length });
+
+      const devices = await this.getDevices();
+      let token = body.deviceToken && devices[body.deviceToken] ? body.deviceToken : '';
+      if (!token) {
+        token = Object.keys(devices).find((key) => devices[key].subscription.endpoint === subscription.endpoint) || crypto.randomUUID();
+      }
+      const previous = devices[token];
+      devices[token] = {
+        subscription,
+        reminders: previous?.reminders || {},
+        sent: previous?.sent || {},
+        updatedAt: new Date().toISOString()
+      };
+      await this.putDevices(devices);
+      await this.scheduleNext(devices);
+      return Response.json({ ok: true, deviceToken: token });
     }
 
     if (url.pathname === '/api/reminders/sync' && request.method === 'POST') {
+      const token = this.tokenFrom(request);
+      const devices = await this.getDevices();
+      const device = devices[token];
+      if (!token || !device) return Response.json({ error: 'device_required' }, { status: 401 });
+
       const body = await request.json() as { reminders?: RemoteReminder[] };
+      const incomingIds = new Set<string>();
       const reminders: Record<string, RemoteReminder> = {};
       for (const item of body.reminders || []) {
         if (!item?.id || !item.title || !item.dueAt || item.done || item.notificationEnabled === false) continue;
         const timestamp = new Date(item.dueAt).getTime();
         if (!Number.isFinite(timestamp)) continue;
-        reminders[item.id] = item;
+        incomingIds.add(item.id);
+        if (device.sent[item.id] === item.dueAt) continue;
+        reminders[item.id] = { ...item, retryAt: undefined };
       }
-      await this.ctx.storage.put('reminders', reminders);
-      await this.scheduleNext(reminders);
+
+      const sent = Object.fromEntries(Object.entries(device.sent).filter(([id]) => incomingIds.has(id)));
+      devices[token] = { ...device, reminders, sent, updatedAt: new Date().toISOString() };
+      await this.putDevices(devices);
+      await this.scheduleNext(devices);
       return Response.json({ ok: true, scheduled: Object.keys(reminders).length });
     }
 
     if (url.pathname === '/api/push/test' && request.method === 'POST') {
-      const temporaryFailure = await this.sendPush({
+      const token = this.tokenFrom(request);
+      const devices = await this.getDevices();
+      const device = devices[token];
+      if (!token || !device) return Response.json({ error: 'device_required' }, { status: 401 });
+      const result = await this.sendPush(device.subscription, {
         id: `test-${Date.now()}`,
         title: 'Notificaciones remotas funcionando.',
         dueAt: new Date().toISOString(),
         priority: 'normal'
       });
-      return Response.json({ ok: !temporaryFailure });
+      return Response.json({ ok: result === 'sent', result }, { status: result === 'sent' ? 200 : 503 });
     }
 
     return Response.json({ error: 'not_found' }, { status: 404 });
   }
 
   async alarm(): Promise<void> {
-    const reminders = await this.getReminders();
+    const devices = await this.getDevices();
     const now = Date.now();
-    const due = Object.values(reminders).filter((item) => new Date(item.dueAt).getTime() <= now + 1000);
 
-    for (const reminder of due) {
-      const retry = await this.sendPush(reminder);
-      if (retry) {
-        reminders[reminder.id] = { ...reminder, dueAt: new Date(Date.now() + 60_000).toISOString() };
-      } else {
-        delete reminders[reminder.id];
+    for (const [token, device] of Object.entries(devices)) {
+      let subscriptionDead = false;
+      for (const reminder of Object.values(device.reminders)) {
+        if (this.effectiveTime(reminder) > now + 1000) continue;
+        const result = await this.sendPush(device.subscription, reminder);
+        if (result === 'sent') {
+          device.sent[reminder.id] = reminder.dueAt;
+          delete device.reminders[reminder.id];
+        } else if (result === 'temporary') {
+          device.reminders[reminder.id] = { ...reminder, retryAt: new Date(Date.now() + 60_000).toISOString() };
+        } else {
+          device.reminders[reminder.id] = { ...reminder, retryAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString() };
+          subscriptionDead = true;
+        }
       }
+      devices[token] = { ...device, updatedAt: new Date().toISOString() };
+      if (subscriptionDead) devices[token].subscription = device.subscription;
     }
 
-    await this.ctx.storage.put('reminders', reminders);
-    await this.scheduleNext(reminders);
+    await this.putDevices(devices);
+    await this.scheduleNext(devices);
   }
 }
 
@@ -241,19 +277,14 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/api/assistant' && request.method === 'POST') {
-      return handleAssistant(request, env);
-    }
+    if (url.pathname === '/api/assistant' && request.method === 'POST') return handleAssistant(request, env);
 
     if (url.pathname.startsWith('/api/push/') || url.pathname.startsWith('/api/reminders/')) {
       const id = env.REMINDER_SCHEDULER.idFromName('personal');
       return env.REMINDER_SCHEDULER.get(id).fetch(request);
     }
 
-    if (url.pathname.startsWith('/api/')) {
-      return Response.json({ error: 'not_found' }, { status: 404 });
-    }
-
+    if (url.pathname.startsWith('/api/')) return Response.json({ error: 'not_found' }, { status: 404 });
     return env.ASSETS.fetch(request);
   }
 } satisfies ExportedHandler<Env>;
