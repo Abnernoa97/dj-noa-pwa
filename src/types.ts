@@ -68,13 +68,13 @@ export interface HistoryItem {
 export type AppView = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
 
 export type AssistantAction =
-  | { type: 'create_event'; ref?: string; title: string; date: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
+  | { type: 'create_event'; title: string; date: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
   | { type: 'update_event'; eventId: string; title?: string; date?: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
   | { type: 'delete_event'; eventId: string }
-  | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string; eventRef?: string; relativeToEventDaysBefore?: number; relativeTime?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean }
+  | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean }
   | { type: 'update_reminder'; reminderId: string; title?: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean; done?: boolean }
   | { type: 'delete_reminder'; reminderId: string }
-  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; eventRef?: string; values?: Record<string, SheetValue> }
+  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
   | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
   | { type: 'delete_sheet_row'; rowId: string }
   | { type: 'add_sheet_column'; name: string; key?: string; columnType?: SheetColumn['type']; formula?: string }
