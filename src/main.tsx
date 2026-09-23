@@ -8,7 +8,27 @@ import './calendar.css';
 import './sheet.css';
 import './reminders.css';
 
-registerSW({ immediate: true });
+let refreshing = false;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
+let updateSW: ((reloadPage?: boolean) => Promise<void>) | undefined;
+updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    void updateSW?.(true);
+  },
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return;
+    void registration.update();
+    window.setInterval(() => void registration.update(), 5 * 60 * 1000);
+  }
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
