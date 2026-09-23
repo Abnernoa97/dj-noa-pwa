@@ -13,13 +13,23 @@ export interface EventItem {
   updatedAt: string;
 }
 
+export type ReminderPriority = 'low' | 'normal' | 'high';
+export type ReminderRepeat = 'none' | 'daily' | 'weekly' | 'monthly';
+
 export interface ReminderItem {
   id: string;
   title: string;
   dueAt?: string;
   done: boolean;
   eventId?: string;
+  notes?: string;
+  priority?: ReminderPriority;
+  repeat?: ReminderRepeat;
+  notificationEnabled?: boolean;
+  lastNotifiedAt?: string;
+  lastCompletedAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type SheetStatus = 'pending' | 'paid' | 'info';
@@ -61,7 +71,9 @@ export type AssistantAction =
   | { type: 'create_event'; title: string; date: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
   | { type: 'update_event'; eventId: string; title?: string; date?: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
   | { type: 'delete_event'; eventId: string }
-  | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string }
+  | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean }
+  | { type: 'update_reminder'; reminderId: string; title?: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean; done?: boolean }
+  | { type: 'delete_reminder'; reminderId: string }
   | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
   | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
   | { type: 'delete_sheet_row'; rowId: string }
