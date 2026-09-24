@@ -1,4 +1,5 @@
 import { askAssistant } from './assistant';
+import { previewAssistantResponse } from './AssistantPlanPreview';
 import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
 
 export type AssistantMemoryItem = {
@@ -63,11 +64,15 @@ export async function askAssistantWithMemory(
           }
         })
       });
-      if (response.ok) return (await response.json()) as AssistantResponse;
+      if (response.ok) {
+        const result = (await response.json()) as AssistantResponse;
+        return await previewAssistantResponse(result);
+      }
     } catch {
       // If the connected AI is unavailable, keep the local assistant usable.
     }
   }
 
-  return askAssistant(command, context);
+  const localResult = await askAssistant(command, context);
+  return await previewAssistantResponse(localResult);
 }
