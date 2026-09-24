@@ -32,10 +32,8 @@ export interface ReminderItem {
   updatedAt?: string;
 }
 
-export type SheetPrimitive = string | number | boolean | null;
-export type SheetValue = SheetPrimitive | { [key: string]: SheetPrimitive };
-
 export type SheetStatus = 'pending' | 'paid' | 'info';
+export type SheetValue = string | number | boolean | null;
 
 export interface SheetRow {
   id: string;
@@ -45,7 +43,7 @@ export interface SheetRow {
   status: SheetStatus;
   eventId?: string;
   notes?: string;
-  values?: Record<string, SheetPrimitive>;
+  values?: Record<string, SheetValue>;
   createdAt: string;
   updatedAt?: string;
 }
@@ -76,8 +74,8 @@ export type AssistantAction =
   | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean }
   | { type: 'update_reminder'; reminderId: string; title?: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean; done?: boolean }
   | { type: 'delete_reminder'; reminderId: string }
-  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetPrimitive> }
-  | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetPrimitive> }
+  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
+  | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
   | { type: 'delete_sheet_row'; rowId: string }
   | { type: 'add_sheet_column'; name: string; key?: string; columnType?: SheetColumn['type']; formula?: string }
   | { type: 'navigate'; view: AppView }
