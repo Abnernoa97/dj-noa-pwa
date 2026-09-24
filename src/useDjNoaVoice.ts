@@ -32,9 +32,12 @@ type Options = {
   onStatus: (text: string) => void;
 };
 
-const SILENCE_AFTER_VOICE_MS = 900;
-const NO_VOICE_TIMEOUT_MS = 7000;
-const MAX_UTTERANCE_MS = 15000;
+// DJ NOA only considers the phrase finished after 3 full seconds
+// without detecting new speech. This gives the user room to think,
+// correct a date or continue a multi-part instruction naturally.
+const SILENCE_AFTER_VOICE_MS = 3000;
+const NO_VOICE_TIMEOUT_MS = 10000;
+const MAX_UTTERANCE_MS = 45000;
 const VOICE_THRESHOLD = 0.018;
 
 function getRecognitionCtor(): RecognitionCtor | null {
