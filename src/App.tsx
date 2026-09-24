@@ -402,7 +402,7 @@ export default function App() {
       for (const action of response.actions) {
         if (cancelRequestedRef.current) break;
 
-        const runtimeAction = createdEventCount === 1
+        const runtimeAction: AssistantAction = createdEventCount === 1
           ? bindActionToCreatedEvent(action, createdEventInCommand)
           : action;
         const meta = actionMeta(runtimeAction);
