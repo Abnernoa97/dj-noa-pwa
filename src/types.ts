@@ -43,9 +43,19 @@ export interface SheetRow {
   status: SheetStatus;
   eventId?: string;
   notes?: string;
+  description?: string;
   values?: Record<string, SheetValue>;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface SheetPhoto {
+  id: string;
+  rowId: string;
+  name: string;
+  type: string;
+  blob: Blob;
+  createdAt: string;
 }
 
 export interface SheetColumn {
