@@ -35,6 +35,11 @@ type StoredHistoryItem = AssistantMemoryItem & {
   undoSnapshot?: UndoSnapshot;
 };
 
+type CommandCreatedEvent = {
+  id: string;
+  date: string;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 function safeDate(value?: string) {
@@ -67,6 +72,21 @@ function isMutatingAction(action: AssistantAction) {
     'create_reminder', 'update_reminder', 'delete_reminder',
     'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column'
   ].includes(action.type);
+}
+
+function bindActionToCreatedEvent(action: AssistantAction, createdEvent: CommandCreatedEvent | null): AssistantAction {
+  if (!createdEvent) return action;
+  if (action.type === 'create_reminder' && action.eventRef === 'created_event') {
+    return { ...action, eventId: createdEvent.id };
+  }
+  if (action.type === 'add_sheet_row' && action.eventRef === 'created_event') {
+    return { ...action, eventId: createdEvent.id, calendarDate: action.calendarDate || createdEvent.date };
+  }
+  return action;
+}
+
+function createdEventIdFromSummary(summary?: string) {
+  return summary?.match(/^create_event id=([^\s]+)/)?.[1] || null;
 }
 
 function actionMeta(action: AssistantAction): { visible: boolean; view?: AppView; title: string; detail: string } {
@@ -364,6 +384,8 @@ export default function App() {
       const mutates = response.actions.some(isMutatingAction);
       const undoSnapshot = mutates ? await captureUndoSnapshot() : undefined;
       const actionSummary: string[] = [];
+      const createdEventCount = response.actions.filter((action) => action.type === 'create_event').length;
+      let createdEventInCommand: CommandCreatedEvent | null = null;
       let visibleIndex = 0;
       let completedActions = 0;
       let completedMutations = 0;
@@ -380,7 +402,10 @@ export default function App() {
       for (const action of response.actions) {
         if (cancelRequestedRef.current) break;
 
-        const meta = actionMeta(action);
+        const runtimeAction = createdEventCount === 1
+          ? bindActionToCreatedEvent(action, createdEventInCommand)
+          : action;
+        const meta = actionMeta(runtimeAction);
         if (meta.visible) {
           visibleIndex += 1;
           if (meta.view) setView(meta.view);
@@ -390,10 +415,16 @@ export default function App() {
         }
 
         try {
-          const summary = await executeAction(action);
+          const summary = await executeAction(runtimeAction);
           completedActions += 1;
-          if (isMutatingAction(action)) completedMutations += 1;
+          if (isMutatingAction(runtimeAction)) completedMutations += 1;
           if (summary) actionSummary.push(summary);
+
+          if (runtimeAction.type === 'create_event' && createdEventCount === 1) {
+            const createdId = createdEventIdFromSummary(summary);
+            if (createdId) createdEventInCommand = { id: createdId, date: runtimeAction.date };
+          }
+
           await refresh();
         } catch {
           const failReply = meta.title ? `No pude completar: ${meta.title.toLowerCase()}.` : 'No pude completar esa acción.';
