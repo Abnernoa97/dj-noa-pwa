@@ -1,5 +1,5 @@
 import { askAssistant } from './assistant';
-import type { AssistantResponse, EventItem, ReminderItem, SheetRow } from './types';
+import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
 
 export type AssistantMemoryItem = {
   command: string;
@@ -7,6 +7,14 @@ export type AssistantMemoryItem = {
   actionSummary?: string[];
   undoneAt?: string;
   kind?: 'command' | 'undo';
+};
+
+export type AssistantUiContext = {
+  view: AppView;
+  activeEventId?: string;
+  activeEventTitle?: string;
+  activeEventDate?: string;
+  activeEventVenue?: string;
 };
 
 type Context = {
@@ -31,7 +39,8 @@ function toConversationHistory(items: AssistantMemoryItem[]) {
 export async function askAssistantWithMemory(
   command: string,
   context: Context,
-  recentHistory: AssistantMemoryItem[] = []
+  recentHistory: AssistantMemoryItem[] = [],
+  uiContext?: AssistantUiContext
 ): Promise<AssistantResponse> {
   const workerUrl = (localStorage.getItem('djnoa.workerUrl') || import.meta.env.VITE_DJNOA_WORKER_URL || window.location.origin).trim();
 
@@ -46,6 +55,7 @@ export async function askAssistantWithMemory(
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Mexico_City',
           locale: 'es-MX',
           history: toConversationHistory(recentHistory),
+          uiContext,
           context: {
             events: context.events.slice(0, 40),
             reminders: context.reminders.slice(0, 40),
