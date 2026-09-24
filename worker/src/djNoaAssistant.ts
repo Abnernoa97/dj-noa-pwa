@@ -11,6 +11,13 @@ type RequestBody = {
   timezone?: string;
   locale?: string;
   history?: Array<{ role?: string; content?: string }>;
+  uiContext?: {
+    view?: string;
+    activeEventId?: string;
+    activeEventTitle?: string;
+    activeEventDate?: string;
+    activeEventVenue?: string;
+  };
   context?: {
     events?: Record<string, unknown>[];
     reminders?: Record<string, unknown>[];
@@ -104,21 +111,27 @@ function looksComplex(text: string) {
   const normalized = text.toLowerCase();
   const correction = /\b(no|mejor|perd[oó]n|corrijo|m[aá]s bien|bueno|espera)\b/.test(normalized);
   const chained = (normalized.match(/\b(crea|crear|agenda|agrega|a[nñ]ade|recu[eé]rdame|cambia|mueve|edita|modifica|actualiza|borra|elimina|abre|ll[eé]vame)\b/g) || []).length >= 2;
-  const references = /\b(eso|ese|esa|lo|la|ah[ií]|el mismo|la misma|ese evento|esa tarea)\b/.test(normalized);
+  const references = /\b(eso|ese|esa|lo|la|ah[ií]|aqu[ií]|este|esta|el mismo|la misma|ese evento|esa tarea)\b/.test(normalized);
   return correction || chained || references || text.length > 130;
 }
 
 function systemPrompt(body: RequestBody) {
   const context = body.context || {};
+  const ui = body.uiContext || {};
   const now = body.now || new Date().toISOString();
   const timezone = body.timezone || 'America/Mexico_City';
   const locale = body.locale || 'es-MX';
+  const activeEvent = ui.activeEventId
+    ? `${ui.activeEventTitle || 'Evento'} | id=${ui.activeEventId}${ui.activeEventDate ? ` | fecha=${ui.activeEventDate}` : ''}${ui.activeEventVenue ? ` | lugar=${ui.activeEventVenue}` : ''}`
+    : 'NINGUNO';
 
   return `Eres DJ NOA, el asistente privado de una sola persona para organizar eventos, calendario, gastos/Excel y recordatorios. Hablas español natural, breve, cálido y directo. Tu prioridad es entender correctamente antes de actuar.
 
 FECHA/HORA ACTUAL: ${now}
 ZONA HORARIA: ${timezone}
 LOCALE: ${locale}
+PANTALLA ACTUAL: ${ui.view || 'desconocida'}
+EVENTO ABIERTO EN PANTALLA: ${activeEvent}
 
 EVENTOS: ${JSON.stringify(context.events || [])}
 RECORDATORIOS: ${JSON.stringify(context.reminders || [])}
@@ -154,6 +167,11 @@ REGLAS DE INTERPRETACIÓN:
 - Escucha el mensaje completo como una sola intención. El usuario puede pensar en voz alta, dudar y corregirse antes de terminar.
 - Si el usuario dice valores distintos y luego se corrige con frases como “no”, “mejor”, “perdón”, “más bien”, “bueno” o “corrijo”, SIEMPRE manda la última decisión explícita. Ejemplo: “el 18... no, mejor el 20 de octubre” significa 20 de octubre, no 18.
 - Ignora muletillas, repeticiones y fragmentos abandonados. No conviertas cada fragmento hablado en una acción distinta.
+- El contexto de pantalla es información real de la app. Si hay un EVENTO ABIERTO EN PANTALLA y el usuario dice “este evento”, “a este”, “aquí”, “esto”, “agrégale”, “ponle” o una referencia equivalente relacionada con eventos, tareas o gastos, usa ese eventId exacto. No preguntes qué evento es si la referencia encaja claramente con el evento abierto.
+- Si el usuario está dentro del evento abierto y pide “agrega 4500 de audio”, crea la fila de Excel con eventId igual al evento abierto y calendarDate igual a su fecha, salvo que el usuario indique otra fecha o diga explícitamente que no pertenece al evento.
+- Si dentro del evento abierto pide un recordatorio o tarea y no nombra otro evento, asócialo al eventId abierto. La fecha/hora del recordatorio debe salir de lo que diga el usuario; no inventes una hora.
+- Si la pantalla actual es Excel, Tareas o Calendario pero NO hay evento abierto, usa esa pantalla solo para interpretar qué tipo de objeto quiere tocar. No inventes relación con un evento.
+- El contexto de pantalla actual tiene prioridad sobre referencias vagas de turnos anteriores; una referencia explícita del usuario a otro elemento tiene prioridad sobre la pantalla.
 - Entiende fechas naturales en español, nombres de meses, hoy, mañana, pasado mañana, días de la semana y expresiones relativas usando la fecha actual.
 - Entiende cantidades habladas como “8 mil”, “ocho mil”, “8 mil quinientos”, etc. y conviértelas a número.
 - Si una orden contiene varias tareas independientes, devuelve todas las acciones necesarias en el orden natural de ejecución.
