@@ -7,6 +7,7 @@ import './events.css';
 import './calendar.css';
 import './sheet.css';
 import './reminders.css';
+import './ui-overrides.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
