@@ -75,6 +75,10 @@ function idsFrom(items: Record<string, unknown>[] | undefined) {
   return new Set((items || []).map((item) => String(item.id || '')).filter(Boolean));
 }
 
+function isIsoDate(value: unknown) {
+  return /^20\d{2}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
 function actionIsSafe(action: unknown, body: RequestBody) {
   if (!action || typeof action !== 'object') return false;
   const value = action as Record<string, unknown>;
@@ -85,7 +89,7 @@ function actionIsSafe(action: unknown, body: RequestBody) {
   const reminders = idsFrom(body.context?.reminders);
   const rows = idsFrom(body.context?.sheetRows);
 
-  if (type === 'create_event') return Boolean(String(value.title || '').trim() && String(value.date || '').trim());
+  if (type === 'create_event') return Boolean(String(value.title || '').trim() && isIsoDate(value.date));
   if (type === 'update_event' || type === 'delete_event' || type === 'open_map') return events.has(String(value.eventId || ''));
   if (type === 'create_reminder') return Boolean(String(value.title || '').trim());
   if (type === 'update_reminder' || type === 'delete_reminder') return reminders.has(String(value.reminderId || ''));
@@ -96,13 +100,21 @@ function actionIsSafe(action: unknown, body: RequestBody) {
   return true;
 }
 
+function looksComplex(text: string) {
+  const normalized = text.toLowerCase();
+  const correction = /\b(no|mejor|perd[oó]n|corrijo|m[aá]s bien|bueno|espera)\b/.test(normalized);
+  const chained = (normalized.match(/\b(crea|crear|agenda|agrega|a[nñ]ade|recu[eé]rdame|cambia|mueve|edita|modifica|actualiza|borra|elimina|abre|ll[eé]vame)\b/g) || []).length >= 2;
+  const references = /\b(eso|ese|esa|lo|la|ah[ií]|el mismo|la misma|ese evento|esa tarea)\b/.test(normalized);
+  return correction || chained || references || text.length > 130;
+}
+
 function systemPrompt(body: RequestBody) {
   const context = body.context || {};
   const now = body.now || new Date().toISOString();
   const timezone = body.timezone || 'America/Mexico_City';
   const locale = body.locale || 'es-MX';
 
-  return `Eres DJ NOA, el asistente privado de una sola persona para organizar eventos, calendario, gastos/Excel y recordatorios. Hablas español natural, breve, cálido y directo. Entiendes lenguaje libre y lo conviertes en acciones estructuradas seguras. Mantén continuidad con los turnos previos cuando existan, pero ejecuta únicamente la petición actual.
+  return `Eres DJ NOA, el asistente privado de una sola persona para organizar eventos, calendario, gastos/Excel y recordatorios. Hablas español natural, breve, cálido y directo. Tu prioridad es entender correctamente antes de actuar.
 
 FECHA/HORA ACTUAL: ${now}
 ZONA HORARIA: ${timezone}
@@ -128,8 +140,8 @@ RECORDATORIOS
 {"type":"delete_reminder","reminderId":"ID EXACTO DEL CONTEXTO"}
 
 EXCEL / GASTOS
-{"type":"add_sheet_row","label":"texto","category":"texto","amount":8500,"status":"pending|paid|info","notes":"opcional","eventId":"ID exacto opcional"}
-{"type":"update_sheet_row","rowId":"ID EXACTO DEL CONTEXTO","label":"opcional","category":"opcional","amount":8500,"status":"pending|paid|info opcional","notes":"opcional","eventId":"ID exacto opcional"}
+{"type":"add_sheet_row","label":"texto","category":"texto","amount":8500,"status":"pending|paid|info","notes":"opcional","eventId":"ID exacto opcional","calendarDate":"YYYY-MM-DD opcional"}
+{"type":"update_sheet_row","rowId":"ID EXACTO DEL CONTEXTO","label":"opcional","category":"opcional","amount":8500,"status":"pending|paid|info opcional","notes":"opcional","eventId":"ID exacto opcional","calendarDate":"YYYY-MM-DD opcional"}
 {"type":"delete_sheet_row","rowId":"ID EXACTO DEL CONTEXTO"}
 {"type":"add_sheet_column","name":"texto","key":"opcional","columnType":"text|number|currency|date|formula","formula":"opcional"}
 {"type":"query_total","category":"opcional","status":"pending|paid|info opcional"}
@@ -138,14 +150,21 @@ NAVEGACIÓN
 {"type":"navigate","view":"home|events|calendar|sheet|reminders"}
 {"type":"none"}
 
-REGLAS:
-- Resuelve hoy, mañana, pasado mañana, días de la semana y horas relativas usando fecha/hora actual.
-- Para preguntas como “qué tengo hoy”, “cuál es mi próximo evento”, “cuánto tengo pendiente” o “qué tareas tengo”, responde usando el contexto y usa action none o query_total.
+REGLAS DE INTERPRETACIÓN:
+- Escucha el mensaje completo como una sola intención. El usuario puede pensar en voz alta, dudar y corregirse antes de terminar.
+- Si el usuario dice valores distintos y luego se corrige con frases como “no”, “mejor”, “perdón”, “más bien”, “bueno” o “corrijo”, SIEMPRE manda la última decisión explícita. Ejemplo: “el 18... no, mejor el 20 de octubre” significa 20 de octubre, no 18.
+- Ignora muletillas, repeticiones y fragmentos abandonados. No conviertas cada fragmento hablado en una acción distinta.
+- Entiende fechas naturales en español, nombres de meses, hoy, mañana, pasado mañana, días de la semana y expresiones relativas usando la fecha actual.
+- Entiende cantidades habladas como “8 mil”, “ocho mil”, “8 mil quinientos”, etc. y conviértelas a número.
+- Si una orden contiene varias tareas independientes, devuelve todas las acciones necesarias en el orden natural de ejecución.
+- Si en una misma orden se crea un evento nuevo y también un gasto relacionado, NO inventes un eventId para el evento recién creado. Omite eventId, pero usa calendarDate con la fecha del evento cuando ayude a mantenerlos juntos en Calendario.
+- Si en una misma orden se crea un evento nuevo y un recordatorio relativo a ese evento, calcula dueAt a partir de la fecha indicada, pero NO inventes eventId.
 - Para modificar, borrar o abrir algo existente, usa SIEMPRE el ID exacto presente en el contexto. Nunca inventes IDs.
 - Si hay dos candidatos posibles o no está claro cuál es, pregunta antes y usa none.
-- No afirmes que un cambio ocurrió antes de devolver la acción correspondiente.
-- Solo borra cuando el usuario lo pida claramente.
-- Puedes devolver más de una acción solo cuando la petición realmente lo requiera y cada acción sea independiente y segura.
+- Si falta un dato imprescindible para ejecutar con seguridad (por ejemplo la fecha de un evento nuevo), pregunta antes y usa none. No adivines.
+- Para preguntas como “qué tengo hoy”, “cuál es mi próximo evento”, “cuánto tengo pendiente” o “qué tareas tengo”, responde usando el contexto y usa none o query_total.
+- Solo borra cuando el usuario lo pida claramente. No conviertas “quítalo de la vista”, “ocúltalo” o frases dudosas en borrado.
+- No afirmes que un cambio ya ocurrió antes de devolver la acción correspondiente.
 - No incluyas explicaciones técnicas.
 - Máximo 2 frases en reply.`;
 }
@@ -153,10 +172,10 @@ REGLAS:
 function conversationMessages(body: RequestBody, text: string) {
   const history = Array.isArray(body.history)
     ? body.history
-        .slice(-6)
+        .slice(-8)
         .map((item) => ({
           role: item?.role === 'assistant' ? 'assistant' : 'user',
-          content: String(item?.content || '').slice(0, 240)
+          content: String(item?.content || '').slice(0, 320)
         }))
         .filter((item) => item.content.trim())
     : [];
@@ -168,38 +187,57 @@ function conversationMessages(body: RequestBody, text: string) {
   ];
 }
 
-async function runAssistant(env: DjNoaAiEnv, body: RequestBody, text: string) {
-  const messages = conversationMessages(body, text);
+async function runFast(env: DjNoaAiEnv, messages: Array<{ role: string; content: string }>) {
+  const result = await env.AI.run(
+    '@cf/meta/llama-3.1-8b-instruct-fast',
+    {
+      messages,
+      temperature: 0,
+      max_tokens: 520
+    },
+    { rejectIfBusy: false }
+  );
+  const parsed = parseJsonObject(readModelText(result));
+  return validAssistant(parsed) ? parsed : null;
+}
 
-  try {
-    const fastResult = await env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct-fast',
-      {
-        messages,
-        temperature: 0.05,
-        max_tokens: 460
-      },
-      { rejectIfBusy: false }
-    );
-    const parsed = parseJsonObject(readModelText(fastResult));
-    if (validAssistant(parsed)) return parsed;
-  } catch (error) {
-    console.warn('DJ NOA fast model fallback', error);
-  }
-
-  const reliableResult = await env.AI.run(
+async function runReliable(env: DjNoaAiEnv, messages: Array<{ role: string; content: string }>) {
+  const result = await env.AI.run(
     '@cf/google/gemma-4-26b-a4b-it',
     {
       messages,
       response_format: { type: 'json_object' },
-      temperature: 0.05,
-      max_completion_tokens: 650,
+      temperature: 0,
+      max_completion_tokens: 800,
       chat_template_kwargs: { enable_thinking: false }
     },
     { rejectIfBusy: false }
   );
-  const parsed = parseJsonObject(readModelText(reliableResult));
+  const parsed = parseJsonObject(readModelText(result));
   return validAssistant(parsed) ? parsed : null;
+}
+
+async function runAssistant(env: DjNoaAiEnv, body: RequestBody, text: string) {
+  const messages = conversationMessages(body, text);
+
+  if (looksComplex(text)) {
+    try {
+      const reliable = await runReliable(env, messages);
+      if (reliable) return reliable;
+    } catch (error) {
+      console.warn('DJ NOA reliable model fallback', error);
+    }
+    return runFast(env, messages);
+  }
+
+  try {
+    const fast = await runFast(env, messages);
+    if (fast) return fast;
+  } catch (error) {
+    console.warn('DJ NOA fast model fallback', error);
+  }
+
+  return runReliable(env, messages);
 }
 
 export async function handleDjNoaAssistant(request: Request, env: DjNoaAiEnv): Promise<Response> {
@@ -218,13 +256,15 @@ export async function handleDjNoaAssistant(request: Request, env: DjNoaAiEnv): P
   try {
     const parsed = await runAssistant(env, body, text);
     if (!parsed) {
-      return json({ reply: 'Entendí, pero no pude convertirlo en una acción segura. Dímelo otra vez más simple.', actions: [{ type: 'none' }] });
+      return json({ reply: 'Entendí parte de la orden, pero prefiero que me la repitas para no hacer algo incorrecto.', actions: [{ type: 'none' }] });
     }
 
     const actions = parsed.actions.filter((action) => actionIsSafe(action, body)).slice(0, 10);
+    const safeActions = actions.length ? actions : [{ type: 'none' }];
+
     return json({
       reply: parsed.reply.slice(0, 500),
-      actions: actions.length ? actions : [{ type: 'none' }]
+      actions: safeActions
     });
   } catch (error) {
     console.error('DJ NOA AI error', error);
