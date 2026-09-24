@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './styles.css';
 import './events.css';
+import './event-hub.css';
 import './calendar.css';
 import './sheet.css';
 import './reminders.css';
