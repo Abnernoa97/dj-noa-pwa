@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Filter, Mic, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import { Download, Mic, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { db, uid } from './db';
 import type { EventItem, SheetColumn, SheetRow, SheetStatus, SheetValue } from './types';
@@ -145,6 +145,8 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
     pending: filtered.filter((row) => row.status === 'pending').reduce((sum, row) => sum + Number(row.amount || 0), 0)
   }), [filtered]);
 
+  const paidPercent = totals.all > 0 ? Math.min(100, Math.max(0, (totals.paid / totals.all) * 100)) : 0;
+
   const addRow = async () => {
     const now = new Date().toISOString();
     await db.sheetRows.add({ id: uid(), label: 'Nuevo movimiento', category: 'General', amount: 0, status: 'pending', values: {}, createdAt: now, updatedAt: now });
@@ -265,80 +267,111 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
   };
 
   return (
-    <section className="page-card sheet-workspace">
-      <div className="sheet-topline">
-        <div><p className="eyebrow">LOCAL SHEET</p><h2>Excel</h2></div>
-        <div className="sheet-top-actions">
-          <button onClick={() => fileRef.current?.click()} title="Importar"><Upload size={17} /></button>
-          <button onClick={exportExcel} title="Exportar"><Download size={17} /></button>
-          <button onClick={() => setColumnPanel(true)} title="Columnas"><Plus size={17} /></button>
+    <section className="page-card sheet-workspace-v2">
+      <div className="sheet-v2-head">
+        <div className="sheet-v2-title">
+          <p className="eyebrow">CONTROL LOCAL</p>
+          <h2>Excel</h2>
+          <small>Todo visible, editable y sin desplazamiento lateral.</small>
+        </div>
+        <div className="sheet-v2-head-actions">
+          <button className="sheet-v2-icon-button" onClick={() => fileRef.current?.click()} title="Importar"><Upload size={16} /><span>Importar</span></button>
+          <button className="sheet-v2-icon-button" onClick={exportExcel} title="Exportar"><Download size={16} /><span>Exportar</span></button>
         </div>
       </div>
 
       <input ref={fileRef} className="sheet-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); event.currentTarget.value = ''; }} />
 
-      <div className="sheet-metrics">
-        <div><span>TOTAL</span><strong>{money.format(totals.all)}</strong></div>
-        <div><span>PAGADO</span><strong>{money.format(totals.paid)}</strong></div>
-        <div><span>PENDIENTE</span><strong>{money.format(totals.pending)}</strong></div>
-        <div><span>FILAS</span><strong>{filtered.length}</strong></div>
-      </div>
-
-      <div className="sheet-toolbar">
-        <label className="sheet-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar" /></label>
-        <div className="sheet-filter"><Filter size={14} /><select value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">Todas las categorías</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-        <select className="sheet-select" value={status} onChange={(event) => setStatus(event.target.value as 'all' | SheetStatus)}><option value="all">Todos los estados</option><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select>
-        <select className="sheet-select" value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="newest">Más recientes</option><option value="oldest">Más antiguos</option><option value="amount-desc">Monto ↓</option><option value="amount-asc">Monto ↑</option><option value="label">A–Z</option></select>
-      </div>
-
-      <div className="sheet-grid-wrap">
-        <div className="editable-sheet" style={{ ['--custom-columns' as string]: columns.length }}>
-          <div className="sheet-grid-row sheet-grid-head">
-            <span>Concepto</span><span>Categoría</span><span>Monto</span><span>Estado</span><span>Evento</span><span>Notas</span>
-            {columns.map((column) => <span key={column.id}>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</span>)}
-            <span />
+      <div className="sheet-v2-summary">
+        <div className="sheet-v2-total">
+          <div><span>TOTAL</span><strong>{money.format(totals.all)}</strong></div>
+          <div className="sheet-v2-stats">
+            <div className="sheet-v2-stat paid"><span>PAGADO</span><strong>{money.format(totals.paid)}</strong></div>
+            <div className="sheet-v2-stat pending"><span>PENDIENTE</span><strong>{money.format(totals.pending)}</strong></div>
           </div>
-          {filtered.length ? filtered.map((row) => (
-            <div className="sheet-grid-row" key={row.id}>
-              <input defaultValue={row.label} onBlur={(e) => { if (e.target.value !== row.label) void patchRow(row, { label: e.target.value || 'Movimiento' }); }} />
-              <input defaultValue={row.category} onBlur={(e) => { if (e.target.value !== row.category) void patchRow(row, { category: e.target.value || 'General' }); }} />
-              <input type="number" inputMode="decimal" defaultValue={row.amount} onBlur={(e) => { const value = numberValue(e.target.value); if (value !== row.amount) void patchRow(row, { amount: value }); }} />
-              <select defaultValue={row.status} onChange={(e) => void patchRow(row, { status: e.target.value as SheetStatus })}><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select>
-              <select defaultValue={row.eventId || ''} onChange={(e) => void patchRow(row, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select>
-              <input defaultValue={row.notes || ''} onBlur={(e) => { if (e.target.value !== (row.notes || '')) void patchRow(row, { notes: e.target.value }); }} />
-              {columns.map((column) => column.type === 'formula' ? (
-                <div className="sheet-formula-cell" key={column.id}>{displayValue(column, formulaValue(column, row, columns))}</div>
-              ) : (
-                <input key={column.id} type={column.type === 'number' || column.type === 'currency' ? 'number' : column.type === 'date' ? 'date' : 'text'} defaultValue={String(row.values?.[column.key] ?? '')} onBlur={(e) => { const value: SheetValue = column.type === 'number' || column.type === 'currency' ? numberValue(e.target.value) : e.target.value; if (value !== row.values?.[column.key]) void patchCustom(row, column, value); }} />
-              ))}
-              <button className="sheet-delete-row" onClick={() => void deleteRow(row)} aria-label="Eliminar fila"><Trash2 size={14} /></button>
-            </div>
-          )) : <div className="sheet-no-rows">No hay filas para este filtro.</div>}
         </div>
+        <div className="sheet-v2-progress"><span style={{ width: `${paidPercent}%` }} /></div>
       </div>
 
-      <div className="sheet-bottom-actions">
-        <button onClick={() => void addRow()}><Plus size={17} /> Nueva fila</button>
-        <button onClick={onAssistant}><Mic size={17} /> Por voz</button>
+      <div className="sheet-v2-toolbar">
+        <label className="sheet-v2-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar concepto, evento o nota" /></label>
+        <button className="sheet-v2-new" onClick={() => void addRow()}><Plus size={16} /><span>Nuevo</span></button>
+      </div>
+
+      <div className="sheet-v2-filters">
+        <div className="sheet-v2-filter"><select value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">Todas categorías</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+        <div className="sheet-v2-filter"><select value={status} onChange={(event) => setStatus(event.target.value as 'all' | SheetStatus)}><option value="all">Todos estados</option><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select></div>
+        <div className="sheet-v2-filter"><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="newest">Recientes</option><option value="oldest">Antiguos</option><option value="amount-desc">Monto ↓</option><option value="amount-asc">Monto ↑</option><option value="label">A–Z</option></select></div>
+      </div>
+
+      <div className="sheet-v2-tools">
+        <button className="sheet-v2-tool" onClick={() => fileRef.current?.click()}><Upload size={13} /> Importar</button>
+        <button className="sheet-v2-tool" onClick={exportExcel}><Download size={13} /> Exportar</button>
+        <button className="sheet-v2-tool" onClick={() => setColumnPanel((value) => !value)}><Plus size={13} /> Columnas</button>
+        <button className="sheet-v2-tool" onClick={onAssistant}><Mic size={13} /> Voz</button>
       </div>
 
       {columnPanel && (
-        <div className="sheet-panel-backdrop" onClick={() => setColumnPanel(false)}>
-          <div className="sheet-column-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="sheet-panel-head"><div><p className="eyebrow">PERSONALIZAR</p><h3>Columnas</h3></div><button onClick={() => setColumnPanel(false)}><X size={19} /></button></div>
-            <div className="sheet-new-column">
-              <input value={draftColumn.name} onChange={(e) => setDraftColumn((current) => ({ ...current, name: e.target.value }))} placeholder="Nombre de columna" />
-              <select value={draftColumn.type} onChange={(e) => setDraftColumn((current) => ({ ...current, type: e.target.value as SheetColumn['type'] }))}><option value="text">Texto</option><option value="number">Número</option><option value="currency">Moneda</option><option value="date">Fecha</option><option value="formula">Fórmula</option></select>
-              {draftColumn.type === 'formula' && <input value={draftColumn.formula} onChange={(e) => setDraftColumn((current) => ({ ...current, formula: e.target.value }))} placeholder="Ej. =amount*0.16" />}
-              <button onClick={() => void addColumn()} disabled={!draftColumn.name.trim()}><Plus size={16} /> Agregar</button>
-            </div>
-            <p className="sheet-formula-help">En fórmulas usa <b>amount</b> para el monto y la clave de otra columna personalizada. Ejemplo: <b>=amount*0.16</b>.</p>
-            <div className="sheet-column-list">
-              {columns.length ? columns.map((column) => <div key={column.id}><div><strong>{column.name}</strong><span>{column.type}{column.formula ? ` · ${column.formula}` : ''}</span></div><button onClick={() => void deleteColumn(column)}><Trash2 size={15} /></button></div>) : <div className="sheet-columns-empty">No hay columnas personalizadas.</div>}
-            </div>
+        <div className="sheet-v2-columns">
+          <div className="sheet-v2-columns-head"><strong>Columnas personalizadas</strong><button onClick={() => setColumnPanel(false)}><X size={15} /></button></div>
+          <div className="sheet-v2-column-form">
+            <input value={draftColumn.name} onChange={(e) => setDraftColumn((current) => ({ ...current, name: e.target.value }))} placeholder="Nombre" />
+            <select value={draftColumn.type} onChange={(e) => setDraftColumn((current) => ({ ...current, type: e.target.value as SheetColumn['type'] }))}><option value="text">Texto</option><option value="number">Número</option><option value="currency">Moneda</option><option value="date">Fecha</option><option value="formula">Fórmula</option></select>
+            <button onClick={() => void addColumn()} disabled={!draftColumn.name.trim()}><Plus size={15} /></button>
+            {draftColumn.type === 'formula' && <input className="sheet-v2-formula" value={draftColumn.formula} onChange={(e) => setDraftColumn((current) => ({ ...current, formula: e.target.value }))} placeholder="Ej. =amount*0.16" />}
           </div>
+          {!!columns.length && <div className="sheet-v2-column-chips">{columns.map((column) => <div className="sheet-v2-column-chip" key={column.id}><span>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</span><button onClick={() => void deleteColumn(column)} aria-label={`Eliminar ${column.name}`}><X size={11} /></button></div>)}</div>}
         </div>
       )}
+
+      <div className="sheet-v2-scroll">
+        <div className="sheet-v2-list">
+          {filtered.length ? filtered.map((row) => (
+            <article className="sheet-record" key={row.id}>
+              <button className="sheet-delete-v2" onClick={() => void deleteRow(row)} aria-label="Eliminar movimiento"><Trash2 size={13} /></button>
+
+              <div className="sheet-record-main">
+                <div className="sheet-field">
+                  <label>Concepto</label>
+                  <input defaultValue={row.label} onBlur={(e) => { if (e.target.value !== row.label) void patchRow(row, { label: e.target.value || 'Movimiento' }); }} />
+                </div>
+                <div className="sheet-field amount">
+                  <label>Monto</label>
+                  <input type="number" inputMode="decimal" defaultValue={row.amount} onBlur={(e) => { const value = numberValue(e.target.value); if (value !== row.amount) void patchRow(row, { amount: value }); }} />
+                </div>
+              </div>
+
+              <div className="sheet-record-meta">
+                <div className="sheet-field">
+                  <label>Categoría</label>
+                  <input defaultValue={row.category} onBlur={(e) => { if (e.target.value !== row.category) void patchRow(row, { category: e.target.value || 'General' }); }} />
+                </div>
+                <div className="sheet-field">
+                  <label>Estado</label>
+                  <select defaultValue={row.status} onChange={(e) => void patchRow(row, { status: e.target.value as SheetStatus })}><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select>
+                </div>
+                <div className="sheet-field">
+                  <label>Evento</label>
+                  <select defaultValue={row.eventId || ''} onChange={(e) => void patchRow(row, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select>
+                </div>
+              </div>
+
+              <div className="sheet-field sheet-record-notes">
+                <label>Notas</label>
+                <input defaultValue={row.notes || ''} onBlur={(e) => { if (e.target.value !== (row.notes || '')) void patchRow(row, { notes: e.target.value }); }} placeholder="Opcional" />
+              </div>
+
+              {!!columns.length && <div className="sheet-record-custom">{columns.map((column) => (
+                <div className="sheet-field" key={column.id}>
+                  <label>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</label>
+                  {column.type === 'formula' ? <div className="sheet-formula-v2">{displayValue(column, formulaValue(column, row, columns))}</div> : <input type={column.type === 'number' || column.type === 'currency' ? 'number' : column.type === 'date' ? 'date' : 'text'} defaultValue={String(row.values?.[column.key] ?? '')} onBlur={(e) => { const value: SheetValue = column.type === 'number' || column.type === 'currency' ? numberValue(e.target.value) : e.target.value; if (value !== row.values?.[column.key]) void patchCustom(row, column, value); }} />}
+                </div>
+              ))}</div>}
+            </article>
+          )) : <div className="sheet-v2-empty">No hay movimientos para este filtro.</div>}
+        </div>
+        <div className="sheet-v2-count">{filtered.length} {filtered.length === 1 ? 'movimiento' : 'movimientos'} visibles</div>
+      </div>
     </section>
   );
 }
