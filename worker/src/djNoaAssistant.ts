@@ -17,11 +17,18 @@ type RequestBody = {
     activeEventTitle?: string;
     activeEventDate?: string;
     activeEventVenue?: string;
+    activeSheetRowId?: string;
+    activeSheetRowLabel?: string;
+    activeSheetRowCategory?: string;
+    activeSheetRowAmount?: number;
+    activeSheetRowStatus?: string;
+    activeSheetRowEventId?: string;
   };
   context?: {
     events?: Record<string, unknown>[];
     reminders?: Record<string, unknown>[];
     sheetRows?: Record<string, unknown>[];
+    sheetColumns?: Record<string, unknown>[];
   };
 };
 
@@ -82,6 +89,17 @@ function idsFrom(items: Record<string, unknown>[] | undefined) {
   return new Set((items || []).map((item) => String(item.id || '')).filter(Boolean));
 }
 
+function customKeys(body: RequestBody) {
+  return new Set((body.context?.sheetColumns || []).map((item) => String(item.key || '')).filter(Boolean));
+}
+
+function valuesAreSafe(value: unknown, body: RequestBody) {
+  if (value === undefined) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const allowed = customKeys(body);
+  return Object.keys(value as Record<string, unknown>).every((key) => allowed.has(key));
+}
+
 function isIsoDate(value: unknown) {
   return /^20\d{2}-\d{2}-\d{2}$/.test(String(value || ''));
 }
@@ -104,8 +122,9 @@ function actionIsSafe(action: unknown, body: RequestBody) {
   if (type === 'update_event' || type === 'delete_event' || type === 'open_map') return events.has(String(value.eventId || ''));
   if (type === 'create_reminder') return Boolean(String(value.title || '').trim() && eventRefIsSafe(value));
   if (type === 'update_reminder' || type === 'delete_reminder') return reminders.has(String(value.reminderId || ''));
-  if (type === 'add_sheet_row') return Boolean(String(value.label || '').trim() && String(value.category || '').trim() && Number.isFinite(Number(value.amount)) && eventRefIsSafe(value));
-  if (type === 'update_sheet_row' || type === 'delete_sheet_row') return rows.has(String(value.rowId || ''));
+  if (type === 'add_sheet_row') return Boolean(String(value.label || '').trim() && String(value.category || '').trim() && Number.isFinite(Number(value.amount)) && eventRefIsSafe(value) && valuesAreSafe(value.values, body));
+  if (type === 'update_sheet_row') return rows.has(String(value.rowId || '')) && valuesAreSafe(value.values, body);
+  if (type === 'delete_sheet_row') return rows.has(String(value.rowId || ''));
   if (type === 'add_sheet_column') return Boolean(String(value.name || '').trim());
   if (type === 'navigate') return ['home', 'events', 'calendar', 'sheet', 'reminders'].includes(String(value.view || ''));
   return true;
@@ -115,7 +134,7 @@ function looksComplex(text: string) {
   const normalized = text.toLowerCase();
   const correction = /\b(no|mejor|perd[oó]n|corrijo|corrige|m[aá]s bien|bueno|espera)\b/.test(normalized);
   const chained = (normalized.match(/\b(crea|crear|agenda|agrega|a[nñ]ade|recu[eé]rdame|cambia|mueve|edita|modifica|actualiza|borra|elimina|abre|ll[eé]vame)\b/g) || []).length >= 2;
-  const references = /\b(eso|ese|esa|lo|la|ah[ií]|aqu[ií]|este|esta|el mismo|la misma|ese evento|esa tarea|esa parte|lo anterior|de antes)\b/.test(normalized);
+  const references = /\b(eso|ese|esa|lo|la|ah[ií]|aqu[ií]|este|esta|el mismo|la misma|ese evento|esa tarea|esa parte|lo anterior|de antes|esta fila|este registro)\b/.test(normalized);
   const recurrence = /\b(todos|cada|fines? de semana|viernes|s[aá]bados?|semanal|quincenal|durante todo)\b/.test(normalized);
   return correction || chained || references || recurrence || text.length > 130;
 }
@@ -185,6 +204,9 @@ function systemPrompt(body: RequestBody) {
   const activeEvent = ui.activeEventId
     ? `${ui.activeEventTitle || 'Evento'} | id=${ui.activeEventId}${ui.activeEventDate ? ` | fecha=${ui.activeEventDate}` : ''}${ui.activeEventVenue ? ` | lugar=${ui.activeEventVenue}` : ''}`
     : 'NINGUNO';
+  const activeSheetRow = ui.activeSheetRowId
+    ? `id=${ui.activeSheetRowId} | nombre/concepto=${ui.activeSheetRowLabel || ''} | categoría=${ui.activeSheetRowCategory || ''} | monto=${ui.activeSheetRowAmount ?? ''} | estado=${ui.activeSheetRowStatus || ''} | eventoVinculado=${ui.activeSheetRowEventId || 'ninguno'}`
+    : 'NINGUNA';
 
   return `Eres DJ NOA, el asistente privado de una sola persona para organizar eventos, calendario, gastos/Excel y recordatorios. Hablas español natural, breve, cálido y directo. Tu prioridad es entender correctamente antes de actuar.
 
@@ -193,10 +215,21 @@ ZONA HORARIA: ${timezone}
 LOCALE: ${locale}
 PANTALLA ACTUAL: ${ui.view || 'desconocida'}
 EVENTO ABIERTO EN PANTALLA: ${activeEvent}
+FILA EXCEL ABIERTA EN PANTALLA: ${activeSheetRow}
 
 EVENTOS: ${JSON.stringify(context.events || [])}
 RECORDATORIOS: ${JSON.stringify(context.reminders || [])}
-EXCEL/GASTOS: ${JSON.stringify(context.sheetRows || [])}
+EXCEL/FILAS: ${JSON.stringify(context.sheetRows || [])}
+COLUMNAS PERSONALIZADAS DE EXCEL: ${JSON.stringify(context.sheetColumns || [])}
+
+SEMÁNTICA FIJA DE EXCEL — NO CONFUNDIR CAMPOS:
+- label = NOMBRE / CONCEPTO del registro. Es texto libre. Ejemplos: “Evento concretado”, “Anticipo cliente”, “Pago audio”.
+- category = CATEGORÍA / TIPO / CLASE del registro. Es texto libre y el usuario puede inventar cualquier valor: “Evento”, “Ganancia”, “Inversión”, “Retribución”, “Publicidad”, etc.
+- amount = MONTO numérico.
+- status = ESTADO operativo: pending=Pendiente, paid=Pagado, info=Info.
+- eventId = EVENTO VINCULADO: SOLO es una relación con un evento real existente de la lista EVENTOS. No es el nombre del registro y no es la categoría.
+- calendarDate = fecha propia de la fila cuando debe aparecer en Calendario.
+- values = valores de COLUMNAS PERSONALIZADAS usando las keys exactas del esquema de columnas.
 
 Devuelve SIEMPRE un único objeto JSON válido, sin markdown ni texto fuera del JSON:
 {"reply":"respuesta corta","actions":[...]}
@@ -214,8 +247,8 @@ RECORDATORIOS
 {"type":"delete_reminder","reminderId":"ID EXACTO DEL CONTEXTO"}
 
 EXCEL / GASTOS
-{"type":"add_sheet_row","label":"texto","category":"texto","amount":8500,"status":"pending|paid|info","notes":"opcional","eventId":"ID exacto opcional","eventRef":"created_event opcional","calendarDate":"YYYY-MM-DD opcional"}
-{"type":"update_sheet_row","rowId":"ID EXACTO DEL CONTEXTO","label":"opcional","category":"opcional","amount":8500,"status":"pending|paid|info opcional","notes":"opcional","eventId":"ID exacto opcional","calendarDate":"YYYY-MM-DD opcional"}
+{"type":"add_sheet_row","label":"nombre/concepto","category":"categoría libre","amount":8500,"status":"pending|paid|info","notes":"opcional","eventId":"ID exacto SOLO si se vincula a evento real","eventRef":"created_event opcional","calendarDate":"YYYY-MM-DD opcional","values":{"custom_key":"valor opcional"}}
+{"type":"update_sheet_row","rowId":"ID EXACTO DEL CONTEXTO","label":"nombre/concepto opcional","category":"categoría libre opcional","amount":8500,"status":"pending|paid|info opcional","notes":"opcional","eventId":"ID exacto opcional","calendarDate":"YYYY-MM-DD opcional","values":{"custom_key":"valor opcional"}}
 {"type":"delete_sheet_row","rowId":"ID EXACTO DEL CONTEXTO"}
 {"type":"add_sheet_column","name":"texto","key":"opcional","columnType":"text|number|currency|date|formula","formula":"opcional"}
 {"type":"query_total","category":"opcional","status":"pending|paid|info opcional"}
@@ -232,6 +265,13 @@ REGLAS DE INTERPRETACIÓN:
 - Escucha el mensaje completo como una sola intención. El usuario puede pensar en voz alta, dudar y corregirse antes de terminar.
 - Si el usuario dice valores distintos y luego se corrige con frases como “no”, “mejor”, “perdón”, “más bien”, “bueno” o “corrijo”, SIEMPRE manda la última decisión explícita. Ejemplo: “el 18... no, mejor el 20 de octubre” significa 20 de octubre, no 18.
 - Ignora muletillas, repeticiones y fragmentos abandonados. No conviertas cada fragmento hablado en una acción distinta.
+- EXCEL, NOMBRE: si dice “nombre”, “concepto”, “nombre del registro”, “ponle de nombre X” o “cambia el nombre a X”, modifica label. Ejemplo: “pon nombre Evento concretado” => label:"Evento concretado". NO lo conviertas en eventId.
+- EXCEL, CATEGORÍA: si dice “categoría”, “tipo”, “clase”, “clasifícalo como” o usa expresiones como “esto es una ganancia/inversión/retribución”, modifica category. Las categorías son LIBRES; no están limitadas a una lista.
+- La palabra “evento” por sí sola NO significa eventId. “categoría evento” o “tipo evento” => category:"Evento". “nombre Evento concretado” => label:"Evento concretado".
+- EXCEL, EVENTO VINCULADO: solo usa eventId cuando el usuario dice claramente “vincula/asocia/relaciona esta fila al evento X”, “evento vinculado X”, “esto pertenece al evento X” o una equivalencia inequívoca, y X existe en EVENTOS. Si no existe o hay varios candidatos, pregunta.
+- Si hay una FILA EXCEL ABIERTA y el usuario dice “esta fila”, “este registro”, “aquí”, “cámbiale el nombre”, “pon categoría…”, “cambia el monto…” o equivalente, usa exactamente activeSheetRowId para update_sheet_row.
+- Si el usuario menciona una columna personalizada por su NOMBRE, busca su key exacta en COLUMNAS PERSONALIZADAS y escribe mediante values:{key:valor}. Nunca inventes keys.
+- Si el usuario pide crear una columna nueva, usa add_sheet_column. Después, en un turno posterior, ya aparecerá en COLUMNAS PERSONALIZADAS y podrá usarse por nombre.
 - RECURRENCIAS DE CALENDARIO: cuando el usuario pide fechas concretas repetidas, por ejemplo “todos los viernes y sábados de junio de 2027”, expande el patrón a fechas reales y devuelve una acción create_event por cada fecha correspondiente. No inventes una acción de recurrencia que no existe. Puedes devolver hasta 30 acciones en un solo plan.
 - Si el usuario combina una fecha aislada y una serie (“24 de mayo y todos los viernes y sábados de junio”), incluye ambas partes del plan en orden cronológico cuando los datos estén claros.
 - Si una parte económica de un plan con MUCHOS eventos no deja claro si el monto aplica una sola vez o a cada fecha, NO adivines: ejecuta solo lo inequívoco y pregunta esa precisión manteniendo el mismo hilo para el siguiente turno.
