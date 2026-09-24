@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bell, CalendarDays, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus, Send, Sparkles, X } from 'lucide-react';
+import { Bell, CalendarDays, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { askAssistantWithMemory, type AssistantMemoryItem } from './assistantMemory';
 import CalendarWorkspace from './CalendarWorkspace';
+import ConversationDock, { type ConversationTurn } from './ConversationDock';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
@@ -90,7 +91,7 @@ function createdEventIdFromSummary(summary?: string) {
 }
 
 function actionMeta(action: AssistantAction): { visible: boolean; view?: AppView; title: string; detail: string } {
-  if (action.type === 'create_event') return { visible: true, view: 'events', title: 'Creando evento', detail: action.title };
+  if (action.type === 'create_event') return { visible: true, view: 'calendar', title: 'Agregando al calendario', detail: action.title };
   if (action.type === 'update_event') return { visible: true, view: 'events', title: 'Actualizando evento', detail: action.title || 'Aplicando cambios' };
   if (action.type === 'delete_event') return { visible: true, view: 'events', title: 'Eliminando evento', detail: 'Actualizando agenda' };
   if (action.type === 'create_reminder') return { visible: true, view: 'reminders', title: 'Creando tarea', detail: action.title };
@@ -111,6 +112,8 @@ export default function App() {
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [sheetRows, setSheetRows] = useState<SheetRow[]>([]);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [conversation, setConversation] = useState<ConversationTurn[]>([]);
+  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
   const [command, setCommand] = useState('');
   const [assistantReply, setAssistantReply] = useState('Dime qué necesitas y lo hago.');
   const [busy, setBusy] = useState(false);
@@ -134,6 +137,16 @@ export default function App() {
     setSheetRows(sheetData);
   };
 
+  const refreshConversation = async () => {
+    const history = (await db.history.orderBy('createdAt').reverse().limit(8).toArray()).reverse() as unknown as StoredHistoryItem[];
+    setConversation(history.map((item) => ({
+      id: item.id,
+      command: item.command,
+      result: item.result,
+      createdAt: item.createdAt
+    })));
+  };
+
   const captureUndoSnapshot = async (): Promise<UndoSnapshot> => {
     const [eventData, reminderData, sheetData, columnData] = await Promise.all([
       db.events.toArray(),
@@ -154,7 +167,7 @@ export default function App() {
     });
   };
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); void refreshConversation(); }, []);
   useEffect(() => scheduleReminderNotifications(reminders), [reminders]);
   useEffect(() => {
     let active = true;
@@ -235,7 +248,7 @@ export default function App() {
 
   const requestExecutionCancel = () => {
     cancelRequestedRef.current = true;
-    setAssistantOpen(false);
+    setAssistantOpen(true);
     setAssistantReply('Entendido. Me detengo.');
     setLiveAction((current) => current ? {
       ...current,
@@ -331,7 +344,7 @@ export default function App() {
       return reply;
     }
 
-    setAssistantOpen(false);
+    setAssistantOpen(true);
     setEventEditorOpen(false);
     setEventHubId(null);
     setSelectedEvent(null);
@@ -342,6 +355,7 @@ export default function App() {
     const reply = `Listo. Deshice: ${target.command}.`;
     await db.history.add({ id: uid(), command: 'Deshaz lo último', result: reply, kind: 'undo', createdAt: now } as any);
     await refresh();
+    await refreshConversation();
     setAssistantReply(reply);
     setCommand('');
     setLiveAction({ current: 1, total: 1, title: 'Cambio deshecho', detail: target.command, status: 'done' });
@@ -362,12 +376,14 @@ export default function App() {
       return undefined;
     }
 
+    setAssistantOpen(true);
+    setPendingCommand(clean);
     cancelRequestedRef.current = false;
     setBusy(true);
     try {
       if (isUndoCommand(clean)) return await undoLastCommand();
 
-      const recentHistory = (await db.history.orderBy('createdAt').reverse().limit(6).toArray()).reverse() as unknown as StoredHistoryItem[];
+      const recentHistory = (await db.history.orderBy('createdAt').reverse().limit(10).toArray()).reverse() as unknown as StoredHistoryItem[];
       const response = await askAssistantWithMemory(
         clean,
         { events, reminders, sheetRows },
@@ -380,6 +396,7 @@ export default function App() {
           activeEventVenue: assistantContextEvent?.venue
         }
       );
+      setAssistantReply(response.reply);
       const visibleTotal = response.actions.filter((action) => actionMeta(action).visible).length;
       const mutates = response.actions.some(isMutatingAction);
       const undoSnapshot = mutates ? await captureUndoSnapshot() : undefined;
@@ -391,7 +408,6 @@ export default function App() {
       let completedMutations = 0;
 
       if (visibleTotal) {
-        setAssistantOpen(false);
         setEventEditorOpen(false);
         setEventHubId(null);
         setSelectedEvent(null);
@@ -408,6 +424,7 @@ export default function App() {
         const meta = actionMeta(runtimeAction);
         if (meta.visible) {
           visibleIndex += 1;
+          if (runtimeAction.type === 'create_event') setMonth(startOfMonth(parseISO(runtimeAction.date)));
           if (meta.view) setView(meta.view);
           setLiveAction({ current: visibleIndex, total: visibleTotal, title: meta.title, detail: meta.detail, status: 'working' });
           await sleep(320);
@@ -435,6 +452,8 @@ export default function App() {
             setLiveAction(null);
           }
           await db.history.add({ id: uid(), command: clean, result: failReply, actionSummary, undoSnapshot: completedMutations ? undoSnapshot : undefined, kind: 'command', createdAt: new Date().toISOString() } as any);
+          await refreshConversation();
+          setPendingCommand(null);
           return failReply;
         }
 
@@ -454,6 +473,8 @@ export default function App() {
         setAssistantReply(reply);
         setCommand('');
         await refresh();
+        await refreshConversation();
+        setPendingCommand(null);
         setLiveAction({ current: completedActions, total: Math.max(visibleTotal, completedActions || 1), title: 'Acción detenida', detail: reply, status: 'cancelled' });
         await sleep(950);
         setLiveAction(null);
@@ -464,6 +485,8 @@ export default function App() {
       setAssistantReply(response.reply);
       setCommand('');
       await refresh();
+      await refreshConversation();
+      setPendingCommand(null);
 
       if (visibleTotal) {
         setLiveAction({ current: visibleTotal, total: visibleTotal, title: 'Listo', detail: response.reply, status: 'done' });
@@ -474,11 +497,18 @@ export default function App() {
       return response.reply;
     } finally {
       cancelRequestedRef.current = false;
+      setPendingCommand(null);
       setBusy(false);
     }
   };
 
-  const { active: voiceActive, listening, toggle: startListening } = useDjNoaVoice({
+  const {
+    active: voiceActive,
+    listening,
+    manualRecording,
+    mode: voiceMode,
+    toggle: startListening
+  } = useDjNoaVoice({
     onCommand: runCommand,
     onOpen: () => setAssistantOpen(true),
     onLiveText: setCommand,
@@ -528,7 +558,23 @@ export default function App() {
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. agrega 4,500 de audio a este evento" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening} disabled={busy && !liveAction}><Mic size={22} /> {listening ? 'Escuchando...' : voiceActive ? 'Voz activa' : busy && liveAction ? 'Decir detener' : 'Decírmelo por voz'}</button></section></div>}
+      <ConversationDock
+        expanded={assistantOpen}
+        turns={conversation}
+        pendingCommand={pendingCommand}
+        reply={assistantReply}
+        command={command}
+        onCommandChange={setCommand}
+        onSend={() => void runCommand()}
+        onVoice={startListening}
+        onExpand={() => setAssistantOpen(true)}
+        onCollapse={() => setAssistantOpen(false)}
+        busy={busy}
+        listening={listening}
+        manualRecording={manualRecording}
+        voiceMode={voiceMode}
+        aiOnline={aiOnline}
+      />
 
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
 
