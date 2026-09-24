@@ -43,6 +43,7 @@ export default function App() {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const [eventCreateDate, setEventCreateDate] = useState<string | null>(null);
 
   const refresh = async () => {
     const [eventData, reminderData, sheetData] = await Promise.all([
@@ -100,8 +101,9 @@ export default function App() {
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
 
-  const openEventEditor = (event?: EventItem) => {
+  const openEventEditor = (event?: EventItem, createDate?: string) => {
     setSelectedEvent(event || null);
+    setEventCreateDate(event ? null : createDate || null);
     setEventEditorOpen(true);
   };
 
@@ -111,6 +113,7 @@ export default function App() {
     else await db.events.add({ ...draft, id: uid(), createdAt: now, updatedAt: now });
     setEventEditorOpen(false);
     setSelectedEvent(null);
+    setEventCreateDate(null);
     await refresh();
   };
 
@@ -119,6 +122,7 @@ export default function App() {
     await db.events.delete(selectedEvent.id);
     setEventEditorOpen(false);
     setSelectedEvent(null);
+    setEventCreateDate(null);
     await refresh();
   };
 
@@ -136,11 +140,11 @@ export default function App() {
       await db.reminders.update(action.reminderId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
     }
     if (action.type === 'delete_reminder') await db.reminders.delete(action.reminderId);
-    if (action.type === 'add_sheet_row') await db.sheetRows.add({ id: uid(), label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, values: action.values || {}, createdAt: now, updatedAt: now });
+    if (action.type === 'add_sheet_row') await db.sheetRows.add({ id: uid(), label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values || {}, createdAt: now, updatedAt: now });
     if (action.type === 'update_sheet_row') {
       const current = await db.sheetRows.get(action.rowId);
       if (current) {
-        const patch = { label: action.label, category: action.category, amount: action.amount, status: action.status, notes: action.notes, eventId: action.eventId, values: action.values ? { ...(current.values || {}), ...action.values } : undefined, updatedAt: now };
+        const patch = { label: action.label, category: action.category, amount: action.amount, status: action.status, notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values ? { ...(current.values || {}), ...action.values } : undefined, updatedAt: now };
         await db.sheetRows.update(action.rowId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
       }
     }
@@ -201,7 +205,7 @@ export default function App() {
       <div className="background-photo" aria-hidden="true" />
       <div className="background-shade" aria-hidden="true" />
 
-      <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div><button className="status-pill" onClick={() => setAssistantOpen(true)} title={aiOnline === true ? 'IA online' : aiOnline === false ? 'Modo local' : 'Comprobando IA'}><Sparkles size={15} /> IA</button></header>
+      <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div></header>
 
       <main className="content">
         {view === 'home' && (
@@ -218,7 +222,7 @@ export default function App() {
           </section>
         )}
         {view === 'events' && <EventsView events={events} onOpen={openEventEditor} onCreate={() => openEventEditor()} />}
-        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} onOpenEvent={openEventEditor} />}
+        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventEditor} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={() => setView('sheet')} />}
         {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
         {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
       </main>
@@ -228,7 +232,7 @@ export default function App() {
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
       {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : voiceActive ? 'Voz activa' : 'Decírmelo por voz'}</button></section></div>}
-      {eventEditorOpen && <EventEditor event={selectedEvent} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
+      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); setEventCreateDate(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
 }
