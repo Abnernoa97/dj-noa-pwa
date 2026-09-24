@@ -42,6 +42,7 @@ export interface SheetRow {
   amount: number;
   status: SheetStatus;
   eventId?: string;
+  calendarDate?: string;
   notes?: string;
   description?: string;
   values?: Record<string, SheetValue>;
@@ -84,8 +85,8 @@ export type AssistantAction =
   | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean }
   | { type: 'update_reminder'; reminderId: string; title?: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean; done?: boolean }
   | { type: 'delete_reminder'; reminderId: string }
-  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
-  | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; notes?: string; eventId?: string; values?: Record<string, SheetValue> }
+  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; notes?: string; eventId?: string; calendarDate?: string; values?: Record<string, SheetValue> }
+  | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; notes?: string; eventId?: string; calendarDate?: string; values?: Record<string, SheetValue> }
   | { type: 'delete_sheet_row'; rowId: string }
   | { type: 'add_sheet_column'; name: string; key?: string; columnType?: SheetColumn['type']; formula?: string }
   | { type: 'navigate'; view: AppView }
