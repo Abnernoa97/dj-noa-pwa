@@ -52,6 +52,14 @@ class DJNoaDB extends Dexie {
       sheetPhotos: 'id,rowId,createdAt',
       history: 'id,createdAt'
     });
+    this.version(5).stores({
+      events: 'id,date,status,updatedAt',
+      reminders: 'id,dueAt,done,eventId,priority,repeat,updatedAt,createdAt',
+      sheetRows: 'id,category,status,eventId,calendarDate,createdAt,updatedAt',
+      sheetColumns: 'id,key,position,createdAt',
+      sheetPhotos: 'id,rowId,createdAt',
+      history: 'id,createdAt'
+    });
   }
 }
 
