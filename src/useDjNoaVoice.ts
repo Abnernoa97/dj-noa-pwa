@@ -46,9 +46,12 @@ function getRecognitionCtor(): RecognitionCtor | null {
   return scope.SpeechRecognition || scope.webkitSpeechRecognition || null;
 }
 
-export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Options) {
+export function useDjNoaVoice(options: Options) {
   const [active, setActive] = useState(false);
   const [listening, setListening] = useState(false);
+
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const activeRef = useRef(false);
@@ -129,17 +132,17 @@ export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Optio
 
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
     processingRef.current = true;
-    onLiveText(text);
-    onOpen();
-    onStatus('…');
+    optionsRef.current.onLiveText(text);
+    optionsRef.current.onOpen();
+    optionsRef.current.onStatus('…');
 
-    void onCommand(text)
+    void optionsRef.current.onCommand(text)
       .then((reply) => {
         if (reply) speak(reply);
         else scheduleRestart(AFTER_SPEECH_DELAY_MS);
       })
       .catch(() => {
-        onStatus('No pude completar la orden. Inténtalo otra vez.');
+        optionsRef.current.onStatus('No pude completar la orden. Inténtalo otra vez.');
         scheduleRestart(300);
       })
       .finally(() => {
@@ -183,9 +186,9 @@ export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Optio
         .replace(/\s+/g, ' ')
         .trim();
       if (liveText) {
-        onLiveText(liveText);
-        onOpen();
-        onStatus('Te escucho…');
+        optionsRef.current.onLiveText(liveText);
+        optionsRef.current.onOpen();
+        optionsRef.current.onStatus('Te escucho…');
       }
 
       clearSilenceTimer();
@@ -208,8 +211,8 @@ export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Optio
       if (error === 'not-allowed' || error === 'service-not-allowed') {
         activeRef.current = false;
         setActive(false);
-        onOpen();
-        onStatus('Necesito permiso para usar el micrófono. Actívalo para DJ NOA y vuelve a intentarlo.');
+        optionsRef.current.onOpen();
+        optionsRef.current.onStatus('Necesito permiso para usar el micrófono. Actívalo para DJ NOA y vuelve a intentarlo.');
         return;
       }
       // no-speech / aborted / network can happen transiently on Android.
@@ -230,16 +233,16 @@ export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Optio
 
   const toggle = () => {
     const supported = Boolean(getRecognitionCtor());
-    onOpen();
+    optionsRef.current.onOpen();
     if (!supported) {
-      onStatus('Este navegador no ofrece reconocimiento de voz. Puedes escribirme el comando.');
+      optionsRef.current.onStatus('Este navegador no ofrece reconocimiento de voz. Puedes escribirme el comando.');
       return;
     }
 
     if (activeRef.current && speakingRef.current) {
       window.speechSynthesis.cancel();
       speakingRef.current = false;
-      onStatus('Te escucho.');
+      optionsRef.current.onStatus('Te escucho.');
       scheduleRestart(40);
       return;
     }
@@ -251,7 +254,7 @@ export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Optio
     if (next) {
       finalPartsRef.current = [];
       interimRef.current = '';
-      onStatus('Te escucho.');
+      optionsRef.current.onStatus('Te escucho.');
       startRecognition();
     } else {
       clearSilenceTimer();
@@ -260,7 +263,7 @@ export function useDjNoaVoice({ onCommand, onOpen, onLiveText, onStatus }: Optio
       try { recognitionRef.current?.stop(); } catch { /* noop */ }
       listeningRef.current = false;
       setListening(false);
-      onStatus('Voz pausada.');
+      optionsRef.current.onStatus('Voz pausada.');
     }
   };
 
