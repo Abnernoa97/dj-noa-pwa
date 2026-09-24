@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Bell, CalendarDays, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus, Send, Sparkles, X } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { askAssistant } from './assistant';
+import { askAssistantWithMemory, type AssistantMemoryItem } from './assistantMemory';
 import CalendarWorkspace from './CalendarWorkspace';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
 import ReminderWorkspace from './ReminderWorkspace';
@@ -22,6 +22,19 @@ type LiveActionState = {
   status: 'working' | 'done' | 'error';
 };
 
+type UndoSnapshot = {
+  events: EventItem[];
+  reminders: ReminderItem[];
+  sheetRows: SheetRow[];
+  sheetColumns: SheetColumn[];
+};
+
+type StoredHistoryItem = AssistantMemoryItem & {
+  id: string;
+  createdAt: string;
+  undoSnapshot?: UndoSnapshot;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 function safeDate(value?: string) {
@@ -38,6 +51,18 @@ function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
   const current = parseISO(dueAt);
   const next = repeat === 'daily' ? addDays(current, 1) : repeat === 'weekly' ? addWeeks(current, 1) : repeat === 'monthly' ? addMonths(current, 1) : current;
   return next.toISOString();
+}
+
+function isUndoCommand(value: string) {
+  return /^\s*(deshaz|deshacer|revierte|revertir|undo)(?:\s+(?:lo|la)?\s*[uú]ltim[oa])?[.!]?\s*$/i.test(value);
+}
+
+function isMutatingAction(action: AssistantAction) {
+  return [
+    'create_event', 'update_event', 'delete_event',
+    'create_reminder', 'update_reminder', 'delete_reminder',
+    'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column'
+  ].includes(action.type);
 }
 
 function actionMeta(action: AssistantAction): { visible: boolean; view?: AppView; title: string; detail: string } {
@@ -82,6 +107,26 @@ export default function App() {
     setEvents(eventData);
     setReminders(reminderData);
     setSheetRows(sheetData);
+  };
+
+  const captureUndoSnapshot = async (): Promise<UndoSnapshot> => {
+    const [eventData, reminderData, sheetData, columnData] = await Promise.all([
+      db.events.toArray(),
+      db.reminders.toArray(),
+      db.sheetRows.toArray(),
+      db.sheetColumns.toArray()
+    ]);
+    return { events: eventData, reminders: reminderData, sheetRows: sheetData, sheetColumns: columnData };
+  };
+
+  const restoreUndoSnapshot = async (snapshot: UndoSnapshot) => {
+    await db.transaction('rw', db.events, db.reminders, db.sheetRows, db.sheetColumns, async () => {
+      await Promise.all([db.events.clear(), db.reminders.clear(), db.sheetRows.clear(), db.sheetColumns.clear()]);
+      if (snapshot.events.length) await db.events.bulkPut(snapshot.events);
+      if (snapshot.reminders.length) await db.reminders.bulkPut(snapshot.reminders);
+      if (snapshot.sheetRows.length) await db.sheetRows.bulkPut(snapshot.sheetRows);
+      if (snapshot.sheetColumns.length) await db.sheetColumns.bulkPut(snapshot.sheetColumns);
+    });
   };
 
   useEffect(() => { void refresh(); }, []);
@@ -162,44 +207,109 @@ export default function App() {
     await refresh();
   };
 
-  const executeAction = async (action: AssistantAction) => {
+  const executeAction = async (action: AssistantAction): Promise<string | undefined> => {
     const now = new Date().toISOString();
-    if (action.type === 'create_event') await db.events.add({ id: uid(), title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now });
+
+    if (action.type === 'create_event') {
+      const id = uid();
+      await db.events.add({ id, title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now });
+      return `create_event id=${id} title="${action.title}" date=${action.date}${action.time ? ` time=${action.time}` : ''}`;
+    }
     if (action.type === 'update_event') {
+      const current = await db.events.get(action.eventId);
       const patch = { title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status, updatedAt: now };
       await db.events.update(action.eventId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
+      return `update_event id=${action.eventId} title="${action.title || current?.title || ''}"`;
     }
-    if (action.type === 'delete_event') await db.events.delete(action.eventId);
-    if (action.type === 'create_reminder') await db.reminders.add({ id: uid(), title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
+    if (action.type === 'delete_event') {
+      const current = await db.events.get(action.eventId);
+      await db.events.delete(action.eventId);
+      return `delete_event id=${action.eventId} title="${current?.title || ''}"`;
+    }
+    if (action.type === 'create_reminder') {
+      const id = uid();
+      await db.reminders.add({ id, title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
+      return `create_reminder id=${id} title="${action.title}"${action.dueAt ? ` dueAt=${action.dueAt}` : ''}${action.eventId ? ` eventId=${action.eventId}` : ''}`;
+    }
     if (action.type === 'update_reminder') {
+      const current = await db.reminders.get(action.reminderId);
       const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now };
       await db.reminders.update(action.reminderId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
+      return `update_reminder id=${action.reminderId} title="${action.title || current?.title || ''}"`;
     }
-    if (action.type === 'delete_reminder') await db.reminders.delete(action.reminderId);
-    if (action.type === 'add_sheet_row') await db.sheetRows.add({ id: uid(), label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values || {}, createdAt: now, updatedAt: now });
+    if (action.type === 'delete_reminder') {
+      const current = await db.reminders.get(action.reminderId);
+      await db.reminders.delete(action.reminderId);
+      return `delete_reminder id=${action.reminderId} title="${current?.title || ''}"`;
+    }
+    if (action.type === 'add_sheet_row') {
+      const id = uid();
+      await db.sheetRows.add({ id, label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values || {}, createdAt: now, updatedAt: now });
+      return `add_sheet_row id=${id} label="${action.label}" amount=${action.amount}${action.eventId ? ` eventId=${action.eventId}` : ''}${action.calendarDate ? ` calendarDate=${action.calendarDate}` : ''}`;
+    }
     if (action.type === 'update_sheet_row') {
       const current = await db.sheetRows.get(action.rowId);
       if (current) {
         const patch = { label: action.label, category: action.category, amount: action.amount, status: action.status, notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values ? { ...(current.values || {}), ...action.values } : undefined, updatedAt: now };
         await db.sheetRows.update(action.rowId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
       }
+      return `update_sheet_row id=${action.rowId} label="${action.label || current?.label || ''}"`;
     }
-    if (action.type === 'delete_sheet_row') await db.sheetRows.delete(action.rowId);
+    if (action.type === 'delete_sheet_row') {
+      const current = await db.sheetRows.get(action.rowId);
+      await db.sheetRows.delete(action.rowId);
+      return `delete_sheet_row id=${action.rowId} label="${current?.label || ''}"`;
+    }
     if (action.type === 'add_sheet_column') {
       const columns = await db.sheetColumns.orderBy('position').toArray();
       let key = action.key || sheetKey(action.name);
       const used = new Set(columns.map((column) => column.key));
       let suffix = 2;
       while (used.has(key)) key = `${sheetKey(action.name)}_${suffix++}`;
-      const column: SheetColumn = { id: uid(), name: action.name, key, type: action.columnType || 'text', formula: action.formula, position: columns.length, createdAt: now };
+      const id = uid();
+      const column: SheetColumn = { id, name: action.name, key, type: action.columnType || 'text', formula: action.formula, position: columns.length, createdAt: now };
       await db.sheetColumns.add(column);
+      return `add_sheet_column id=${id} name="${action.name}" key=${key}`;
     }
-    if (action.type === 'navigate') setView(action.view);
+    if (action.type === 'navigate') {
+      setView(action.view);
+      return `navigate view=${action.view}`;
+    }
     if (action.type === 'open_map') {
       const event = events.find((item) => item.id === action.eventId);
       const destination = event?.address || event?.venue;
       if (destination) window.location.assign(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`);
+      return `open_map eventId=${action.eventId}`;
     }
+    return undefined;
+  };
+
+  const undoLastCommand = async (): Promise<string> => {
+    const history = await db.history.orderBy('createdAt').reverse().toArray() as unknown as StoredHistoryItem[];
+    const target = history.find((item) => item.undoSnapshot && !item.undoneAt);
+    if (!target?.undoSnapshot) {
+      const reply = 'No tengo ningún cambio reciente que pueda deshacer.';
+      setAssistantReply(reply);
+      return reply;
+    }
+
+    setAssistantOpen(false);
+    setEventEditorOpen(false);
+    setEventHubId(null);
+    setSelectedEvent(null);
+    setLiveAction({ current: 1, total: 1, title: 'Deshaciendo lo último', detail: target.command, status: 'working' });
+    await restoreUndoSnapshot(target.undoSnapshot);
+    const now = new Date().toISOString();
+    await (db.history as any).update(target.id, { undoneAt: now });
+    const reply = `Listo. Deshice: ${target.command}.`;
+    await db.history.add({ id: uid(), command: 'Deshaz lo último', result: reply, kind: 'undo', createdAt: now } as any);
+    await refresh();
+    setAssistantReply(reply);
+    setCommand('');
+    setLiveAction({ current: 1, total: 1, title: 'Cambio deshecho', detail: target.command, status: 'done' });
+    await sleep(850);
+    setLiveAction(null);
+    return reply;
   };
 
   const runCommand = async (text = command): Promise<string | undefined> => {
@@ -207,8 +317,14 @@ export default function App() {
     if (!clean || busy) return undefined;
     setBusy(true);
     try {
-      const response = await askAssistant(clean, { events, reminders, sheetRows });
+      if (isUndoCommand(clean)) return await undoLastCommand();
+
+      const recentHistory = (await db.history.orderBy('createdAt').reverse().limit(6).toArray()).reverse() as unknown as StoredHistoryItem[];
+      const response = await askAssistantWithMemory(clean, { events, reminders, sheetRows }, recentHistory);
       const visibleTotal = response.actions.filter((action) => actionMeta(action).visible).length;
+      const mutates = response.actions.some(isMutatingAction);
+      const undoSnapshot = mutates ? await captureUndoSnapshot() : undefined;
+      const actionSummary: string[] = [];
       let visibleIndex = 0;
 
       if (visibleTotal) {
@@ -230,7 +346,8 @@ export default function App() {
         }
 
         try {
-          await executeAction(action);
+          const summary = await executeAction(action);
+          if (summary) actionSummary.push(summary);
           await refresh();
         } catch {
           const failReply = meta.title ? `No pude completar: ${meta.title.toLowerCase()}.` : 'No pude completar esa acción.';
@@ -240,7 +357,7 @@ export default function App() {
             await sleep(1400);
             setLiveAction(null);
           }
-          await db.history.add({ id: uid(), command: clean, result: failReply, createdAt: new Date().toISOString() });
+          await db.history.add({ id: uid(), command: clean, result: failReply, actionSummary, undoSnapshot, kind: 'command', createdAt: new Date().toISOString() } as any);
           return failReply;
         }
 
@@ -250,7 +367,7 @@ export default function App() {
         }
       }
 
-      await db.history.add({ id: uid(), command: clean, result: response.reply, createdAt: new Date().toISOString() });
+      await db.history.add({ id: uid(), command: clean, result: response.reply, actionSummary, undoSnapshot, kind: 'command', createdAt: new Date().toISOString() } as any);
       setAssistantReply(response.reply);
       setCommand('');
       await refresh();
@@ -317,7 +434,7 @@ export default function App() {
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening} disabled={busy}><Mic size={22} /> {listening ? 'Escuchando...' : voiceActive ? 'Voz activa' : 'Decírmelo por voz'}</button></section></div>}
+      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. cambia eso a las 7" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening} disabled={busy}><Mic size={22} /> {listening ? 'Escuchando...' : voiceActive ? 'Voz activa' : 'Decírmelo por voz'}</button></section></div>}
 
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
 
