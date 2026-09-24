@@ -9,6 +9,7 @@ import './sheet.css';
 import './reminders.css';
 import './ui-overrides.css';
 import './proportion-fix.css';
+import './live-actions.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
