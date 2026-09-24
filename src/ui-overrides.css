@@ -1,1 +1,60 @@
 .status-pill{display:none!important}
+
+/* Compact, single-screen shell */
+html,body,#root{height:100%;overflow:hidden!important;overscroll-behavior:none}
+body{position:fixed;inset:0;width:100%;}
+.app-shell{height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;padding:max(6px,env(safe-area-inset-top)) 10px calc(58px + env(safe-area-inset-bottom))!important}
+.topbar{min-height:78px!important;height:78px!important;padding-top:5px!important;align-items:flex-start!important}
+.topbar h1{font-size:38px!important;line-height:.9!important;margin:0 0 7px!important;letter-spacing:.27em!important;padding-left:.27em!important}
+.topbar-date{font-size:7px!important;letter-spacing:.17em!important}
+.content{height:calc(100dvh - 142px)!important;min-height:0!important;overflow:hidden!important}
+.page-card{height:100%!important;min-height:0!important;overflow:hidden!important;padding:10px!important;border-radius:14px!important}
+
+/* Home */
+.home-view{height:100%!important;min-height:0!important;justify-content:flex-end!important;padding:0 4px 2px!important}
+.home-view::before{top:14%!important;font-size:6px!important;letter-spacing:.2em!important}
+.home-view::after{top:19%!important;width:42px!important}
+.next-event-card{width:100%!important;max-width:none!important;min-height:86px!important;margin:0 0 5px!important;padding:10px 12px!important;border-radius:14px!important;grid-template-columns:48px 1fr!important;gap:6px 10px!important}
+.card-heading{font-size:6px!important;letter-spacing:.18em!important}
+.card-heading svg{width:13px!important;height:13px!important}
+.event-date-block{width:46px!important;height:50px!important;border-radius:11px!important}
+.event-date-block strong{font-size:22px!important}
+.event-date-block span{font-size:6px!important}
+.event-main-copy h3{font-size:13px!important;margin-bottom:3px!important}
+.event-main-copy p{font-size:8px!important;margin-bottom:5px!important}
+.direction-button,.event-detail-link{font-size:6px!important;padding:5px 8px!important}
+.empty-state{padding:3px 0!important}.empty-state p{font-size:8px!important;margin-bottom:6px!important}.empty-state button{font-size:7px!important;padding:6px 8px!important}
+
+/* Bottom controls */
+.bottom-nav{width:calc(100% - 12px)!important;grid-template-columns:repeat(5,1fr)!important;gap:4px!important;bottom:max(5px,env(safe-area-inset-bottom))!important}
+.nav-button{min-height:38px!important;padding:0 4px!important;font-size:6px!important;letter-spacing:.08em!important}
+.voice-orb{width:46px!important;height:46px!important;right:12px!important;bottom:52px!important;box-shadow:0 0 0 5px rgba(214,180,96,.02),0 10px 24px rgba(0,0,0,.3)!important}
+.voice-orb::after{font-size:10px!important}
+
+/* Calendar: fit the main view inside one screen */
+.calendar-page{gap:6px!important}
+.calendar-topline{gap:7px!important;align-items:center!important}
+.calendar-title-wrap h2{font-size:21px!important;margin-top:2px!important}
+.calendar-actions{gap:4px!important}.calendar-nav-button{width:30px!important;height:30px!important}.calendar-today-button{height:30px!important;padding:0 8px!important;font-size:6px!important}
+.calendar-view-switch{padding:2px!important;gap:3px!important}.calendar-view-switch button{padding:6px 5px!important;font-size:6px!important}
+.calendar-month-metrics{gap:4px!important}.calendar-month-metrics>div{padding:5px 6px!important}.calendar-month-metrics span{font-size:5px!important}.calendar-month-metrics strong{font-size:10px!important}
+.weekday-row{padding-bottom:4px!important;font-size:7px!important}.calendar-grid .calendar-day{min-height:44px!important;padding:3px 2px!important;gap:2px!important}.calendar-day>span{font-size:8px!important}.calendar-day.today>span{width:18px!important;height:18px!important}.calendar-event-button{font-size:5px!important;padding:2px 3px!important}.calendar-more{font-size:5px!important}
+.calendar-day-dots{gap:2px!important}.calendar-day-dot{width:3px!important;height:3px!important}
+.calendar-agenda{margin-top:0!important;padding-top:6px!important}.calendar-agenda-head{margin-bottom:4px!important}.calendar-agenda-list{gap:3px!important}.agenda-event{padding:5px 1px!important;grid-template-columns:36px 1fr auto!important}.agenda-date strong{font-size:14px!important}.agenda-date span,.agenda-copy span{font-size:6px!important}.agenda-copy strong{font-size:8px!important}
+.calendar-week{grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:3px!important;overflow:hidden!important}.week-day{min-width:0!important;min-height:118px!important;padding:5px!important;border-radius:9px!important}.week-day-head strong{font-size:16px!important}.week-day-head span,.week-event span,.week-empty{font-size:5px!important}.week-event{padding:4px!important}.week-event strong{font-size:6px!important}
+.day-date-hero{padding:2px 0 8px!important}.day-date-hero strong{font-size:40px!important}.day-event-list{gap:4px!important}.day-event{padding:7px 8px!important;grid-template-columns:40px 1fr auto!important}.day-event-time{font-size:12px!important}.day-event-copy strong{font-size:9px!important}.day-event-copy span{font-size:6px!important}
+
+/* Excel */
+.sheet-classic{height:100%!important;min-height:0!important;width:100%!important;margin:0!important;padding:7px!important}.sheet-classic-head{margin-bottom:4px!important}.sheet-classic-head h2{font-size:21px!important}.sheet-classic-actions button{width:27px!important;height:27px!important}.sheet-mini-summary{margin-bottom:4px!important}.sheet-mini-summary span{padding:3px 4px!important;font-size:5px!important}.sheet-mini-summary b{font-size:7px!important}.sheet-classic-tools{margin-bottom:4px!important}.sheet-classic-tools label,.sheet-classic-tools input,.sheet-classic-tools select{height:23px!important;font-size:5.5px!important}.excel-letters{height:15px!important}.excel-head{min-height:20px!important}.excel-body{max-height:calc(100dvh - 245px)!important;overflow-y:auto!important;scrollbar-width:none}.excel-body::-webkit-scrollbar{display:none}.excel-row{min-height:23px!important}.excel-row>span{font-size:5.2px!important}.excel-head span{font-size:4.7px!important}.sheet-table-hint{margin-top:3px!important;font-size:5.5px!important}
+
+/* Events / reminders */
+.events-page,.reminders-workspace{height:100%!important;min-height:0!important;overflow:hidden!important}
+.page-title-row,.reminder-topline{margin-bottom:8px!important}.page-title-row h2,.reminder-topline h2{font-size:22px!important}.round-plus{width:31px!important;height:31px!important}.events-section-label,.reminder-section-title{font-size:6px!important;margin:5px 0!important}.event-list,.reminder-list-editorial{gap:4px!important}.event-row,.reminder-item{min-height:44px!important;padding:6px 8px!important}.event-row-date strong{font-size:16px!important}.event-row-date span,.event-row-copy span,.reminder-main span{font-size:6px!important}.event-row-copy strong,.reminder-main strong{font-size:8px!important}.reminder-metrics{gap:4px!important;margin-bottom:6px!important}.reminder-metrics>div{padding:6px!important}.notification-permission{padding:7px 8px!important;margin-bottom:6px!important}.reminder-bottom-actions{margin-top:6px!important}
+
+/* Keep long detail/editor screens usable, without page bounce */
+.sheet-detail-page,.event-editor-backdrop,.reminder-editor-backdrop,.calendar-day-summary-backdrop{overscroll-behavior:contain!important}
+.sheet-detail-page{scrollbar-width:none}.sheet-detail-page::-webkit-scrollbar{display:none}
+
+@media(max-height:740px){
+  .topbar{min-height:68px!important;height:68px!important}.topbar h1{font-size:33px!important}.content{height:calc(100dvh - 128px)!important}.home-view::before{top:11%!important}.home-view::after{top:16%!important}.next-event-card{min-height:78px!important}.voice-orb{bottom:48px!important;width:42px!important;height:42px!important}.nav-button{min-height:35px!important}.calendar-grid .calendar-day{min-height:39px!important}.excel-body{max-height:calc(100dvh - 224px)!important}
+}
