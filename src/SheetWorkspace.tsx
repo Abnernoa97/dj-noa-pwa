@@ -5,6 +5,7 @@ import { db, uid } from './db';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
 
 type Props = {
   rows: SheetRow[];
@@ -126,6 +127,12 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
   useEffect(() => { void loadColumns(); }, []);
 
   useEffect(() => {
+    if (selectedRowId) localStorage.setItem('djnoa.activeSheetRowId', selectedRowId);
+    else localStorage.removeItem('djnoa.activeSheetRowId');
+    return () => localStorage.removeItem('djnoa.activeSheetRowId');
+  }, [selectedRowId]);
+
+  useEffect(() => {
     let disposed = false;
     const load = async () => {
       if (!selectedRowId) {
@@ -149,6 +156,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
   useEffect(() => () => { photos.forEach((photo) => URL.revokeObjectURL(photo.url)); }, [photos]);
 
   const categories = useMemo(() => [...new Set(rows.map((row) => row.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [rows]);
+  const categoryChoices = useMemo(() => [...new Set([...DEFAULT_CATEGORIES, ...categories])], [categories]);
   const filtered = useMemo(() => {
     const q = normalize(search);
     const next = rows.filter((row) => {
@@ -318,7 +326,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
 
       <div className="excel-frame">
         <div className="excel-letters"><span /><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span></div>
-        <div className="excel-head"><span>#</span><span>Concepto</span><span>Categoría</span><span>Monto</span><span>Estado</span><span>Evento</span></div>
+        <div className="excel-head"><span>#</span><span>Nombre / concepto</span><span>Categoría</span><span>Monto</span><span>Estado</span><span>Evento vinculado</span></div>
         <div className="excel-body">
           {filtered.length ? filtered.map((row, index) => {
             const event = events.find((item) => item.id === row.eventId);
@@ -326,17 +334,17 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
           }) : <div className="excel-empty">Sin filas</div>}
         </div>
       </div>
-      <p className="sheet-table-hint">Toca cualquier línea para abrir su ficha completa.</p>
+      <p className="sheet-table-hint">Nombre = texto del registro · Categoría = tipo libre · Evento = vínculo con un evento real.</p>
 
       {selectedRow && <div className="sheet-detail-page">
         <header className="sheet-detail-header"><button onClick={() => setSelectedRowId(null)} aria-label="Volver"><ArrowLeft size={21} /></button><div><span>FILA</span><strong>{selectedRow.label}</strong></div><button className="sheet-detail-delete" onClick={() => void deleteRow(selectedRow)} aria-label="Eliminar"><Trash2 size={18} /></button></header>
         <main className="sheet-detail-content">
           <section className="sheet-detail-card sheet-detail-primary">
-            <label className="sheet-wide"><span>Concepto</span><input value={selectedRow.label} onChange={(e) => void patchRow(selectedRow, { label: e.target.value })} /></label>
+            <label className="sheet-wide"><span>Nombre / concepto</span><input value={selectedRow.label} onChange={(e) => void patchRow(selectedRow, { label: e.target.value })} placeholder="Ej. Evento concretado" /></label>
             <label><span>Monto</span><input type="number" inputMode="decimal" value={selectedRow.amount} onChange={(e) => void patchRow(selectedRow, { amount: numberValue(e.target.value) })} /></label>
-            <label><span>Categoría</span><input value={selectedRow.category} onChange={(e) => void patchRow(selectedRow, { category: e.target.value })} /></label>
+            <label className="sheet-category-field"><span>Categoría / tipo</span><input value={selectedRow.category} onChange={(e) => void patchRow(selectedRow, { category: e.target.value })} placeholder="Escribe cualquier categoría" /><div className="sheet-category-presets">{categoryChoices.map((item) => <button type="button" className={normalize(selectedRow.category) === normalize(item) ? 'active' : ''} key={item} onClick={() => void patchRow(selectedRow, { category: item })}>{item}</button>)}</div></label>
             <label><span>Estado</span><select value={selectedRow.status} onChange={(e) => void patchRow(selectedRow, { status: e.target.value as SheetStatus })}><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select></label>
-            <label><span>Evento</span><select value={selectedRow.eventId || ''} onChange={(e) => void patchRow(selectedRow, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label>
+            <label><span>Evento vinculado</span><select value={selectedRow.eventId || ''} onChange={(e) => void patchRow(selectedRow, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label>
           </section>
 
           <section className="sheet-detail-card">
