@@ -4,7 +4,7 @@ import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, sta
 import { es } from 'date-fns/locale';
 import { askAssistant } from './assistant';
 import CalendarWorkspace from './CalendarWorkspace';
-import { EventEditor, EventsView, type EventDraft } from './EventWorkspace';
+import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
@@ -70,6 +70,7 @@ export default function App() {
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [eventCreateDate, setEventCreateDate] = useState<string | null>(null);
+  const [eventHubId, setEventHubId] = useState<string | null>(null);
   const [liveAction, setLiveAction] = useState<LiveActionState | null>(null);
 
   const refresh = async () => {
@@ -127,6 +128,13 @@ export default function App() {
   const openReminders = reminders.filter((item) => !item.done).length;
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
+  const hubEvent = eventHubId ? events.find((item) => item.id === eventHubId) || null : null;
+
+  const openEventHub = (event: EventItem) => {
+    setEventHubId(event.id);
+    setEventEditorOpen(false);
+    setSelectedEvent(null);
+  };
 
   const openEventEditor = (event?: EventItem, createDate?: string) => {
     setSelectedEvent(event || null);
@@ -147,6 +155,7 @@ export default function App() {
   const deleteEvent = async () => {
     if (!selectedEvent) return;
     await db.events.delete(selectedEvent.id);
+    if (eventHubId === selectedEvent.id) setEventHubId(null);
     setEventEditorOpen(false);
     setSelectedEvent(null);
     setEventCreateDate(null);
@@ -205,6 +214,7 @@ export default function App() {
       if (visibleTotal) {
         setAssistantOpen(false);
         setEventEditorOpen(false);
+        setEventHubId(null);
         setSelectedEvent(null);
         setEventCreateDate(null);
         setCommand('');
@@ -287,7 +297,7 @@ export default function App() {
             <div className="home-summary"><div><span>HOY</span><strong>{todayEventCount ? `${todayEventCount} evento${todayEventCount > 1 ? 's' : ''}` : 'Sin eventos hoy'}</strong></div><button onClick={startListening}><Mic size={18} /> Hablar con DJ NOA</button></div>
             <article className="glass-card next-event-card">
               <div className="card-heading"><span>PRÓXIMO EVENTO</span><CalendarDays size={19} /></div>
-              {upcoming ? <><div className="event-date-block"><strong>{format(parseISO(upcoming.date), 'dd')}</strong><span>{format(parseISO(upcoming.date), 'MMM', { locale: es }).toUpperCase()}</span></div><div className="event-main-copy"><h3>{upcoming.title}</h3><p>{upcoming.time || 'Horario pendiente'}{upcoming.venue ? ` · ${upcoming.venue}` : ''}</p><div className="event-home-actions">{(upcoming.address || upcoming.venue) && <a className="direction-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(upcoming.address || upcoming.venue || '')}`} target="_blank" rel="noreferrer"><Navigation size={16} /> Cómo llegar</a>}<button className="event-detail-link" onClick={() => openEventEditor(upcoming)}>Detalles</button></div></div></> : <div className="empty-state"><p>No hay eventos próximos.</p><button onClick={() => openEventEditor()}><Plus size={16} /> Crear evento</button></div>}
+              {upcoming ? <><div className="event-date-block"><strong>{format(parseISO(upcoming.date), 'dd')}</strong><span>{format(parseISO(upcoming.date), 'MMM', { locale: es }).toUpperCase()}</span></div><div className="event-main-copy"><h3>{upcoming.title}</h3><p>{upcoming.time || 'Horario pendiente'}{upcoming.venue ? ` · ${upcoming.venue}` : ''}</p><div className="event-home-actions">{(upcoming.address || upcoming.venue) && <a className="direction-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(upcoming.address || upcoming.venue || '')}`} target="_blank" rel="noreferrer"><Navigation size={16} /> Cómo llegar</a>}<button className="event-detail-link" onClick={() => openEventHub(upcoming)}>Detalles</button></div></div></> : <div className="empty-state"><p>No hay eventos próximos.</p><button onClick={() => openEventEditor()}><Plus size={16} /> Crear evento</button></div>}
             </article>
             <div className="section-label-row"><span>ACCESOS RÁPIDOS</span></div>
             <div className="quick-grid"><button className="glass-card quick-card" onClick={() => setView('events')}><div className="quick-icon"><MapPin size={21} /></div><div><span>Eventos</span><strong>{events.length} registrados</strong></div></button><button className="glass-card quick-card" onClick={() => setView('calendar')}><div className="quick-icon"><CalendarDays size={21} /></div><div><span>Calendario</span><strong>{events.length} eventos</strong></div></button><button className="glass-card quick-card" onClick={() => setView('sheet')}><div className="quick-icon"><FileSpreadsheet size={21} /></div><div><span>Excel</span><strong>{money.format(total)}</strong></div></button><button className="glass-card quick-card" onClick={() => setView('reminders')}><div className="quick-icon"><Bell size={21} /></div><div><span>Recordatorios</span><strong>{openReminders} pendientes</strong></div></button></div>
@@ -295,8 +305,8 @@ export default function App() {
             <div className="focus-list">{focusReminders.length ? focusReminders.map((item) => <button key={item.id} className="focus-row" onClick={() => void toggleReminder(item)}><span className="focus-check" /><div><strong>{item.title}</strong><small>{item.dueAt ? format(parseISO(item.dueAt), "d MMM · HH:mm", { locale: es }) : 'Sin fecha'}</small></div></button>) : <div className="focus-empty">Nada pendiente por ahora.</div>}</div>
           </section>
         )}
-        {view === 'events' && <EventsView events={events} onOpen={openEventEditor} onCreate={() => openEventEditor()} />}
-        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventEditor} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={() => setView('sheet')} />}
+        {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} />}
+        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={() => setView('sheet')} />}
         {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
         {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
       </main>
@@ -308,6 +318,9 @@ export default function App() {
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
       {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening} disabled={busy}><Mic size={22} /> {listening ? 'Escuchando...' : voiceActive ? 'Voz activa' : 'Decírmelo por voz'}</button></section></div>}
+
+      {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
+
       {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); setEventCreateDate(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
