@@ -13,6 +13,15 @@ export interface EventItem {
   updatedAt: string;
 }
 
+export interface EventPhoto {
+  id: string;
+  eventId: string;
+  name: string;
+  type: string;
+  blob: Blob;
+  createdAt: string;
+}
+
 export type ReminderPriority = 'low' | 'normal' | 'high';
 export type ReminderRepeat = 'none' | 'daily' | 'weekly' | 'monthly';
 
