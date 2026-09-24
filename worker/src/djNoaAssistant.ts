@@ -113,10 +113,11 @@ function actionIsSafe(action: unknown, body: RequestBody) {
 
 function looksComplex(text: string) {
   const normalized = text.toLowerCase();
-  const correction = /\b(no|mejor|perd[oó]n|corrijo|m[aá]s bien|bueno|espera)\b/.test(normalized);
+  const correction = /\b(no|mejor|perd[oó]n|corrijo|corrige|m[aá]s bien|bueno|espera)\b/.test(normalized);
   const chained = (normalized.match(/\b(crea|crear|agenda|agrega|a[nñ]ade|recu[eé]rdame|cambia|mueve|edita|modifica|actualiza|borra|elimina|abre|ll[eé]vame)\b/g) || []).length >= 2;
-  const references = /\b(eso|ese|esa|lo|la|ah[ií]|aqu[ií]|este|esta|el mismo|la misma|ese evento|esa tarea)\b/.test(normalized);
-  return correction || chained || references || text.length > 130;
+  const references = /\b(eso|ese|esa|lo|la|ah[ií]|aqu[ií]|este|esta|el mismo|la misma|ese evento|esa tarea|esa parte|lo anterior|de antes)\b/.test(normalized);
+  const recurrence = /\b(todos|cada|fines? de semana|viernes|s[aá]bados?|semanal|quincenal|durante todo)\b/.test(normalized);
+  return correction || chained || references || recurrence || text.length > 130;
 }
 
 function isDeleteAction(action: unknown) {
@@ -224,9 +225,16 @@ NAVEGACIÓN
 {"type":"none"}
 
 REGLAS DE INTERPRETACIÓN:
+- TODO el historial recibido pertenece a UNA MISMA CONVERSACIÓN continua. No trates un nuevo turno como conversación nueva salvo que el usuario cambie de tema de forma explícita.
+- Frases como “corrige esta parte”, “no, mejor…”, “eso no”, “lo anterior”, “ahora agrégale…”, “cambia solo…”, “faltó…” o “continúa” SIEMPRE deben resolverse contra los turnos anteriores, los IDs del contexto interno y el estado actual de la app.
+- Si el turno anterior ejecutó solo parte de un plan largo, el siguiente turno puede corregir o completar ESE MISMO PLAN. No dupliques lo que ya existe; usa los objetos ya creados en EVENTOS/RECORDATORIOS/EXCEL y sus IDs.
+- Los bloques [CONTEXTO INTERNO DE CONTINUIDAD: ...] contienen acciones realmente ejecutadas. Úsalos para saber qué se creó, actualizó o borró; nunca los repitas al usuario.
 - Escucha el mensaje completo como una sola intención. El usuario puede pensar en voz alta, dudar y corregirse antes de terminar.
 - Si el usuario dice valores distintos y luego se corrige con frases como “no”, “mejor”, “perdón”, “más bien”, “bueno” o “corrijo”, SIEMPRE manda la última decisión explícita. Ejemplo: “el 18... no, mejor el 20 de octubre” significa 20 de octubre, no 18.
 - Ignora muletillas, repeticiones y fragmentos abandonados. No conviertas cada fragmento hablado en una acción distinta.
+- RECURRENCIAS DE CALENDARIO: cuando el usuario pide fechas concretas repetidas, por ejemplo “todos los viernes y sábados de junio de 2027”, expande el patrón a fechas reales y devuelve una acción create_event por cada fecha correspondiente. No inventes una acción de recurrencia que no existe. Puedes devolver hasta 30 acciones en un solo plan.
+- Si el usuario combina una fecha aislada y una serie (“24 de mayo y todos los viernes y sábados de junio”), incluye ambas partes del plan en orden cronológico cuando los datos estén claros.
+- Si una parte económica de un plan con MUCHOS eventos no deja claro si el monto aplica una sola vez o a cada fecha, NO adivines: ejecuta solo lo inequívoco y pregunta esa precisión manteniendo el mismo hilo para el siguiente turno.
 - El contexto de pantalla es información real de la app. Si hay un EVENTO ABIERTO EN PANTALLA y el usuario dice “este evento”, “a este”, “aquí”, “esto”, “agrégale”, “ponle” o una referencia equivalente relacionada con eventos, tareas o gastos, usa ese eventId exacto. No preguntes qué evento es si la referencia encaja claramente con el evento abierto.
 - Si el usuario está dentro del evento abierto y pide “agrega 4500 de audio”, crea la fila de Excel con eventId igual al evento abierto y calendarDate igual a su fecha, salvo que el usuario indique otra fecha o diga explícitamente que no pertenece al evento.
 - Si dentro del evento abierto pide un recordatorio o tarea y no nombra otro evento, asócialo al eventId abierto. La fecha/hora del recordatorio debe salir de lo que diga el usuario; no inventes una hora.
@@ -238,10 +246,10 @@ REGLAS DE INTERPRETACIÓN:
 - ENCADENAMIENTO: si una misma orden crea EXACTAMENTE UN evento nuevo y además incluye tareas/recordatorios o gastos claramente relacionados con ese evento, usa eventRef:"created_event" en esas acciones relacionadas. Nunca inventes un eventId para un evento que todavía no existe.
 - Para un gasto relacionado con el evento recién creado, usa eventRef:"created_event" y también calendarDate con la fecha del evento, salvo que el usuario indique otra fecha.
 - Para un recordatorio relacionado con el evento recién creado, usa eventRef:"created_event". Si el recordatorio es relativo al evento, calcula dueAt a partir de la fecha indicada, pero no inventes una hora que el usuario no dijo.
-- Si la misma orden crea más de un evento, NO uses eventRef:"created_event". Si no queda inequívocamente claro a cuál pertenece una tarea o gasto, pregunta antes y usa none.
+- Si la misma orden crea más de un evento, NO uses eventRef:"created_event". Si no queda inequívocamente claro a cuál pertenece una tarea o gasto, pregunta antes y usa none para esa parte ambigua.
 - Para modificar, borrar o abrir algo existente, usa SIEMPRE el ID exacto presente en el contexto. Nunca inventes IDs.
-- Si hay dos candidatos posibles o no está claro cuál es, pregunta antes y usa none.
-- Si falta un dato imprescindible para ejecutar con seguridad (por ejemplo la fecha de un evento nuevo), pregunta antes y usa none. No adivines.
+- Si hay dos candidatos posibles o no está claro cuál es, pregunta antes y usa none para esa parte. Conserva y ejecuta las partes claras del plan cuando sea seguro hacerlo.
+- Si falta un dato imprescindible para ejecutar con seguridad (por ejemplo la fecha de un evento nuevo), pregunta antes y usa none para esa parte. No adivines.
 - Para preguntas como “qué tengo hoy”, “cuál es mi próximo evento”, “cuánto tengo pendiente” o “qué tareas tengo”, responde usando el contexto y usa none o query_total.
 - BORRADOS: nunca ejecutes un delete_event, delete_reminder o delete_sheet_row en la primera petición de borrado. Primero pregunta confirmación con actions:[{"type":"none"}]. Solo devuelve el delete exacto después de que el usuario confirme claramente en el siguiente turno, o si en el mismo mensaje dice de forma inequívoca que está seguro/que confirma la eliminación.
 - Si acabas de preguntar una confirmación de borrado y el usuario responde “sí”, “confirmo”, “adelante”, “hazlo” o equivalente, usa el contexto y el historial para ejecutar exactamente el borrado pendiente; no le pidas que repita el nombre.
@@ -254,10 +262,10 @@ REGLAS DE INTERPRETACIÓN:
 function conversationMessages(body: RequestBody, text: string) {
   const history = Array.isArray(body.history)
     ? body.history
-        .slice(-8)
+        .slice(-20)
         .map((item) => ({
           role: item?.role === 'assistant' ? 'assistant' : 'user',
-          content: String(item?.content || '').slice(0, 320)
+          content: String(item?.content || '').slice(0, 1500)
         }))
         .filter((item) => item.content.trim())
     : [];
@@ -275,7 +283,7 @@ async function runFast(env: DjNoaAiEnv, messages: Array<{ role: string; content:
     {
       messages,
       temperature: 0,
-      max_tokens: 520
+      max_tokens: 900
     },
     { rejectIfBusy: false }
   );
@@ -290,7 +298,7 @@ async function runReliable(env: DjNoaAiEnv, messages: Array<{ role: string; cont
       messages,
       response_format: { type: 'json_object' },
       temperature: 0,
-      max_completion_tokens: 800,
+      max_completion_tokens: 2000,
       chat_template_kwargs: { enable_thinking: false }
     },
     { rejectIfBusy: false }
@@ -349,11 +357,11 @@ export async function handleDjNoaAssistant(request: Request, env: DjNoaAiEnv): P
       });
     }
 
-    const actions = parsed.actions.filter((action) => actionIsSafe(action, body)).slice(0, 10);
+    const actions = parsed.actions.filter((action) => actionIsSafe(action, body)).slice(0, 30);
     const safeActions = actions.length ? actions : [{ type: 'none' }];
 
     return json({
-      reply: parsed.reply.slice(0, 500),
+      reply: parsed.reply.slice(0, 700),
       actions: safeActions
     });
   } catch (error) {
