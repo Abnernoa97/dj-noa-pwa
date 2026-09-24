@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie';
-import type { EventItem, HistoryItem, ReminderItem, SheetColumn, SheetRow } from './types';
+import type { EventItem, HistoryItem, ReminderItem, SheetColumn, SheetPhoto, SheetRow } from './types';
 
 class DJNoaDB extends Dexie {
   events!: Table<EventItem, string>;
   reminders!: Table<ReminderItem, string>;
   sheetRows!: Table<SheetRow, string>;
   sheetColumns!: Table<SheetColumn, string>;
+  sheetPhotos!: Table<SheetPhoto, string>;
   history!: Table<HistoryItem, string>;
 
   constructor() {
@@ -42,6 +43,14 @@ class DJNoaDB extends Dexie {
         notificationEnabled: item.notificationEnabled ?? true,
         updatedAt: item.updatedAt || now
       })));
+    });
+    this.version(4).stores({
+      events: 'id,date,status,updatedAt',
+      reminders: 'id,dueAt,done,eventId,priority,repeat,updatedAt,createdAt',
+      sheetRows: 'id,category,status,eventId,createdAt,updatedAt',
+      sheetColumns: 'id,key,position,createdAt',
+      sheetPhotos: 'id,rowId,createdAt',
+      history: 'id,createdAt'
     });
   }
 }
