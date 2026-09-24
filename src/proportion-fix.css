@@ -1,0 +1,67 @@
+/* Final proportional layout pass — keep the app viewport-fitted without making the UI feel tiny. */
+
+/* HOME: less dead space, clearer visual rhythm */
+.topbar{height:84px!important;min-height:84px!important;padding-top:7px!important}
+.topbar h1{font-size:40px!important;line-height:.92!important;letter-spacing:.27em!important;margin-bottom:7px!important}
+.topbar-date{font-size:7px!important;letter-spacing:.18em!important}
+.content{height:calc(100dvh - 145px)!important}
+
+.home-view{position:relative!important;height:100%!important;min-height:0!important;padding:0 4px!important;justify-content:initial!important}
+.home-view::before{content:"EVENTOS   •   CALENDARIO   •   EXCEL   •   TAREAS"!important;top:17%!important;font-size:6.3px!important;letter-spacing:.18em!important;color:rgba(232,216,173,.58)!important}
+.home-view::after{top:22%!important;width:46px!important}
+
+.next-event-card{position:absolute!important;left:50%!important;bottom:clamp(145px,20dvh,285px)!important;transform:translateX(-50%)!important;width:min(calc(100% - 14px),560px)!important;min-height:98px!important;margin:0!important;padding:11px 13px!important;border-radius:16px!important;grid-template-columns:52px 1fr!important;gap:7px 11px!important}
+.card-heading{font-size:6.4px!important;letter-spacing:.18em!important}
+.card-heading svg{width:14px!important;height:14px!important}
+.event-date-block{width:50px!important;height:56px!important;border-radius:12px!important}
+.event-date-block strong{font-size:24px!important}
+.event-date-block span{font-size:6.2px!important}
+.event-main-copy h3{font-size:14px!important;margin-bottom:3px!important}
+.event-main-copy p{font-size:8.2px!important;margin-bottom:6px!important}
+.direction-button,.event-detail-link{font-size:6.2px!important;padding:6px 9px!important}
+
+/* Bottom controls stay compact, but not miniature */
+.bottom-nav{width:calc(100% - 16px)!important;gap:5px!important;bottom:max(6px,env(safe-area-inset-bottom))!important}
+.nav-button{min-height:41px!important;font-size:6.3px!important;letter-spacing:.085em!important;padding:0 5px!important}
+.voice-orb{width:48px!important;height:48px!important;right:13px!important;bottom:56px!important}
+.voice-orb::after{font-size:11px!important}
+
+/* Main workspaces: occupy the viewport cleanly */
+.page-card{height:100%!important;min-height:0!important;overflow:hidden!important}
+.calendar-page,.events-page,.reminders-workspace,.sheet-classic{height:100%!important;min-height:0!important}
+
+/* Calendar: compact, but readable */
+.calendar-page{gap:7px!important}
+.calendar-title-wrap h2{font-size:22px!important}
+.calendar-nav-button{width:31px!important;height:31px!important}
+.calendar-today-button{height:31px!important}
+.calendar-view-switch button{padding:6px 6px!important;font-size:6.2px!important}
+.calendar-month-metrics>div{padding:6px!important}
+.calendar-month-metrics strong{font-size:10.5px!important}
+.calendar-grid .calendar-day{min-height:42px!important}
+
+/* Excel classic table stays inside the viewport; only the table body scrolls when rows exceed the physical screen. */
+.sheet-classic{padding:7px!important}
+.excel-body{max-height:calc(100dvh - 250px)!important;overflow-y:auto!important;scrollbar-width:none}
+.excel-body::-webkit-scrollbar{display:none}
+
+/* Long detail pages may scroll internally; the app shell itself never scrolls. */
+.sheet-detail-page,.event-editor,.reminder-editor,.calendar-day-summary{overscroll-behavior:contain}
+
+@media(max-height:780px){
+  .topbar{height:74px!important;min-height:74px!important}
+  .topbar h1{font-size:35px!important}
+  .content{height:calc(100dvh - 132px)!important}
+  .home-view::before{top:14%!important}
+  .home-view::after{top:19%!important}
+  .next-event-card{bottom:clamp(118px,17dvh,185px)!important;min-height:88px!important}
+  .nav-button{min-height:38px!important}
+  .voice-orb{width:44px!important;height:44px!important;bottom:51px!important}
+}
+
+@media(min-width:700px){
+  .topbar{height:92px!important;min-height:92px!important}
+  .topbar h1{font-size:48px!important}
+  .content{height:calc(100dvh - 158px)!important}
+  .next-event-card{bottom:clamp(160px,19dvh,300px)!important}
+}
