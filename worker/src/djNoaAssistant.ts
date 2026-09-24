@@ -115,6 +115,62 @@ function looksComplex(text: string) {
   return correction || chained || references || text.length > 130;
 }
 
+function isDeleteAction(action: unknown) {
+  if (!action || typeof action !== 'object') return false;
+  const type = String((action as Record<string, unknown>).type || '');
+  return type === 'delete_event' || type === 'delete_reminder' || type === 'delete_sheet_row';
+}
+
+function lastAssistantHistory(body: RequestBody) {
+  const history = Array.isArray(body.history) ? body.history : [];
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const item = history[index];
+    if (item?.role === 'assistant' && String(item.content || '').trim()) return String(item.content || '');
+  }
+  return '';
+}
+
+function deleteIsConfirmed(text: string, body: RequestBody) {
+  const normalized = text.toLowerCase().trim();
+  const explicitSameTurn = /\b(estoy segur[oa]|confirmo(?:\s+la\s+eliminaci[oó]n)?|s[ií],?\s*(?:b[oó]rralo|elim[ií]nalo|hazlo)|elim[ií]nalo definitivamente|b[oó]rralo definitivamente)\b/i.test(normalized);
+  if (explicitSameTurn) return true;
+
+  const previousAssistant = lastAssistantHistory(body);
+  const askedForConfirmation = /\b(confirmas|confirmar|est[aá]s segur[oa]|seguro que quieres|quieres eliminar|quieres borrar)\b/i.test(previousAssistant);
+  const shortConfirmation = /^\s*(s[ií]|confirmo|adelante|hazlo|de acuerdo|ok(?:ay)?|correcto|confirmado)(?:[,.!\s].*)?$/i.test(text);
+  return askedForConfirmation && shortConfirmation;
+}
+
+function findById(items: Record<string, unknown>[] | undefined, id: string) {
+  return (items || []).find((item) => String(item.id || '') === id);
+}
+
+function destructiveLabel(action: unknown, body: RequestBody) {
+  const value = action as Record<string, unknown>;
+  const type = String(value.type || '');
+  if (type === 'delete_event') {
+    const event = findById(body.context?.events, String(value.eventId || ''));
+    return `el evento “${String(event?.title || 'seleccionado')}”`;
+  }
+  if (type === 'delete_reminder') {
+    const reminder = findById(body.context?.reminders, String(value.reminderId || ''));
+    return `la tarea “${String(reminder?.title || 'seleccionada')}”`;
+  }
+  if (type === 'delete_sheet_row') {
+    const row = findById(body.context?.sheetRows, String(value.rowId || ''));
+    return `la fila de Excel “${String(row?.label || 'seleccionada')}”`;
+  }
+  return 'ese elemento';
+}
+
+function destructiveConfirmationMessage(actions: unknown[], body: RequestBody) {
+  const labels = actions.map((action) => destructiveLabel(action, body));
+  if (labels.length === 1) return `Voy a eliminar ${labels[0]}. ¿Confirmas?`;
+  const visible = labels.slice(0, 3).join(', ');
+  const extra = labels.length > 3 ? ` y ${labels.length - 3} más` : '';
+  return `Voy a eliminar ${visible}${extra}. ¿Confirmas?`;
+}
+
 function systemPrompt(body: RequestBody) {
   const context = body.context || {};
   const ui = body.uiContext || {};
@@ -181,7 +237,9 @@ REGLAS DE INTERPRETACIÓN:
 - Si hay dos candidatos posibles o no está claro cuál es, pregunta antes y usa none.
 - Si falta un dato imprescindible para ejecutar con seguridad (por ejemplo la fecha de un evento nuevo), pregunta antes y usa none. No adivines.
 - Para preguntas como “qué tengo hoy”, “cuál es mi próximo evento”, “cuánto tengo pendiente” o “qué tareas tengo”, responde usando el contexto y usa none o query_total.
-- Solo borra cuando el usuario lo pida claramente. No conviertas “quítalo de la vista”, “ocúltalo” o frases dudosas en borrado.
+- BORRADOS: nunca ejecutes un delete_event, delete_reminder o delete_sheet_row en la primera petición de borrado. Primero pregunta confirmación con actions:[{"type":"none"}]. Solo devuelve el delete exacto después de que el usuario confirme claramente en el siguiente turno, o si en el mismo mensaje dice de forma inequívoca que está seguro/que confirma la eliminación.
+- Si acabas de preguntar una confirmación de borrado y el usuario responde “sí”, “confirmo”, “adelante”, “hazlo” o equivalente, usa el contexto y el historial para ejecutar exactamente el borrado pendiente; no le pidas que repita el nombre.
+- No conviertas “quítalo de la vista”, “ocúltalo” o frases dudosas en borrado.
 - No afirmes que un cambio ya ocurrió antes de devolver la acción correspondiente.
 - No incluyas explicaciones técnicas.
 - Máximo 2 frases en reply.`;
@@ -275,6 +333,14 @@ export async function handleDjNoaAssistant(request: Request, env: DjNoaAiEnv): P
     const parsed = await runAssistant(env, body, text);
     if (!parsed) {
       return json({ reply: 'Entendí parte de la orden, pero prefiero que me la repitas para no hacer algo incorrecto.', actions: [{ type: 'none' }] });
+    }
+
+    const destructiveActions = parsed.actions.filter(isDeleteAction);
+    if (destructiveActions.length && !deleteIsConfirmed(text, body)) {
+      return json({
+        reply: destructiveConfirmationMessage(destructiveActions, body),
+        actions: [{ type: 'none' }]
+      });
     }
 
     const actions = parsed.actions.filter((action) => actionIsSafe(action, body)).slice(0, 10);
