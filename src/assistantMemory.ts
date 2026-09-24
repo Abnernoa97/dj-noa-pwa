@@ -1,5 +1,6 @@
 import { askAssistant } from './assistant';
 import { previewAssistantResponse } from './AssistantPlanPreview';
+import { db } from './db';
 import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
 
 export type AssistantMemoryItem = {
@@ -47,6 +48,12 @@ export async function askAssistantWithMemory(
 
   if (workerUrl && navigator.onLine) {
     try {
+      const sheetColumns = await db.sheetColumns.orderBy('position').toArray();
+      const activeSheetRowId = localStorage.getItem('djnoa.activeSheetRowId') || undefined;
+      const activeSheetRow = activeSheetRowId
+        ? context.sheetRows.find((row) => row.id === activeSheetRowId)
+        : undefined;
+
       const response = await fetch(`${workerUrl.replace(/\/$/, '')}/api/assistant`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -56,11 +63,20 @@ export async function askAssistantWithMemory(
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Mexico_City',
           locale: 'es-MX',
           history: toConversationHistory(recentHistory),
-          uiContext,
+          uiContext: {
+            ...uiContext,
+            activeSheetRowId: activeSheetRow?.id,
+            activeSheetRowLabel: activeSheetRow?.label,
+            activeSheetRowCategory: activeSheetRow?.category,
+            activeSheetRowAmount: activeSheetRow?.amount,
+            activeSheetRowStatus: activeSheetRow?.status,
+            activeSheetRowEventId: activeSheetRow?.eventId
+          },
           context: {
             events: context.events.slice(0, 80),
             reminders: context.reminders.slice(0, 80),
-            sheetRows: context.sheetRows.slice(0, 180)
+            sheetRows: context.sheetRows.slice(0, 180),
+            sheetColumns: sheetColumns.slice(0, 40)
           }
         })
       });
