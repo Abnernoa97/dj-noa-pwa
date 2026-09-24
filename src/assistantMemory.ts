@@ -25,16 +25,16 @@ type Context = {
 };
 
 function toConversationHistory(items: AssistantMemoryItem[]) {
-  return items.slice(-6).flatMap((item) => {
+  return items.slice(-10).flatMap((item) => {
     const internal = item.actionSummary?.length
       ? `\n[CONTEXTO INTERNO DE CONTINUIDAD: ${item.actionSummary.join(' | ')}]`
       : '';
     const undone = item.undoneAt ? '\n[CONTEXTO INTERNO: esta acción fue deshecha y ya no debe tratarse como activa.]' : '';
     return [
-      { role: 'user', content: item.command.slice(0, 500) },
-      { role: 'assistant', content: `${item.result}${internal}${undone}`.slice(0, 900) }
+      { role: 'user', content: item.command.slice(0, 1200) },
+      { role: 'assistant', content: `${item.result}${internal}${undone}`.slice(0, 1800) }
     ];
-  }).slice(-10);
+  }).slice(-20);
 }
 
 export async function askAssistantWithMemory(
@@ -58,9 +58,9 @@ export async function askAssistantWithMemory(
           history: toConversationHistory(recentHistory),
           uiContext,
           context: {
-            events: context.events.slice(0, 40),
-            reminders: context.reminders.slice(0, 40),
-            sheetRows: context.sheetRows.slice(0, 100)
+            events: context.events.slice(0, 80),
+            reminders: context.reminders.slice(0, 80),
+            sheetRows: context.sheetRows.slice(0, 180)
           }
         })
       });
