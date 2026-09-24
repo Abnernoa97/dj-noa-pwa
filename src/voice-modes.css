@@ -1,1 +1,6 @@
 .voice-orb.listening::after{content:"";width:16px;height:16px;border-radius:4px;background:#e3c77f;box-shadow:0 0 0 6px rgba(227,199,127,.07)}.voice-orb.listening{animation:voiceRecordingPulse 1.35s ease-in-out infinite;border-color:rgba(227,199,127,.62)}@keyframes voiceRecordingPulse{50%{transform:scale(1.035);box-shadow:0 0 0 14px rgba(214,180,96,.045),0 18px 38px rgba(0,0,0,.35)}}.speak-large:has(svg){transition:border-color .18s ease,background .18s ease}.voice-orb:disabled{opacity:.62}
+
+/* When a voice session is actively recording, make the existing manual control
+   unmistakably behave like ChatGPT's stop/send button. The same button ends
+   capture and sends the complete recording to DJ NOA. */
+.app-shell:has(.voice-orb.listening) .speak-large{position:relative;font-size:0;border-color:rgba(227,199,127,.45);background:rgba(214,180,96,.1);min-height:54px;color:#eadbb4}.app-shell:has(.voice-orb.listening) .speak-large svg{display:none}.app-shell:has(.voice-orb.listening) .speak-large::after{content:"■   TERMINAR Y ENVIAR";font-size:10px;letter-spacing:.13em;font-weight:800;color:#eadbb4}.app-shell:has(.voice-orb.listening) .assistant-reply{border-color:rgba(217,190,123,.18);background:rgba(214,180,96,.055)}
