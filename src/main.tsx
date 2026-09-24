@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
+import AssistantPlanPreview from './AssistantPlanPreview';
 import './styles.css';
 import './events.css';
 import './event-hub.css';
@@ -11,6 +12,7 @@ import './reminders.css';
 import './ui-overrides.css';
 import './proportion-fix.css';
 import './live-actions.css';
+import './assistant-plan.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
@@ -37,5 +39,6 @@ updateSW = registerSW({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <AssistantPlanPreview />
   </React.StrictMode>
 );
