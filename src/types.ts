@@ -33,7 +33,7 @@ export interface ReminderItem {
 }
 
 export type SheetStatus = 'pending' | 'paid' | 'info';
-export type SheetValue = string | number | boolean | null;
+export type SheetValue = string | number | boolean | null | { [key: string]: SheetValue };
 
 export interface SheetRow {
   id: string;
