@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Bell, CalendarDays, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus, Send, Sparkles, X } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -9,6 +9,7 @@ import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
 import { scheduleReminderNotifications } from './reminderNotifications';
+import { useDjNoaVoice } from './useDjNoaVoice';
 import type { AppView, AssistantAction, EventItem, ReminderItem, SheetColumn, SheetRow } from './types';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
@@ -37,13 +38,11 @@ export default function App() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [command, setCommand] = useState('');
   const [assistantReply, setAssistantReply] = useState('Dime qué necesitas y lo hago.');
-  const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [aiOnline, setAiOnline] = useState<boolean | null>(null);
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const refresh = async () => {
     const [eventData, reminderData, sheetData] = await Promise.all([
@@ -100,16 +99,6 @@ export default function App() {
   const openReminders = reminders.filter((item) => !item.done).length;
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
-
-  const speakReply = (text: string) => {
-    if (!('speechSynthesis' in window) || !text.trim()) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-MX';
-    utterance.rate = 0.98;
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
-  };
 
   const openEventEditor = (event?: EventItem) => {
     setSelectedEvent(event || null);
@@ -173,9 +162,9 @@ export default function App() {
     }
   };
 
-  const runCommand = async (text = command, speak = false) => {
+  const runCommand = async (text = command): Promise<string | undefined> => {
     const clean = text.trim();
-    if (!clean || busy) return;
+    if (!clean || busy) return undefined;
     setBusy(true);
     try {
       const response = await askAssistant(clean, { events, reminders, sheetRows });
@@ -183,41 +172,19 @@ export default function App() {
       await db.history.add({ id: uid(), command: clean, result: response.reply, createdAt: new Date().toISOString() });
       setAssistantReply(response.reply);
       setCommand('');
-      if (speak) speakReply(response.reply);
       await refresh();
+      return response.reply;
     } finally {
       setBusy(false);
     }
   };
 
-  const startListening = () => {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) {
-      setAssistantReply('Este navegador no permite reconocimiento de voz. Puedes escribir el comando.');
-      setAssistantOpen(true);
-      return;
-    }
-    window.speechSynthesis?.cancel();
-    const recognition = new Recognition();
-    recognition.lang = 'es-MX';
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setCommand(transcript);
-      setAssistantOpen(true);
-      void runCommand(transcript, true);
-    };
-    recognition.onerror = () => {
-      setListening(false);
-      setAssistantReply('No pude escuchar bien. Inténtalo otra vez.');
-      setAssistantOpen(true);
-    };
-    recognition.onend = () => setListening(false);
-    recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
-  };
+  const { active: voiceActive, listening, toggle: startListening } = useDjNoaVoice({
+    onCommand: runCommand,
+    onOpen: () => setAssistantOpen(true),
+    onLiveText: setCommand,
+    onStatus: setAssistantReply
+  });
 
   const toggleReminder = async (item: ReminderItem) => {
     const now = new Date().toISOString();
@@ -256,11 +223,11 @@ export default function App() {
         {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
       </main>
 
-      <button className={`voice-orb ${listening ? 'listening' : ''}`} onClick={startListening} aria-label="Hablar con DJ NOA">{listening ? <MicOff size={28} /> : <Mic size={28} />}<span>{listening ? 'ESCUCHANDO' : 'HABLAR'}</span></button>
+      <button className={`voice-orb ${voiceActive ? 'listening' : ''}`} onClick={startListening} aria-label={voiceActive ? 'Pausar DJ NOA' : 'Hablar con DJ NOA'}>{voiceActive ? <MicOff size={28} /> : <Mic size={28} />}<span>{listening ? 'ESCUCHANDO' : voiceActive ? 'ACTIVO' : 'HABLAR'}</span></button>
 
       <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
 
-      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : 'Decírmelo por voz'}</button></section></div>}
+      {assistantOpen && <div className="assistant-backdrop" onClick={() => setAssistantOpen(false)}><section className="assistant-panel" onClick={(event) => event.stopPropagation()}><div className="assistant-handle" /><div className="assistant-title-row"><div><p className="eyebrow">DJ NOA {aiOnline === true ? 'AI · ONLINE' : aiOnline === false ? '· MODO LOCAL' : 'AI · ...'}</p><h3>¿Qué hacemos?</h3></div><button className="icon-button" onClick={() => setAssistantOpen(false)}><X size={20} /></button></div><div className="assistant-reply"><Sparkles size={17} /><span>{assistantReply}</span></div><div className="command-box"><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runCommand(); }} placeholder="Ej. ¿qué tengo mañana?" /><button onClick={() => void runCommand()} disabled={busy || !command.trim()}><Send size={18} /></button></div><button className="speak-large" onClick={startListening}><Mic size={22} /> {listening ? 'Escuchando...' : voiceActive ? 'Voz activa' : 'Decírmelo por voz'}</button></section></div>}
       {eventEditorOpen && <EventEditor event={selectedEvent} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
