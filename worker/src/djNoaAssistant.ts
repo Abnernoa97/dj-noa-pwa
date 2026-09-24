@@ -86,6 +86,10 @@ function isIsoDate(value: unknown) {
   return /^20\d{2}-\d{2}-\d{2}$/.test(String(value || ''));
 }
 
+function eventRefIsSafe(value: Record<string, unknown>) {
+  return value.eventRef === undefined || value.eventRef === 'created_event';
+}
+
 function actionIsSafe(action: unknown, body: RequestBody) {
   if (!action || typeof action !== 'object') return false;
   const value = action as Record<string, unknown>;
@@ -98,9 +102,9 @@ function actionIsSafe(action: unknown, body: RequestBody) {
 
   if (type === 'create_event') return Boolean(String(value.title || '').trim() && isIsoDate(value.date));
   if (type === 'update_event' || type === 'delete_event' || type === 'open_map') return events.has(String(value.eventId || ''));
-  if (type === 'create_reminder') return Boolean(String(value.title || '').trim());
+  if (type === 'create_reminder') return Boolean(String(value.title || '').trim() && eventRefIsSafe(value));
   if (type === 'update_reminder' || type === 'delete_reminder') return reminders.has(String(value.reminderId || ''));
-  if (type === 'add_sheet_row') return Boolean(String(value.label || '').trim() && String(value.category || '').trim() && Number.isFinite(Number(value.amount)));
+  if (type === 'add_sheet_row') return Boolean(String(value.label || '').trim() && String(value.category || '').trim() && Number.isFinite(Number(value.amount)) && eventRefIsSafe(value));
   if (type === 'update_sheet_row' || type === 'delete_sheet_row') return rows.has(String(value.rowId || ''));
   if (type === 'add_sheet_column') return Boolean(String(value.name || '').trim());
   if (type === 'navigate') return ['home', 'events', 'calendar', 'sheet', 'reminders'].includes(String(value.view || ''));
@@ -204,12 +208,12 @@ EVENTOS
 {"type":"open_map","eventId":"ID EXACTO DEL CONTEXTO"}
 
 RECORDATORIOS
-{"type":"create_reminder","title":"texto","dueAt":"ISO 8601 opcional","eventId":"ID exacto opcional","notes":"opcional","priority":"low|normal|high","repeat":"none|daily|weekly|monthly","notificationEnabled":true}
+{"type":"create_reminder","title":"texto","dueAt":"ISO 8601 opcional","eventId":"ID exacto opcional","eventRef":"created_event opcional","notes":"opcional","priority":"low|normal|high","repeat":"none|daily|weekly|monthly","notificationEnabled":true}
 {"type":"update_reminder","reminderId":"ID EXACTO DEL CONTEXTO","title":"opcional","dueAt":"ISO 8601 opcional","eventId":"ID exacto opcional","notes":"opcional","priority":"low|normal|high opcional","repeat":"none|daily|weekly|monthly opcional","notificationEnabled":true,"done":false}
 {"type":"delete_reminder","reminderId":"ID EXACTO DEL CONTEXTO"}
 
 EXCEL / GASTOS
-{"type":"add_sheet_row","label":"texto","category":"texto","amount":8500,"status":"pending|paid|info","notes":"opcional","eventId":"ID exacto opcional","calendarDate":"YYYY-MM-DD opcional"}
+{"type":"add_sheet_row","label":"texto","category":"texto","amount":8500,"status":"pending|paid|info","notes":"opcional","eventId":"ID exacto opcional","eventRef":"created_event opcional","calendarDate":"YYYY-MM-DD opcional"}
 {"type":"update_sheet_row","rowId":"ID EXACTO DEL CONTEXTO","label":"opcional","category":"opcional","amount":8500,"status":"pending|paid|info opcional","notes":"opcional","eventId":"ID exacto opcional","calendarDate":"YYYY-MM-DD opcional"}
 {"type":"delete_sheet_row","rowId":"ID EXACTO DEL CONTEXTO"}
 {"type":"add_sheet_column","name":"texto","key":"opcional","columnType":"text|number|currency|date|formula","formula":"opcional"}
@@ -231,8 +235,10 @@ REGLAS DE INTERPRETACIÓN:
 - Entiende fechas naturales en español, nombres de meses, hoy, mañana, pasado mañana, días de la semana y expresiones relativas usando la fecha actual.
 - Entiende cantidades habladas como “8 mil”, “ocho mil”, “8 mil quinientos”, etc. y conviértelas a número.
 - Si una orden contiene varias tareas independientes, devuelve todas las acciones necesarias en el orden natural de ejecución.
-- Si en una misma orden se crea un evento nuevo y también un gasto relacionado, NO inventes un eventId para el evento recién creado. Omite eventId, pero usa calendarDate con la fecha del evento cuando ayude a mantenerlos juntos en Calendario.
-- Si en una misma orden se crea un evento nuevo y un recordatorio relativo a ese evento, calcula dueAt a partir de la fecha indicada, pero NO inventes eventId.
+- ENCADENAMIENTO: si una misma orden crea EXACTAMENTE UN evento nuevo y además incluye tareas/recordatorios o gastos claramente relacionados con ese evento, usa eventRef:"created_event" en esas acciones relacionadas. Nunca inventes un eventId para un evento que todavía no existe.
+- Para un gasto relacionado con el evento recién creado, usa eventRef:"created_event" y también calendarDate con la fecha del evento, salvo que el usuario indique otra fecha.
+- Para un recordatorio relacionado con el evento recién creado, usa eventRef:"created_event". Si el recordatorio es relativo al evento, calcula dueAt a partir de la fecha indicada, pero no inventes una hora que el usuario no dijo.
+- Si la misma orden crea más de un evento, NO uses eventRef:"created_event". Si no queda inequívocamente claro a cuál pertenece una tarea o gasto, pregunta antes y usa none.
 - Para modificar, borrar o abrir algo existente, usa SIEMPRE el ID exacto presente en el contexto. Nunca inventes IDs.
 - Si hay dos candidatos posibles o no está claro cuál es, pregunta antes y usa none.
 - Si falta un dato imprescindible para ejecutar con seguridad (por ejemplo la fecha de un evento nuevo), pregunta antes y usa none. No adivines.
