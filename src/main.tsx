@@ -14,6 +14,7 @@ import './proportion-fix.css';
 import './live-actions.css';
 import './assistant-plan.css';
 import './voice-modes.css';
+import './conversation-dock.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
