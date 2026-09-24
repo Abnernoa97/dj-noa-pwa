@@ -11,6 +11,9 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      try { localStorage.removeItem('djnoa.workerUrl'); } catch {}
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
