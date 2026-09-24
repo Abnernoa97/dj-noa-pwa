@@ -32,8 +32,8 @@ function EventRow({ event, onOpen }: { event: EventItem; onOpen: (event: EventIt
   );
 }
 
-export function EventEditor({ event, onClose, onSave, onDelete }: { event: EventItem | null; onClose: () => void; onSave: (draft: EventDraft) => Promise<void>; onDelete: () => Promise<void> }) {
-  const [draft, setDraft] = useState<EventDraft>(() => ({ title: event?.title || '', date: event?.date || format(new Date(), 'yyyy-MM-dd'), time: event?.time || '', venue: event?.venue || '', address: event?.address || '', notes: event?.notes || '', status: event?.status || 'confirmed' }));
+export function EventEditor({ event, initialDate, onClose, onSave, onDelete }: { event: EventItem | null; initialDate?: string | null; onClose: () => void; onSave: (draft: EventDraft) => Promise<void>; onDelete: () => Promise<void> }) {
+  const [draft, setDraft] = useState<EventDraft>(() => ({ title: event?.title || '', date: event?.date || initialDate || format(new Date(), 'yyyy-MM-dd'), time: event?.time || '', venue: event?.venue || '', address: event?.address || '', notes: event?.notes || '', status: event?.status || 'confirmed' }));
   const update = <K extends keyof EventDraft>(key: K, value: EventDraft[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const submit = async () => {
     if (!draft.title.trim() || !draft.date) return;
