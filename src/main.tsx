@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
+import AppMaintenance from './AppMaintenance';
 import AssistantPlanPreview from './AssistantPlanPreview';
 import DataSafetyPanel from './DataSafetyPanel';
 import './styles.css';
@@ -44,6 +45,7 @@ updateSW = registerSW({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <AppMaintenance />
     <AssistantPlanPreview />
     <DataSafetyPanel />
   </React.StrictMode>
