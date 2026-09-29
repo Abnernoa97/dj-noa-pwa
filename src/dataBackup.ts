@@ -102,13 +102,7 @@ export async function restoreDjNoaBackup(file: File) {
 
   await db.transaction(
     'rw',
-    db.events,
-    db.eventPhotos,
-    db.reminders,
-    db.sheetRows,
-    db.sheetColumns,
-    db.sheetPhotos,
-    db.history,
+    [db.events, db.eventPhotos, db.reminders, db.sheetRows, db.sheetColumns, db.sheetPhotos, db.history],
     async () => {
       await Promise.all([
         db.events.clear(),
