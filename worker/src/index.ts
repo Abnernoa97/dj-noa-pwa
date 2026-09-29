@@ -17,6 +17,7 @@ type RemoteReminder = {
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly';
   notificationEnabled?: boolean;
   done?: boolean;
+  updatedAt?: string;
   retryAt?: string;
 };
 
@@ -37,12 +38,28 @@ const RATE_LIMITS = { assistant: 30, transcribe: 20 } as const;
 
 function nextRepeatedDueAt(item: RemoteReminder) {
   if (!item.repeat || item.repeat === 'none') return null;
-  const next = new Date(item.dueAt);
-  if (!Number.isFinite(next.getTime())) return null;
-  if (item.repeat === 'daily') next.setUTCDate(next.getUTCDate() + 1);
-  if (item.repeat === 'weekly') next.setUTCDate(next.getUTCDate() + 7);
-  if (item.repeat === 'monthly') next.setUTCMonth(next.getUTCMonth() + 1);
-  return next.toISOString();
+  const current = new Date(item.dueAt);
+  if (!Number.isFinite(current.getTime())) return null;
+
+  if (item.repeat === 'daily') {
+    current.setUTCDate(current.getUTCDate() + 1);
+    return current.toISOString();
+  }
+  if (item.repeat === 'weekly') {
+    current.setUTCDate(current.getUTCDate() + 7);
+    return current.toISOString();
+  }
+
+  const day = current.getUTCDate();
+  const hours = current.getUTCHours();
+  const minutes = current.getUTCMinutes();
+  const seconds = current.getUTCSeconds();
+  const milliseconds = current.getUTCMilliseconds();
+  const targetMonth = current.getUTCMonth() + 1;
+  const targetYear = current.getUTCFullYear() + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(targetYear, normalizedMonth, Math.min(day, lastDay), hours, minutes, seconds, milliseconds)).toISOString();
 }
 
 export class ReminderScheduler extends DurableObject<Env> {
@@ -187,7 +204,24 @@ export class ReminderScheduler extends DurableObject<Env> {
         const timestamp = new Date(item.dueAt).getTime();
         if (!Number.isFinite(timestamp)) continue;
         incomingIds.add(item.id);
-        if (device.sent[item.id] === item.dueAt) continue;
+
+        const previous = device.reminders[item.id];
+        const sameLocalVersion = Boolean(previous?.updatedAt && item.updatedAt && previous.updatedAt === item.updatedAt);
+        const previousDue = previous ? new Date(previous.dueAt).getTime() : Number.NaN;
+        const keepAdvancedRecurringSchedule = Boolean(
+          previous &&
+          previous.repeat && previous.repeat !== 'none' &&
+          item.repeat === previous.repeat &&
+          sameLocalVersion &&
+          Number.isFinite(previousDue) && previousDue > timestamp
+        );
+
+        if (keepAdvancedRecurringSchedule) {
+          reminders[item.id] = { ...item, dueAt: previous!.dueAt, retryAt: previous!.retryAt };
+          continue;
+        }
+
+        if (device.sent[item.id] === item.dueAt && (!item.repeat || item.repeat === 'none')) continue;
         reminders[item.id] = { ...item, retryAt: undefined };
       }
 
@@ -219,7 +253,7 @@ export class ReminderScheduler extends DurableObject<Env> {
     const devices = await this.getDevices();
     const now = Date.now();
 
-    for (const device of Object.values(devices)) {
+    for (const [token, device] of Object.entries(devices)) {
       let subscriptionDead = false;
       for (const reminder of Object.values(device.reminders)) {
         if (this.effectiveTime(reminder) > now + 1000) continue;
@@ -235,12 +269,16 @@ export class ReminderScheduler extends DurableObject<Env> {
         } else if (result === 'temporary') {
           device.reminders[reminder.id] = { ...reminder, retryAt: new Date(Date.now() + 60_000).toISOString() };
         } else {
-          device.reminders[reminder.id] = { ...reminder, retryAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString() };
           subscriptionDead = true;
+          break;
         }
       }
-      device.updatedAt = new Date().toISOString();
-      if (subscriptionDead) device.subscription = device.subscription;
+
+      if (subscriptionDead) {
+        delete devices[token];
+      } else {
+        device.updatedAt = new Date().toISOString();
+      }
     }
 
     await this.putDevices(devices);
