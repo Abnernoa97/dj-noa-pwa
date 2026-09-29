@@ -93,13 +93,13 @@ function createdEventIdFromSummary(summary?: string) {
 function actionMeta(action: AssistantAction): { visible: boolean; view?: AppView; title: string; detail: string } {
   if (action.type === 'create_event') return { visible: true, view: 'calendar', title: 'Agregando al calendario', detail: action.title };
   if (action.type === 'update_event') return { visible: true, view: 'events', title: 'Actualizando evento', detail: action.title || 'Aplicando cambios' };
-  if (action.type === 'delete_event') return { visible: true, view: 'events', title: 'Eliminando evento', detail: 'Actualizando agenda' };
+  if (action.type === 'delete_event') return { visible: true, view: 'events', title: 'Eliminando evento', detail: 'Conservando y desvinculando su información relacionada' };
   if (action.type === 'create_reminder') return { visible: true, view: 'reminders', title: 'Creando tarea', detail: action.title };
   if (action.type === 'update_reminder') return { visible: true, view: 'reminders', title: 'Actualizando tarea', detail: action.title || 'Aplicando cambios' };
   if (action.type === 'delete_reminder') return { visible: true, view: 'reminders', title: 'Eliminando tarea', detail: 'Actualizando recordatorios' };
   if (action.type === 'add_sheet_row') return { visible: true, view: 'sheet', title: 'Añadiendo a Excel', detail: `${action.label} · ${money.format(action.amount)}` };
   if (action.type === 'update_sheet_row') return { visible: true, view: 'sheet', title: 'Actualizando Excel', detail: action.label || 'Aplicando cambios a la fila' };
-  if (action.type === 'delete_sheet_row') return { visible: true, view: 'sheet', title: 'Eliminando fila', detail: 'Actualizando Excel' };
+  if (action.type === 'delete_sheet_row') return { visible: true, view: 'sheet', title: 'Eliminando fila', detail: 'Eliminando también sus fotos vinculadas' };
   if (action.type === 'add_sheet_column') return { visible: true, view: 'sheet', title: 'Creando columna', detail: action.name };
   if (action.type === 'navigate') return { visible: true, view: action.view, title: 'Abriendo sección', detail: action.view === 'sheet' ? 'Excel' : action.view === 'reminders' ? 'Tareas' : action.view === 'calendar' ? 'Calendario' : action.view === 'events' ? 'Eventos' : 'Inicio' };
   if (action.type === 'open_map') return { visible: true, view: 'events', title: 'Preparando ruta', detail: 'Abriendo ubicación del evento' };
@@ -123,6 +123,7 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [eventCreateDate, setEventCreateDate] = useState<string | null>(null);
   const [eventHubId, setEventHubId] = useState<string | null>(null);
+  const [selectedSheetRowId, setSelectedSheetRowId] = useState<string | null>(null);
   const [liveAction, setLiveAction] = useState<LiveActionState | null>(null);
   const cancelRequestedRef = useRef(false);
 
@@ -158,7 +159,7 @@ export default function App() {
   };
 
   const restoreUndoSnapshot = async (snapshot: UndoSnapshot) => {
-    await db.transaction('rw', db.events, db.reminders, db.sheetRows, db.sheetColumns, async () => {
+    await db.transaction('rw', [db.events, db.reminders, db.sheetRows, db.sheetColumns], async () => {
       await Promise.all([db.events.clear(), db.reminders.clear(), db.sheetRows.clear(), db.sheetColumns.clear()]);
       if (snapshot.events.length) await db.events.bulkPut(snapshot.events);
       if (snapshot.reminders.length) await db.reminders.bulkPut(snapshot.reminders);
@@ -226,6 +227,24 @@ export default function App() {
     setEventEditorOpen(true);
   };
 
+  const deleteEventWithRelations = async (eventId: string) => {
+    const event = await db.events.get(eventId);
+    const now = new Date().toISOString();
+    await db.transaction('rw', [db.events, db.eventPhotos, db.reminders, db.sheetRows], async () => {
+      await db.eventPhotos.where('eventId').equals(eventId).delete();
+      const linkedReminders = await db.reminders.where('eventId').equals(eventId).toArray();
+      const linkedRows = await db.sheetRows.where('eventId').equals(eventId).toArray();
+      await Promise.all(linkedReminders.map((item) => db.reminders.update(item.id, { eventId: undefined, updatedAt: now })));
+      await Promise.all(linkedRows.map((row) => db.sheetRows.update(row.id, { eventId: undefined, calendarDate: row.calendarDate || event?.date, updatedAt: now })));
+      await db.events.delete(eventId);
+    });
+    setEvents((current) => current.filter((item) => item.id !== eventId));
+    setReminders((current) => current.map((item) => item.eventId === eventId ? { ...item, eventId: undefined, updatedAt: now } : item));
+    setSheetRows((current) => current.map((row) => row.eventId === eventId ? { ...row, eventId: undefined, calendarDate: row.calendarDate || event?.date, updatedAt: now } : row));
+    if (eventHubId === eventId) setEventHubId(null);
+    return event;
+  };
+
   const saveEvent = async (draft: EventDraft) => {
     const now = new Date().toISOString();
     if (selectedEvent) await db.events.update(selectedEvent.id, { ...draft, updatedAt: now });
@@ -238,12 +257,10 @@ export default function App() {
 
   const deleteEvent = async () => {
     if (!selectedEvent) return;
-    await db.events.delete(selectedEvent.id);
-    if (eventHubId === selectedEvent.id) setEventHubId(null);
+    await deleteEventWithRelations(selectedEvent.id);
     setEventEditorOpen(false);
     setSelectedEvent(null);
     setEventCreateDate(null);
-    await refresh();
   };
 
   const requestExecutionCancel = () => {
@@ -263,52 +280,69 @@ export default function App() {
 
     if (action.type === 'create_event') {
       const id = uid();
-      await db.events.add({ id, title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now });
+      const item: EventItem = { id, title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now };
+      await db.events.add(item);
+      setEvents((current) => [...current, item].sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)));
       return `create_event id=${id} title="${action.title}" date=${action.date}${action.time ? ` time=${action.time}` : ''}`;
     }
     if (action.type === 'update_event') {
       const current = await db.events.get(action.eventId);
       const patch = { title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status, updatedAt: now };
-      await db.events.update(action.eventId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
+      const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+      await db.events.update(action.eventId, cleanPatch);
+      setEvents((items) => items.map((item) => item.id === action.eventId ? { ...item, ...cleanPatch } as EventItem : item).sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)));
       return `update_event id=${action.eventId} title="${action.title || current?.title || ''}"`;
     }
     if (action.type === 'delete_event') {
-      const current = await db.events.get(action.eventId);
-      await db.events.delete(action.eventId);
+      const current = await deleteEventWithRelations(action.eventId);
       return `delete_event id=${action.eventId} title="${current?.title || ''}"`;
     }
     if (action.type === 'create_reminder') {
       const id = uid();
-      await db.reminders.add({ id, title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now });
+      const item: ReminderItem = { id, title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now };
+      await db.reminders.add(item);
+      setReminders((current) => [item, ...current]);
       return `create_reminder id=${id} title="${action.title}"${action.dueAt ? ` dueAt=${action.dueAt}` : ''}${action.eventId ? ` eventId=${action.eventId}` : ''}`;
     }
     if (action.type === 'update_reminder') {
       const current = await db.reminders.get(action.reminderId);
       const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now };
-      await db.reminders.update(action.reminderId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
+      const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+      await db.reminders.update(action.reminderId, cleanPatch);
+      setReminders((items) => items.map((item) => item.id === action.reminderId ? { ...item, ...cleanPatch } as ReminderItem : item));
       return `update_reminder id=${action.reminderId} title="${action.title || current?.title || ''}"`;
     }
     if (action.type === 'delete_reminder') {
       const current = await db.reminders.get(action.reminderId);
       await db.reminders.delete(action.reminderId);
+      setReminders((items) => items.filter((item) => item.id !== action.reminderId));
       return `delete_reminder id=${action.reminderId} title="${current?.title || ''}"`;
     }
     if (action.type === 'add_sheet_row') {
       const id = uid();
-      await db.sheetRows.add({ id, label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values || {}, createdAt: now, updatedAt: now });
+      const item: SheetRow = { id, label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values || {}, createdAt: now, updatedAt: now };
+      await db.sheetRows.add(item);
+      setSheetRows((current) => [item, ...current]);
       return `add_sheet_row id=${id} label="${action.label}" amount=${action.amount}${action.eventId ? ` eventId=${action.eventId}` : ''}${action.calendarDate ? ` calendarDate=${action.calendarDate}` : ''}`;
     }
     if (action.type === 'update_sheet_row') {
       const current = await db.sheetRows.get(action.rowId);
       if (current) {
         const patch = { label: action.label, category: action.category, amount: action.amount, status: action.status, notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values ? { ...(current.values || {}), ...action.values } : undefined, updatedAt: now };
-        await db.sheetRows.update(action.rowId, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
+        const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+        await db.sheetRows.update(action.rowId, cleanPatch);
+        setSheetRows((items) => items.map((item) => item.id === action.rowId ? { ...item, ...cleanPatch } as SheetRow : item));
       }
       return `update_sheet_row id=${action.rowId} label="${action.label || current?.label || ''}"`;
     }
     if (action.type === 'delete_sheet_row') {
       const current = await db.sheetRows.get(action.rowId);
-      await db.sheetRows.delete(action.rowId);
+      await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
+        await db.sheetPhotos.where('rowId').equals(action.rowId).delete();
+        await db.sheetRows.delete(action.rowId);
+      });
+      setSheetRows((items) => items.filter((item) => item.id !== action.rowId));
+      if (selectedSheetRowId === action.rowId) setSelectedSheetRowId(null);
       return `delete_sheet_row id=${action.rowId} label="${current?.label || ''}"`;
     }
     if (action.type === 'add_sheet_column') {
@@ -320,6 +354,7 @@ export default function App() {
       const id = uid();
       const column: SheetColumn = { id, name: action.name, key, type: action.columnType || 'text', formula: action.formula, position: columns.length, createdAt: now };
       await db.sheetColumns.add(column);
+      window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
       return `add_sheet_column id=${id} name="${action.name}" key=${key}`;
     }
     if (action.type === 'navigate') {
@@ -359,7 +394,7 @@ export default function App() {
     setAssistantReply(reply);
     setCommand('');
     setLiveAction({ current: 1, total: 1, title: 'Cambio deshecho', detail: target.command, status: 'done' });
-    await sleep(850);
+    await sleep(500);
     setLiveAction(null);
     return reply;
   };
@@ -408,6 +443,7 @@ export default function App() {
       let completedMutations = 0;
 
       if (visibleTotal) {
+        setAssistantOpen(false);
         setEventEditorOpen(false);
         setEventHubId(null);
         setSelectedEvent(null);
@@ -427,7 +463,7 @@ export default function App() {
           if (runtimeAction.type === 'create_event') setMonth(startOfMonth(parseISO(runtimeAction.date)));
           if (meta.view) setView(meta.view);
           setLiveAction({ current: visibleIndex, total: visibleTotal, title: meta.title, detail: meta.detail, status: 'working' });
-          await sleep(320);
+          await sleep(90);
           if (cancelRequestedRef.current) break;
         }
 
@@ -441,17 +477,16 @@ export default function App() {
             const createdId = createdEventIdFromSummary(summary);
             if (createdId) createdEventInCommand = { id: createdId, date: runtimeAction.date };
           }
-
-          await refresh();
         } catch {
           const failReply = meta.title ? `No pude completar: ${meta.title.toLowerCase()}.` : 'No pude completar esa acción.';
           setAssistantReply(failReply);
           if (meta.visible) {
             setLiveAction({ current: visibleIndex, total: visibleTotal, title: meta.title, detail: 'La acción se detuvo aquí.', status: 'error' });
-            await sleep(1400);
+            await sleep(700);
             setLiveAction(null);
           }
           await db.history.add({ id: uid(), command: clean, result: failReply, actionSummary, undoSnapshot: completedMutations ? undoSnapshot : undefined, kind: 'command', createdAt: new Date().toISOString() } as any);
+          await refresh();
           await refreshConversation();
           setPendingCommand(null);
           return failReply;
@@ -461,7 +496,7 @@ export default function App() {
 
         if (meta.visible) {
           setLiveAction({ current: visibleIndex, total: visibleTotal, title: meta.title, detail: meta.detail, status: 'done' });
-          await sleep(520);
+          await sleep(150);
         }
       }
 
@@ -476,7 +511,7 @@ export default function App() {
         await refreshConversation();
         setPendingCommand(null);
         setLiveAction({ current: completedActions, total: Math.max(visibleTotal, completedActions || 1), title: 'Acción detenida', detail: reply, status: 'cancelled' });
-        await sleep(950);
+        await sleep(500);
         setLiveAction(null);
         return reply;
       }
@@ -490,7 +525,7 @@ export default function App() {
 
       if (visibleTotal) {
         setLiveAction({ current: visibleTotal, total: visibleTotal, title: 'Listo', detail: response.reply, status: 'done' });
-        await sleep(950);
+        await sleep(500);
         setLiveAction(null);
       }
 
@@ -518,11 +553,20 @@ export default function App() {
   const toggleReminder = async (item: ReminderItem) => {
     const now = new Date().toISOString();
     if (!item.done && item.repeat && item.repeat !== 'none' && item.dueAt) {
-      await db.reminders.update(item.id, { dueAt: nextReminderDate(item.dueAt, item.repeat), done: false, lastCompletedAt: now, lastNotifiedAt: undefined, updatedAt: now });
+      const dueAt = nextReminderDate(item.dueAt, item.repeat);
+      const patch = { dueAt, done: false, lastCompletedAt: now, lastNotifiedAt: undefined, updatedAt: now };
+      await db.reminders.update(item.id, patch);
+      setReminders((current) => current.map((entry) => entry.id === item.id ? { ...entry, ...patch } : entry));
     } else {
-      await db.reminders.update(item.id, { done: !item.done, lastCompletedAt: !item.done ? now : item.lastCompletedAt, updatedAt: now });
+      const patch = { done: !item.done, lastCompletedAt: !item.done ? now : item.lastCompletedAt, updatedAt: now };
+      await db.reminders.update(item.id, patch);
+      setReminders((current) => current.map((entry) => entry.id === item.id ? { ...entry, ...patch } : entry));
     }
-    await refresh();
+  };
+
+  const openSheetRow = (rowId?: string) => {
+    setSelectedSheetRowId(rowId || null);
+    setView('sheet');
   };
 
   return (
@@ -547,8 +591,8 @@ export default function App() {
           </section>
         )}
         {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} />}
-        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={() => setView('sheet')} />}
-        {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
+        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
+        {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
         {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
       </main>
 
