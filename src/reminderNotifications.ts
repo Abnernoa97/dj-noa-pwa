@@ -1,9 +1,12 @@
 import { db } from './db';
-import type { ReminderItem } from './types';
+import type { ReminderItem, ReminderRepeat } from './types';
 
 const MAX_DELAY = 24 * 60 * 60 * 1000;
 const RECENT_OVERDUE = 15 * 60 * 1000;
 const DEVICE_TOKEN_KEY = 'djnoa.pushDeviceToken';
+
+let scheduleGeneration = 0;
+const activeTimers = new Set<number>();
 
 function apiUrl(path: string) {
   return `${window.location.origin}${path}`;
@@ -15,6 +18,53 @@ function base64urlToUint8Array(base64url: string) {
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return bytes;
+}
+
+function clearLocalTimers() {
+  for (const timer of activeTimers) window.clearTimeout(timer);
+  activeTimers.clear();
+}
+
+function addRepeat(date: Date, repeat: ReminderRepeat) {
+  const next = new Date(date);
+  if (repeat === 'daily') {
+    next.setUTCDate(next.getUTCDate() + 1);
+    return next;
+  }
+  if (repeat === 'weekly') {
+    next.setUTCDate(next.getUTCDate() + 7);
+    return next;
+  }
+  if (repeat === 'monthly') {
+    const day = next.getUTCDate();
+    const hours = next.getUTCHours();
+    const minutes = next.getUTCMinutes();
+    const seconds = next.getUTCSeconds();
+    const milliseconds = next.getUTCMilliseconds();
+    const targetMonth = next.getUTCMonth() + 1;
+    const targetYear = next.getUTCFullYear() + Math.floor(targetMonth / 12);
+    const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+    const lastDay = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+    return new Date(Date.UTC(targetYear, normalizedMonth, Math.min(day, lastDay), hours, minutes, seconds, milliseconds));
+  }
+  return next;
+}
+
+function normalizedDueAt(item: ReminderItem, now = Date.now()) {
+  if (!item.dueAt) return null;
+  let current = new Date(item.dueAt);
+  if (!Number.isFinite(current.getTime())) return null;
+  const repeat = item.repeat || 'none';
+  if (repeat === 'none') return current.toISOString();
+
+  let guard = 0;
+  while (current.getTime() < now - RECENT_OVERDUE && guard < 5000) {
+    const next = addRepeat(current, repeat);
+    if (next.getTime() <= current.getTime()) break;
+    current = next;
+    guard += 1;
+  }
+  return current.toISOString();
 }
 
 export function notificationSupport() {
@@ -67,16 +117,18 @@ export async function syncRemoteReminders(items: ReminderItem[]): Promise<boolea
   if (!deviceToken) return false;
 
   try {
+    const now = Date.now();
     const reminders = items
       .filter((item) => !item.done && item.notificationEnabled !== false && item.dueAt)
       .map((item) => ({
         id: item.id,
         title: item.title,
-        dueAt: item.dueAt!,
+        dueAt: normalizedDueAt(item, now) || item.dueAt!,
         priority: item.priority || 'normal',
         repeat: item.repeat || 'none',
         notificationEnabled: true,
-        done: false
+        done: false,
+        updatedAt: item.updatedAt || item.createdAt
       }));
 
     const response = await fetch(apiUrl('/api/reminders/sync'), {
@@ -122,13 +174,16 @@ async function showNotification(item: ReminderItem) {
 }
 
 export function scheduleReminderNotifications(items: ReminderItem[]) {
-  const timers: number[] = [];
+  const generation = ++scheduleGeneration;
+  clearLocalTimers();
+
   if (!('Notification' in window) || Notification.permission !== 'granted') return () => undefined;
 
   const now = Date.now();
   for (const item of items) {
     if (item.done || item.notificationEnabled === false || !item.dueAt) continue;
-    const due = new Date(item.dueAt).getTime();
+    const normalized = normalizedDueAt(item, now);
+    const due = normalized ? new Date(normalized).getTime() : Number.NaN;
     if (!Number.isFinite(due)) continue;
 
     const last = item.lastNotifiedAt ? new Date(item.lastNotifiedAt).getTime() : 0;
@@ -136,13 +191,18 @@ export function scheduleReminderNotifications(items: ReminderItem[]) {
 
     const delta = due - now;
     if (delta < -RECENT_OVERDUE || delta > MAX_DELAY) continue;
-    const timer = window.setTimeout(() => void showNotification(item), Math.max(0, delta));
-    timers.push(timer);
+    const timer = window.setTimeout(() => {
+      activeTimers.delete(timer);
+      void showNotification(item);
+    }, Math.max(0, delta));
+    activeTimers.add(timer);
   }
 
   void syncRemoteReminders(items).then((remoteReady) => {
-    if (remoteReady) timers.forEach((timer) => window.clearTimeout(timer));
+    if (remoteReady && generation === scheduleGeneration) clearLocalTimers();
   });
 
-  return () => timers.forEach((timer) => window.clearTimeout(timer));
+  return () => {
+    if (generation === scheduleGeneration) clearLocalTimers();
+  };
 }
