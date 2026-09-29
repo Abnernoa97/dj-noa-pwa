@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Camera, Columns3, Download, Mic, Plus, Search, Trash2, Upload } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { db, uid } from './db';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
@@ -12,6 +11,8 @@ type Props = {
   events: EventItem[];
   onChanged: () => Promise<void> | void;
   onAssistant: () => void;
+  openRowId?: string | null;
+  onOpenRowHandled?: () => void;
 };
 
 type SortMode = 'newest' | 'oldest' | 'amount-desc' | 'amount-asc' | 'label';
@@ -108,7 +109,7 @@ function shortStatus(status: SheetStatus) {
   return 'Pend.';
 }
 
-export default function SheetWorkspace({ rows, events, onChanged, onAssistant }: Props) {
+export default function SheetWorkspace({ rows, events, onChanged, onAssistant, openRowId, onOpenRowHandled }: Props) {
   const [columns, setColumns] = useState<SheetColumn[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -125,6 +126,12 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
   const loadColumns = async () => setColumns(await db.sheetColumns.orderBy('position').toArray());
 
   useEffect(() => { void loadColumns(); }, []);
+
+  useEffect(() => {
+    if (!openRowId) return;
+    if (rows.some((row) => row.id === openRowId)) setSelectedRowId(openRowId);
+    onOpenRowHandled?.();
+  }, [openRowId, rows, onOpenRowHandled]);
 
   useEffect(() => {
     if (selectedRowId) localStorage.setItem('djnoa.activeSheetRowId', selectedRowId);
@@ -197,8 +204,10 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
 
   const deleteRow = async (row: SheetRow) => {
     if (!window.confirm(`¿Eliminar “${row.label}”?`)) return;
-    await db.sheetPhotos.where('rowId').equals(row.id).delete();
-    await db.sheetRows.delete(row.id);
+    await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
+      await db.sheetPhotos.where('rowId').equals(row.id).delete();
+      await db.sheetRows.delete(row.id);
+    });
     setSelectedRowId(null);
     await onChanged();
   };
@@ -250,7 +259,8 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
     await onChanged();
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
+    const XLSX = await import('xlsx');
     const data = filtered.map((row) => {
       const event = events.find((item) => item.id === row.eventId);
       const record: Record<string, SheetValue | number> = { Concepto: row.label, Categoría: row.category, Monto: row.amount, Estado: row.status, Evento: event?.title || '', Descripción: row.description || '', Notas: row.notes || '' };
@@ -264,6 +274,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
   };
 
   const importExcel = async (file: File) => {
+    const XLSX = await import('xlsx');
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -282,6 +293,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
       existingByName.set(normalize(header), column);
     }
     const now = new Date().toISOString();
+    const imported: SheetRow[] = [];
     for (const item of raw) {
       const get = (...names: string[]) => { const match = Object.keys(item).find((key) => names.includes(normalize(key))); return match ? item[match] : ''; };
       const eventText = String(get('evento') || '').trim();
@@ -295,8 +307,9 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
         const value = item[header];
         values[column.key] = typeof value === 'number' || typeof value === 'boolean' ? value : String(value ?? '');
       }
-      await db.sheetRows.add({ id: uid(), label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
+      imported.push({ id: uid(), label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
     }
+    if (imported.length) await db.sheetRows.bulkAdd(imported);
     await loadColumns();
     await onChanged();
   };
@@ -307,7 +320,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant }:
         <div><p className="eyebrow">TABLA</p><h2>Excel</h2></div>
         <div className="sheet-classic-actions">
           <button onClick={() => fileRef.current?.click()} title="Importar"><Upload size={15} /></button>
-          <button onClick={exportExcel} title="Exportar"><Download size={15} /></button>
+          <button onClick={() => void exportExcel()} title="Exportar"><Download size={15} /></button>
           <button onClick={onAssistant} title="Voz"><Mic size={15} /></button>
           <button className="sheet-add" onClick={() => void addRow()} title="Nueva fila"><Plus size={17} /></button>
         </div>
