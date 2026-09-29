@@ -1,7 +1,7 @@
 import { askAssistant } from './assistant';
 import { previewAssistantResponse } from './AssistantPlanPreview';
 import { db } from './db';
-import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
+import type { AssistantAction, AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
 
 export type AssistantMemoryItem = {
   command: string;
@@ -25,6 +25,57 @@ type Context = {
   sheetRows: SheetRow[];
 };
 
+function normalize(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+const STOP_WORDS = new Set(['para', 'como', 'este', 'esta', 'esto', 'aqui', 'alla', 'quiero', 'puedes', 'ponle', 'agrega', 'cambia', 'corrige', 'hacer', 'hazme', 'dime', 'todo', 'todos', 'todas', 'solo', 'nada', 'mejor', 'ahora']);
+
+function commandWords(command: string) {
+  return [...new Set(normalize(command).split(' ').filter((word) => word.length >= 4 && !STOP_WORDS.has(word)))];
+}
+
+function recentEntityIds(items: AssistantMemoryItem[]) {
+  const ids = new Set<string>();
+  for (const item of items.slice(-6)) {
+    for (const summary of item.actionSummary || []) {
+      for (const match of summary.matchAll(/(?:^|\s)(?:id|eventId)=([^\s]+)/g)) ids.add(match[1]);
+    }
+  }
+  return ids;
+}
+
+function scoreText(text: string, words: string[]) {
+  const haystack = normalize(text);
+  return words.reduce((score, word) => score + (haystack.includes(word) ? 1 : 0), 0);
+}
+
+function focusedContext(command: string, context: Context, history: AssistantMemoryItem[], uiContext: AssistantUiContext | undefined, activeSheetRowId?: string) {
+  const words = commandWords(command);
+  const recentIds = recentEntityIds(history);
+  const activeEventId = uiContext?.activeEventId;
+
+  const events = [...context.events]
+    .map((item) => ({ item, score: (item.id === activeEventId ? 100 : 0) + (recentIds.has(item.id) ? 60 : 0) + scoreText(`${item.title} ${item.venue || ''} ${item.address || ''} ${item.notes || ''}`, words) * 8 }))
+    .sort((a, b) => b.score - a.score || a.item.date.localeCompare(b.item.date))
+    .slice(0, 24)
+    .map(({ item }) => item);
+
+  const reminders = [...context.reminders]
+    .map((item) => ({ item, score: (item.eventId === activeEventId ? 90 : 0) + (recentIds.has(item.id) || (item.eventId ? recentIds.has(item.eventId) : false) ? 60 : 0) + scoreText(`${item.title} ${item.notes || ''}`, words) * 8 }))
+    .sort((a, b) => b.score - a.score || (a.item.dueAt || '9999').localeCompare(b.item.dueAt || '9999'))
+    .slice(0, 32)
+    .map(({ item }) => item);
+
+  const sheetRows = [...context.sheetRows]
+    .map((item) => ({ item, score: (item.id === activeSheetRowId ? 120 : 0) + (item.eventId === activeEventId ? 90 : 0) + (recentIds.has(item.id) || (item.eventId ? recentIds.has(item.eventId) : false) ? 60 : 0) + scoreText(`${item.label} ${item.category} ${item.notes || ''} ${item.description || ''}`, words) * 8 }))
+    .sort((a, b) => b.score - a.score || (b.item.updatedAt || b.item.createdAt).localeCompare(a.item.updatedAt || a.item.createdAt))
+    .slice(0, 48)
+    .map(({ item }) => item);
+
+  return { events, reminders, sheetRows, recentIds };
+}
+
 function toConversationHistory(items: AssistantMemoryItem[]) {
   return items.slice(-10).flatMap((item) => {
     const internal = item.actionSummary?.length
@@ -38,21 +89,41 @@ function toConversationHistory(items: AssistantMemoryItem[]) {
   }).slice(-20);
 }
 
+function resolvePureTotal(response: AssistantResponse, context: Context): AssistantResponse {
+  const queries = response.actions.filter((action): action is Extract<AssistantAction, { type: 'query_total' }> => action.type === 'query_total');
+  if (!queries.length) return response;
+  const hasMutation = response.actions.some((action) => ['create_event', 'update_event', 'delete_event', 'create_reminder', 'update_reminder', 'delete_reminder', 'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column'].includes(action.type));
+  if (hasMutation) return response;
+
+  const query = queries[queries.length - 1];
+  const category = query.category ? normalize(query.category) : '';
+  const rows = context.sheetRows.filter((row) => {
+    if (category && normalize(row.category) !== category) return false;
+    if (query.status && row.status !== query.status) return false;
+    return true;
+  });
+  const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const formatted = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(total);
+  const filters = [query.category, query.status === 'paid' ? 'pagado' : query.status === 'pending' ? 'pendiente' : query.status === 'info' ? 'info' : ''].filter(Boolean).join(' · ');
+  const reply = `${filters ? `${filters}: ` : 'Total: '}${formatted} en ${rows.length} ${rows.length === 1 ? 'movimiento' : 'movimientos'}.`;
+  return { reply, actions: response.actions.filter((action) => action.type !== 'query_total') };
+}
+
 export async function askAssistantWithMemory(
   command: string,
   context: Context,
   recentHistory: AssistantMemoryItem[] = [],
   uiContext?: AssistantUiContext
 ): Promise<AssistantResponse> {
-  const workerUrl = (localStorage.getItem('djnoa.workerUrl') || import.meta.env.VITE_DJNOA_WORKER_URL || window.location.origin).trim();
+  const workerUrl = (import.meta.env.VITE_DJNOA_WORKER_URL || window.location.origin).trim();
 
   if (workerUrl && navigator.onLine) {
     try {
       const sheetColumns = await db.sheetColumns.orderBy('position').toArray();
       const activeSheetRowId = localStorage.getItem('djnoa.activeSheetRowId') || undefined;
-      const activeSheetRow = activeSheetRowId
-        ? context.sheetRows.find((row) => row.id === activeSheetRowId)
-        : undefined;
+      const activeSheetRow = activeSheetRowId ? context.sheetRows.find((row) => row.id === activeSheetRowId) : undefined;
+      const focused = focusedContext(command, context, recentHistory, uiContext, activeSheetRowId);
+      const lastTurn = recentHistory[recentHistory.length - 1];
 
       const response = await fetch(`${workerUrl.replace(/\/$/, '')}/api/assistant`, {
         method: 'POST',
@@ -63,6 +134,12 @@ export async function askAssistantWithMemory(
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Mexico_City',
           locale: 'es-MX',
           history: toConversationHistory(recentHistory),
+          sessionContext: {
+            activeView: uiContext?.view,
+            lastGoal: lastTurn?.command?.slice(0, 500),
+            pendingQuestion: lastTurn?.result?.includes('?') ? lastTurn.result.slice(0, 500) : undefined,
+            recentEntityIds: [...focused.recentIds].slice(0, 20)
+          },
           uiContext: {
             ...uiContext,
             activeSheetRowId: activeSheetRow?.id,
@@ -73,15 +150,15 @@ export async function askAssistantWithMemory(
             activeSheetRowEventId: activeSheetRow?.eventId
           },
           context: {
-            events: context.events.slice(0, 80),
-            reminders: context.reminders.slice(0, 80),
-            sheetRows: context.sheetRows.slice(0, 180),
+            events: focused.events,
+            reminders: focused.reminders,
+            sheetRows: focused.sheetRows,
             sheetColumns: sheetColumns.slice(0, 40)
           }
         })
       });
       if (response.ok) {
-        const result = (await response.json()) as AssistantResponse;
+        const result = resolvePureTotal((await response.json()) as AssistantResponse, context);
         return await previewAssistantResponse(result);
       }
     } catch {
@@ -89,6 +166,6 @@ export async function askAssistantWithMemory(
     }
   }
 
-  const localResult = await askAssistant(command, context);
+  const localResult = resolvePureTotal(await askAssistant(command, context), context);
   return await previewAssistantResponse(localResult);
 }
