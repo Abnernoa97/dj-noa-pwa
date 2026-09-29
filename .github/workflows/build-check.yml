@@ -14,5 +14,11 @@ jobs:
         with:
           node-version: 24
       - run: npm install
+      - run: npm audit --omit=dev --audit-level=high
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
+          retention-days: 1
       - run: npm run build
       - run: npx wrangler deploy --dry-run
