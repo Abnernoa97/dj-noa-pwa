@@ -89,6 +89,24 @@ function toConversationHistory(items: AssistantMemoryItem[]) {
   }).slice(-20);
 }
 
+function sessionMemory(history: AssistantMemoryItem[], uiContext: AssistantUiContext | undefined, recentIds: Set<string>, activeSheetRowId?: string) {
+  const lastTurn = history[history.length - 1];
+  const previousTurn = history[history.length - 2];
+  const pendingQuestion = lastTurn?.result?.includes('?') ? lastTurn.result.slice(0, 500) : '';
+  const goal = lastTurn?.command || previousTurn?.command || '';
+  const summary = [
+    `[ESTADO DE SESIÓN CONTINUA]`,
+    `pantalla=${uiContext?.view || 'desconocida'}`,
+    uiContext?.activeEventId ? `eventoActivo=${uiContext.activeEventId} (${uiContext.activeEventTitle || ''})` : 'eventoActivo=ninguno',
+    activeSheetRowId ? `filaExcelActiva=${activeSheetRowId}` : 'filaExcelActiva=ninguna',
+    goal ? `objetivoReciente=${goal.slice(0, 500)}` : 'objetivoReciente=ninguno',
+    pendingQuestion ? `preguntaPendiente=${pendingQuestion}` : 'preguntaPendiente=ninguna',
+    `idsRecientes=${[...recentIds].slice(0, 20).join(',') || 'ninguno'}`,
+    `Interpreta referencias como “eso”, “esa parte”, “los anteriores”, “continúa” o “corrige” dentro de esta misma sesión antes de tratarlas como una orden nueva.`
+  ];
+  return { role: 'assistant', content: summary.join('\n') };
+}
+
 function resolvePureTotal(response: AssistantResponse, context: Context): AssistantResponse {
   const queries = response.actions.filter((action): action is Extract<AssistantAction, { type: 'query_total' }> => action.type === 'query_total');
   if (!queries.length) return response;
@@ -123,7 +141,7 @@ export async function askAssistantWithMemory(
       const activeSheetRowId = localStorage.getItem('djnoa.activeSheetRowId') || undefined;
       const activeSheetRow = activeSheetRowId ? context.sheetRows.find((row) => row.id === activeSheetRowId) : undefined;
       const focused = focusedContext(command, context, recentHistory, uiContext, activeSheetRowId);
-      const lastTurn = recentHistory[recentHistory.length - 1];
+      const history = [...toConversationHistory(recentHistory), sessionMemory(recentHistory, uiContext, focused.recentIds, activeSheetRowId)];
 
       const response = await fetch(`${workerUrl.replace(/\/$/, '')}/api/assistant`, {
         method: 'POST',
@@ -133,13 +151,7 @@ export async function askAssistantWithMemory(
           now: new Date().toISOString(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Mexico_City',
           locale: 'es-MX',
-          history: toConversationHistory(recentHistory),
-          sessionContext: {
-            activeView: uiContext?.view,
-            lastGoal: lastTurn?.command?.slice(0, 500),
-            pendingQuestion: lastTurn?.result?.includes('?') ? lastTurn.result.slice(0, 500) : undefined,
-            recentEntityIds: [...focused.recentIds].slice(0, 20)
-          },
+          history,
           uiContext: {
             ...uiContext,
             activeSheetRowId: activeSheetRow?.id,
