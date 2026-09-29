@@ -13,14 +13,58 @@ type Env = {
   ASSETS: Fetcher;
 };
 
-function json(data: unknown, status = 200) {
+type RateKind = 'assistant' | 'transcribe';
+
+const MAX_ASSISTANT_BYTES = 1_500_000;
+const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+
+function json(data: unknown, status = 200, headers?: HeadersInit) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store'
+      'cache-control': 'no-store',
+      ...headers
     }
   });
+}
+
+function requestComesFromApp(request: Request, url: URL) {
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (fetchSite === 'cross-site') return false;
+
+  const origin = request.headers.get('origin');
+  if (origin && origin !== url.origin) return false;
+
+  const referer = request.headers.get('referer');
+  if (referer) {
+    try {
+      if (new URL(referer).origin !== url.origin) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+function declaredBodyTooLarge(request: Request, limit: number) {
+  const raw = request.headers.get('content-length');
+  if (!raw) return false;
+  const size = Number(raw);
+  return Number.isFinite(size) && size > limit;
+}
+
+async function enforceRateLimit(request: Request, env: Env, kind: RateKind) {
+  const id = env.REMINDER_SCHEDULER.idFromName('personal');
+  const client = request.headers.get('cf-connecting-ip') || 'unknown';
+  const internal = new Request('https://dj-noa.internal/api/internal/rate-check', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind, client })
+  });
+  const response = await env.REMINDER_SCHEDULER.get(id).fetch(internal);
+  if (response.ok) return null;
+  return json({ error: 'rate_limited' }, 429, { 'retry-after': response.headers.get('retry-after') || '60' });
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -36,10 +80,11 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
 
 async function handleTranscription(request: Request, env: Env) {
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+  if (declaredBodyTooLarge(request, MAX_AUDIO_BYTES)) return json({ error: 'audio_too_large' }, 413);
 
   const audio = await request.arrayBuffer();
   if (!audio.byteLength) return json({ text: '' });
-  if (audio.byteLength > 8 * 1024 * 1024) return json({ error: 'audio_too_large' }, 413);
+  if (audio.byteLength > MAX_AUDIO_BYTES) return json({ error: 'audio_too_large' }, 413);
 
   try {
     const result = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
@@ -63,11 +108,21 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.pathname.startsWith('/api/') && url.pathname !== '/api/health' && !requestComesFromApp(request, url)) {
+      return json({ error: 'forbidden_source' }, 403);
+    }
+
     if (url.pathname === '/api/assistant') {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+      if (declaredBodyTooLarge(request, MAX_ASSISTANT_BYTES)) return json({ error: 'request_too_large' }, 413);
+      const limited = await enforceRateLimit(request, env, 'assistant');
+      if (limited) return limited;
       return handleDjNoaAssistant(request, env);
     }
 
     if (url.pathname === '/api/transcribe') {
+      const limited = await enforceRateLimit(request, env, 'transcribe');
+      if (limited) return limited;
       return handleTranscription(request, env);
     }
 
