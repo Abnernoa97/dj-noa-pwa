@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import AssistantPlanPreview from './AssistantPlanPreview';
+import DataSafetyPanel from './DataSafetyPanel';
 import './styles.css';
 import './events.css';
 import './event-hub.css';
@@ -16,6 +17,7 @@ import './live-actions.css';
 import './assistant-plan.css';
 import './voice-modes.css';
 import './conversation-dock.css';
+import './data-safety.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
@@ -43,5 +45,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
     <AssistantPlanPreview />
+    <DataSafetyPanel />
   </React.StrictMode>
 );
