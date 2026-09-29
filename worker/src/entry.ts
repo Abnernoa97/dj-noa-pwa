@@ -1,5 +1,6 @@
 import baseWorker, { ReminderScheduler } from './index';
 import { handleDjNoaAssistant } from './djNoaAssistant';
+import { expandDeterministicRecurrence } from './deterministicRecurrence';
 
 export { ReminderScheduler };
 
@@ -104,6 +105,27 @@ async function handleTranscription(request: Request, env: Env) {
   }
 }
 
+async function handleAssistantWithDeterminism(request: Request, env: Env) {
+  let command = '';
+  try {
+    const body = await request.clone().json() as { command?: string; text?: string };
+    command = String(body.command || body.text || '').trim();
+  } catch {
+    // The assistant itself will return the canonical invalid-request response.
+  }
+
+  const response = await handleDjNoaAssistant(request, env);
+  if (!response.ok || !command) return response;
+
+  try {
+    const payload = await response.clone().json() as { reply?: string; actions?: Array<Record<string, unknown>> };
+    const expanded = expandDeterministicRecurrence(command, payload);
+    return json(expanded, response.status);
+  } catch {
+    return response;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -117,7 +139,7 @@ export default {
       if (declaredBodyTooLarge(request, MAX_ASSISTANT_BYTES)) return json({ error: 'request_too_large' }, 413);
       const limited = await enforceRateLimit(request, env, 'assistant');
       if (limited) return limited;
-      return handleDjNoaAssistant(request, env);
+      return handleAssistantWithDeterminism(request, env);
     }
 
     if (url.pathname === '/api/transcribe') {
