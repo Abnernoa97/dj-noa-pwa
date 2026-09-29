@@ -27,7 +27,23 @@ type DeviceState = {
   updatedAt: string;
 };
 
+type RateState = {
+  minute: number;
+  clients: Record<string, { assistant: number; transcribe: number }>;
+};
+
 const VAPID_SUBJECT = 'https://dj-noa-pwa.soloaplicaciones97.workers.dev';
+const RATE_LIMITS = { assistant: 30, transcribe: 20 } as const;
+
+function nextRepeatedDueAt(item: RemoteReminder) {
+  if (!item.repeat || item.repeat === 'none') return null;
+  const next = new Date(item.dueAt);
+  if (!Number.isFinite(next.getTime())) return null;
+  if (item.repeat === 'daily') next.setUTCDate(next.getUTCDate() + 1);
+  if (item.repeat === 'weekly') next.setUTCDate(next.getUTCDate() + 7);
+  if (item.repeat === 'monthly') next.setUTCMonth(next.getUTCMonth() + 1);
+  return next.toISOString();
+}
 
 export class ReminderScheduler extends DurableObject<Env> {
   private async getVapidKeys(): Promise<VapidKeys> {
@@ -93,8 +109,40 @@ export class ReminderScheduler extends DurableObject<Env> {
     return request.headers.get('x-dj-noa-device')?.trim() || '';
   }
 
+  private async rateCheck(request: Request) {
+    const body = await request.json() as { kind?: 'assistant' | 'transcribe'; client?: string };
+    const kind = body.kind;
+    if (!kind || !(kind in RATE_LIMITS)) return Response.json({ ok: false, error: 'invalid_rate_kind' }, { status: 400 });
+
+    const minute = Math.floor(Date.now() / 60_000);
+    const client = String(body.client || 'unknown').slice(0, 96);
+    let state = await this.ctx.storage.get<RateState>('api-rate');
+    if (!state || state.minute !== minute) state = { minute, clients: {} };
+
+    const current = state.clients[client] || { assistant: 0, transcribe: 0 };
+    current[kind] += 1;
+    state.clients[client] = current;
+
+    // One-user app: cap the per-minute map so abusive random identifiers cannot grow storage indefinitely.
+    const keys = Object.keys(state.clients);
+    if (keys.length > 250) {
+      for (const key of keys.slice(0, keys.length - 250)) delete state.clients[key];
+    }
+    await this.ctx.storage.put('api-rate', state);
+
+    const limit = RATE_LIMITS[kind];
+    return Response.json({ ok: current[kind] <= limit, remaining: Math.max(0, limit - current[kind]) }, {
+      status: current[kind] <= limit ? 200 : 429,
+      headers: current[kind] <= limit ? undefined : { 'retry-after': '60' }
+    });
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === '/api/internal/rate-check' && request.method === 'POST') {
+      return this.rateCheck(request);
+    }
 
     if (url.pathname === '/api/push/key' && request.method === 'GET') {
       const vapid = await this.getVapidKeys();
@@ -171,14 +219,19 @@ export class ReminderScheduler extends DurableObject<Env> {
     const devices = await this.getDevices();
     const now = Date.now();
 
-    for (const [token, device] of Object.entries(devices)) {
+    for (const device of Object.values(devices)) {
       let subscriptionDead = false;
       for (const reminder of Object.values(device.reminders)) {
         if (this.effectiveTime(reminder) > now + 1000) continue;
         const result = await this.sendPush(device.subscription, reminder);
         if (result === 'sent') {
           device.sent[reminder.id] = reminder.dueAt;
-          delete device.reminders[reminder.id];
+          const nextDueAt = nextRepeatedDueAt(reminder);
+          if (nextDueAt) {
+            device.reminders[reminder.id] = { ...reminder, dueAt: nextDueAt, retryAt: undefined };
+          } else {
+            delete device.reminders[reminder.id];
+          }
         } else if (result === 'temporary') {
           device.reminders[reminder.id] = { ...reminder, retryAt: new Date(Date.now() + 60_000).toISOString() };
         } else {
@@ -186,91 +239,13 @@ export class ReminderScheduler extends DurableObject<Env> {
           subscriptionDead = true;
         }
       }
-      devices[token] = { ...device, updatedAt: new Date().toISOString() };
-      if (subscriptionDead) devices[token].subscription = device.subscription;
+      device.updatedAt = new Date().toISOString();
+      if (subscriptionDead) device.subscription = device.subscription;
     }
 
     await this.putDevices(devices);
     await this.scheduleNext(devices);
   }
-}
-
-const schema = {
-  type: 'object',
-  properties: {
-    reply: { type: 'string' },
-    actions: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          type: { type: 'string', enum: ['create_event', 'update_event', 'delete_event', 'create_reminder', 'update_reminder', 'delete_reminder', 'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column', 'navigate', 'query_total', 'none'] },
-          eventId: { type: 'string' },
-          reminderId: { type: 'string' },
-          rowId: { type: 'string' },
-          title: { type: 'string' },
-          date: { type: 'string' },
-          time: { type: 'string' },
-          venue: { type: 'string' },
-          address: { type: 'string' },
-          notes: { type: 'string' },
-          dueAt: { type: 'string' },
-          priority: { type: 'string', enum: ['low', 'normal', 'high'] },
-          repeat: { type: 'string', enum: ['none', 'daily', 'weekly', 'monthly'] },
-          notificationEnabled: { type: 'boolean' },
-          done: { type: 'boolean' },
-          label: { type: 'string' },
-          category: { type: 'string' },
-          amount: { type: 'number' },
-          status: { type: 'string', enum: ['confirmed', 'tentative', 'done', 'pending', 'paid', 'info'] },
-          name: { type: 'string' },
-          key: { type: 'string' },
-          columnType: { type: 'string', enum: ['text', 'number', 'currency', 'date', 'formula'] },
-          formula: { type: 'string' },
-          values: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean', 'null'] } },
-          view: { type: 'string', enum: ['home', 'events', 'calendar', 'sheet', 'reminders'] },
-          message: { type: 'string' }
-        },
-        required: ['type']
-      }
-    }
-  },
-  required: ['reply', 'actions']
-};
-
-async function handleAssistant(request: Request, env: Env): Promise<Response> {
-  const body = await request.json() as { command?: string; now?: string; context?: unknown };
-  if (!body.command?.trim()) return Response.json({ error: 'command_required' }, { status: 400 });
-
-  const system = [
-    'You are DJ NOA, the command interpreter for a private one-person event operations, reminders and spreadsheet app.',
-    'The user speaks Spanish. Return concise Spanish.',
-    'Convert the command into safe structured actions only.',
-    'Dates must be ISO YYYY-MM-DD. Date-times must be ISO 8601. Times should be HH:mm.',
-    'For money, return plain numeric amounts with no symbols.',
-    'For existing events use exact eventId values from context. Never invent ids.',
-    'For existing reminders use exact reminderId values from context. Never invent reminder ids.',
-    'For existing spreadsheet rows use exact rowId values from context. Never invent row ids.',
-    'For reminders, use create_reminder, update_reminder or delete_reminder. Include dueAt when a date/time is requested, priority for urgency, repeat for recurrence, and notificationEnabled only when explicitly relevant.',
-    'Only delete a reminder when the user clearly asks to delete it. If the target reminder is ambiguous, return none and ask which one.',
-    'Use add_sheet_row to create a new row, update_sheet_row to change a row, and delete_sheet_row only when the user explicitly asks to delete a row.',
-    'Use add_sheet_column when the user asks for a new spreadsheet column. For a calculated column use columnType formula and preserve the requested formula.',
-    'For update_sheet_row include only fields explicitly requested. Custom cell changes go inside values.',
-    'Use query_total for questions about totals and include category/status filters when the request contains them.',
-    'If a target row, reminder or event is ambiguous, return type none and ask one short follow-up.',
-    'Never perform a destructive action unless the user clearly asked for it.'
-  ].join(' ');
-
-  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: JSON.stringify({ command: body.command, now: body.now, context: body.context }) }
-    ],
-    response_format: { type: 'json_schema', json_schema: schema }
-  });
-
-  const payload = typeof result === 'object' && result && 'response' in result ? (result as { response: unknown }).response : result;
-  return Response.json(payload);
 }
 
 export default {
@@ -280,8 +255,6 @@ export default {
     if (url.pathname === '/api/health' && request.method === 'GET') {
       return Response.json({ ok: true, service: 'dj-noa-worker', ai: true, push: true });
     }
-
-    if (url.pathname === '/api/assistant' && request.method === 'POST') return handleAssistant(request, env);
 
     if (url.pathname.startsWith('/api/push/') || url.pathname.startsWith('/api/reminders/')) {
       const id = env.REMINDER_SCHEDULER.idFromName('personal');
