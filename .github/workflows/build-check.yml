@@ -2,7 +2,7 @@ name: Build Check
 
 on:
   push:
-    branches: [main, audit-hardening, data-protection, performance-coherence, ai-deterministic, notifications-hardening]
+    branches: [main, audit-hardening, data-protection, performance-coherence, ai-deterministic, notifications-hardening, ui-code-cleanup]
   workflow_dispatch:
 
 permissions:
