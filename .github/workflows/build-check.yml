@@ -2,7 +2,7 @@ name: Build Check
 
 on:
   push:
-    branches: [main, audit-hardening, data-protection]
+    branches: [main, audit-hardening, data-protection, performance-coherence]
   workflow_dispatch:
 
 permissions:
