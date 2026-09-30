@@ -74,7 +74,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     setStatus('speaking');
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
-    // Deliberately use the device/browser Spanish voice instead of forcing a scored voice.
     utterance.lang = 'es-MX';
     utterance.rate = 0.98;
     utterance.pitch = 1;
@@ -116,7 +115,9 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
       if (!response.ok) throw new Error('chat_unavailable');
       const payload = await response.json() as { text?: string };
       const answer = String(payload.text || '').trim() || 'Dime otra vez.';
-      historyRef.current = [...previous, { role: 'user', content: clean }, { role: 'assistant', content: answer }].slice(-12);
+      const userTurn: ChatTurn = { role: 'user', content: clean };
+      const assistantTurn: ChatTurn = { role: 'assistant', content: answer };
+      historyRef.current = [...previous, userTurn, assistantTurn].slice(-12);
       processingRef.current = false;
       if (activeRef.current) speak(answer);
     } catch {
@@ -202,7 +203,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     setActive(true);
     setStatus('starting');
 
-    // Local TTS makes the first response immediate; no network round trip is involved.
     speak('Aquí estoy.');
 
     try {
