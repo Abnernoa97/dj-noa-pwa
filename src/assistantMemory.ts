@@ -33,6 +33,16 @@ function normalize(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function localIsoWithOffset(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const offsetHours = Math.floor(absoluteOffset / 60);
+  const offsetRemainder = absoluteOffset % 60;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${pad(offsetHours)}:${pad(offsetRemainder)}`;
+}
+
 const STOP_WORDS = new Set(['para', 'como', 'este', 'esta', 'esto', 'aqui', 'alla', 'quiero', 'puedes', 'ponle', 'agrega', 'cambia', 'corrige', 'hacer', 'hazme', 'dime', 'todo', 'todos', 'todas', 'solo', 'nada', 'mejor', 'ahora']);
 
 function commandWords(command: string) {
@@ -135,7 +145,7 @@ export async function askAssistantWithMemory(
         body: JSON.stringify({
           command,
           inputMode,
-          now: new Date().toISOString(),
+          now: localIsoWithOffset(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Mexico_City',
           locale: 'es-MX',
           history,
