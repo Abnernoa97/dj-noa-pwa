@@ -1,0 +1,264 @@
+/* Dedicated Tasks / Reminders workspace.
+   Mirrors the approved Calendar, Events and Excel workspaces without changing
+   reminder data, notifications, recurrence or editor behavior. */
+
+.app-shell:has(.reminders-workspace){
+  background:#050b08!important;
+  padding:0 0 calc(58px + env(safe-area-inset-bottom))!important;
+}
+.app-shell:has(.reminders-workspace) .background-photo{display:none!important}
+.app-shell:has(.reminders-workspace) .background-shade{
+  background:radial-gradient(circle at 50% 18%,rgba(19,42,30,.18),transparent 44%),linear-gradient(180deg,#07110d 0%,#030806 100%)!important;
+}
+.app-shell:has(.reminders-workspace) .topbar{display:none!important}
+.app-shell:has(.reminders-workspace) .content{
+  position:absolute!important;
+  inset:max(14px,env(safe-area-inset-top)) 0 calc(58px + env(safe-area-inset-bottom)) 0!important;
+  width:100%!important;
+  height:auto!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+}
+.app-shell:has(.reminders-workspace) .voice-orb{display:none!important}
+.app-shell:has(.reminders-workspace) .dj-thread-collapsed{display:none!important}
+
+.reminders-workspace{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:18px 18px 22px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  scrollbar-width:none!important;
+}
+.reminders-workspace::-webkit-scrollbar{display:none!important}
+
+.reminders-workspace .reminder-topline{
+  min-height:78px!important;
+  margin:0 0 16px!important;
+  display:grid!important;
+  grid-template-columns:48px minmax(0,1fr) 48px!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+.reminders-workspace .reminder-topline>div{
+  grid-column:2!important;
+  min-width:0!important;
+  text-align:center!important;
+}
+.reminders-workspace .reminder-topline .eyebrow{
+  margin:0 0 5px!important;
+  font-size:9px!important;
+  line-height:1!important;
+  letter-spacing:.18em!important;
+  color:rgba(232,216,173,.48)!important;
+}
+.reminders-workspace .reminder-topline h2{
+  margin:0!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:clamp(32px,8.6vw,42px)!important;
+  line-height:1!important;
+  font-weight:400!important;
+  letter-spacing:-.02em!important;
+  color:#eadbb4!important;
+  white-space:nowrap!important;
+}
+.reminders-workspace .round-plus{
+  grid-column:3!important;
+  justify-self:end!important;
+  width:44px!important;
+  height:44px!important;
+  border-radius:50%!important;
+  border:1px solid rgba(217,190,123,.2)!important;
+  background:rgba(214,180,96,.045)!important;
+  color:#eadbb4!important;
+}
+
+.reminders-workspace .reminder-metrics{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:7px!important;
+  margin:0 0 12px!important;
+}
+.reminders-workspace .reminder-metrics>div{
+  min-width:0!important;
+  min-height:74px!important;
+  padding:11px 12px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  border:1px solid rgba(217,190,123,.11)!important;
+  border-radius:18px!important;
+  background:rgba(3,13,9,.5)!important;
+}
+.reminders-workspace .reminder-metrics span{
+  display:block!important;
+  font-size:8px!important;
+  line-height:1.15!important;
+  letter-spacing:.13em!important;
+  color:rgba(232,216,173,.46)!important;
+  font-weight:800!important;
+}
+.reminders-workspace .reminder-metrics strong{
+  display:block!important;
+  margin-top:7px!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:28px!important;
+  line-height:1!important;
+  font-weight:400!important;
+  color:#eadbb4!important;
+}
+
+.reminders-workspace .notification-permission{
+  width:100%!important;
+  min-height:68px!important;
+  margin:0 0 18px!important;
+  padding:12px 15px!important;
+  display:grid!important;
+  grid-template-columns:34px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:12px!important;
+  border:1px solid rgba(217,190,123,.13)!important;
+  border-radius:18px!important;
+  background:rgba(214,180,96,.045)!important;
+  color:#eadbb4!important;
+  text-align:left!important;
+}
+.reminders-workspace .notification-permission>svg{width:22px!important;height:22px!important;justify-self:center!important}
+.reminders-workspace .notification-permission span{min-width:0!important;display:flex!important;flex-direction:column!important;gap:4px!important}
+.reminders-workspace .notification-permission span strong{font-size:13px!important;line-height:1.2!important;color:#f2e6ca!important}
+.reminders-workspace .notification-permission span small{font-size:10px!important;line-height:1.35!important;color:rgba(255,255,255,.43)!important}
+.reminders-workspace .notification-feedback{
+  margin:-8px 2px 16px!important;
+  font-size:9px!important;
+  line-height:1.4!important;
+  color:rgba(232,216,173,.58)!important;
+}
+
+.reminders-workspace .reminder-section{margin-top:24px!important}
+.reminders-workspace .reminder-section:first-of-type{margin-top:4px!important}
+.reminders-workspace .reminder-section.muted{opacity:.6!important}
+.reminders-workspace .reminder-section-title{
+  margin:0 2px 10px!important;
+  font-size:9px!important;
+  line-height:1!important;
+  letter-spacing:.18em!important;
+  color:rgba(232,216,173,.46)!important;
+  font-weight:800!important;
+}
+.reminders-workspace .reminder-list-editorial{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+.reminders-workspace .reminder-item{
+  min-height:82px!important;
+  padding:12px 14px!important;
+  display:grid!important;
+  grid-template-columns:44px minmax(0,1fr) 22px!important;
+  align-items:center!important;
+  gap:12px!important;
+  border:1px solid rgba(217,190,123,.1)!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,rgba(214,180,96,.045),rgba(2,12,8,.23))!important;
+}
+.reminders-workspace .reminder-item::before{width:3px!important}
+.reminders-workspace .reminder-check{
+  width:40px!important;
+  height:40px!important;
+  border-radius:50%!important;
+  border:1px solid rgba(217,190,123,.2)!important;
+  background:rgba(214,180,96,.045)!important;
+  color:#eadbb4!important;
+}
+.reminders-workspace .reminder-check svg{width:17px!important;height:17px!important}
+.reminders-workspace .reminder-main{min-width:0!important;padding:3px 0!important}
+.reminders-workspace .reminder-main strong{
+  display:block!important;
+  font-size:15px!important;
+  line-height:1.25!important;
+  font-weight:600!important;
+  color:#f6f0df!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reminders-workspace .reminder-main span{
+  display:block!important;
+  margin-top:6px!important;
+  font-size:10px!important;
+  line-height:1.3!important;
+  color:rgba(255,255,255,.44)!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reminders-workspace .reminder-bell{width:17px!important;height:17px!important;color:rgba(232,216,173,.43)!important}
+
+.reminders-workspace .reminder-bottom-actions{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:0!important;
+  margin:20px 0 78px!important;
+}
+.reminders-workspace .reminder-bottom-actions button{
+  min-height:54px!important;
+  border:1px solid rgba(217,190,123,.18)!important;
+  border-radius:18px!important;
+  background:rgba(214,180,96,.055)!important;
+  color:#eadbb4!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  font-size:11px!important;
+  font-weight:700!important;
+}
+.reminders-workspace .reminder-bottom-actions button:last-child{display:none!important}
+
+@media(max-width:390px){
+  .reminders-workspace{padding:16px 12px 20px!important}
+  .reminders-workspace .reminder-topline{min-height:68px!important;margin-bottom:13px!important;grid-template-columns:42px minmax(0,1fr) 42px!important}
+  .reminders-workspace .reminder-topline h2{font-size:30px!important}
+  .reminders-workspace .round-plus{width:40px!important;height:40px!important}
+  .reminders-workspace .reminder-metrics{gap:5px!important}
+  .reminders-workspace .reminder-metrics>div{min-height:68px!important;padding:9px 8px!important;border-radius:16px!important}
+  .reminders-workspace .reminder-metrics span{font-size:7px!important;letter-spacing:.1em!important}
+  .reminders-workspace .reminder-metrics strong{font-size:25px!important}
+  .reminders-workspace .notification-permission{min-height:64px!important;padding:11px 12px!important}
+  .reminders-workspace .notification-permission span strong{font-size:12px!important}
+  .reminders-workspace .notification-permission span small{font-size:9px!important}
+  .reminders-workspace .reminder-item{min-height:76px!important;padding:10px 11px!important;grid-template-columns:40px minmax(0,1fr) 18px!important;gap:10px!important;border-radius:17px!important}
+  .reminders-workspace .reminder-check{width:36px!important;height:36px!important}
+  .reminders-workspace .reminder-main strong{font-size:14px!important}
+  .reminders-workspace .reminder-main span{font-size:9px!important}
+  .reminders-workspace .reminder-bottom-actions button{min-height:50px!important}
+}
+
+@media(min-width:700px){
+  .reminders-workspace{padding:22px 30px 24px!important}
+  .reminders-workspace .reminder-topline{min-height:84px!important}
+  .reminders-workspace .reminder-topline h2{font-size:44px!important}
+  .reminders-workspace .round-plus{width:46px!important;height:46px!important}
+  .reminders-workspace .reminder-metrics>div{min-height:82px!important;padding:13px 15px!important}
+  .reminders-workspace .reminder-metrics strong{font-size:31px!important}
+  .reminders-workspace .notification-permission{min-height:74px!important;padding:14px 17px!important}
+  .reminders-workspace .notification-permission span strong{font-size:14px!important}
+  .reminders-workspace .notification-permission span small{font-size:11px!important}
+  .reminders-workspace .reminder-item{min-height:88px!important;padding:13px 16px!important;grid-template-columns:46px minmax(0,1fr) 24px!important;gap:14px!important}
+  .reminders-workspace .reminder-main strong{font-size:17px!important}
+  .reminders-workspace .reminder-main span{font-size:11px!important}
+}
