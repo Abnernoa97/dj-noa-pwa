@@ -23,6 +23,7 @@ type RateKind = 'assistant' | 'transcribe';
 
 const MAX_ASSISTANT_BYTES = 1_500_000;
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+const TRANSCRIPTION_CONTEXT = 'Conversación natural en español de México con un asistente personal llamado Noah. Temas frecuentes: tareas, recordatorios, calendario, eventos, Excel, gastos, MLB, NBA, juegos y momios. Conserva con precisión horas, fechas, cantidades, nombres comunes y frases completas aunque la persona hable de forma coloquial.';
 
 function json(data: unknown, status = 200, headers?: HeadersInit) {
   return new Response(JSON.stringify(data), {
@@ -98,8 +99,11 @@ async function handleTranscription(request: Request, env: Env) {
       task: 'transcribe',
       language: 'es',
       vad_filter: true,
+      initial_prompt: TRANSCRIPTION_CONTEXT,
+      beam_size: 5,
       condition_on_previous_text: false,
-      no_speech_threshold: 0.55
+      no_speech_threshold: 0.4,
+      hallucination_silence_threshold: 1.2
     }, { rejectIfBusy: false }) as { text?: string; transcription_info?: { text?: string } };
 
     const text = String(result?.text || result?.transcription_info?.text || '').trim();
