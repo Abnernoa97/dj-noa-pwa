@@ -2,10 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   analyserRms,
   MAX_WAKE_UTTERANCE_MS,
-  NO_VOICE_TIMEOUT_MS,
   preferredSpanishVoice,
   recorderMimeType,
-  SILENCE_AFTER_VOICE_MS,
   transcribeAudio,
   VOICE_THRESHOLD
 } from './voice/audio';
@@ -13,16 +11,29 @@ import type { CaptureMode, RecognitionLike, VoiceMode, VoiceOptions } from './vo
 import { getRecognitionCtor, mergeTranscripts, transcriptFromEvent } from './voice/transcript';
 import { useWakeWord } from './voice/useWakeWord';
 
+const DIALOG_SILENCE_MS = 1650;
+const DIALOG_NO_VOICE_MS = 12000;
+const DIALOG_RESTART_MS = 260;
+const CLOSE_DIALOG = /^(?:gracias(?: noah)?|listo(?: noah)?|eso es todo|ya está|ya estuvo|termina(?: conversación)?|terminar(?: conversación)?|cierra(?: conversación)?|descansa(?: noah)?|hasta luego)$/i;
+const GREETINGS = [
+  'Hola. ¿Qué hacemos?',
+  'Aquí estoy. ¿Qué vamos a hacer?',
+  'Hola. ¿En qué te ayudo?',
+  'Te escucho. ¿Qué hacemos hoy?'
+];
+
 export function useDjNoaVoice(options: VoiceOptions) {
   const [active, setActive] = useState(false);
   const [listening, setListening] = useState(false);
   const [manualRecording, setManualRecording] = useState(false);
   const [mode, setMode] = useState<VoiceMode>('idle');
+  const [conversationActive, setConversationActive] = useState(false);
 
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
   const activeRef = useRef(false);
+  const conversationRef = useRef(false);
   const listeningRef = useRef(false);
   const processingRef = useRef(false);
   const speakingRef = useRef(false);
@@ -42,6 +53,7 @@ export function useDjNoaVoice(options: VoiceOptions) {
   const stoppingRef = useRef(false);
   const discardRef = useRef(false);
   const wakePrefixRef = useRef('');
+  const restartTimerRef = useRef<number | null>(null);
 
   const fallbackRecognitionRef = useRef<RecognitionLike | null>(null);
   const fallbackModeRef = useRef<CaptureMode | null>(null);
@@ -63,6 +75,11 @@ export function useDjNoaVoice(options: VoiceOptions) {
     setMode(next);
   };
 
+  const clearRestart = () => {
+    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
+    restartTimerRef.current = null;
+  };
+
   const stopMeter = () => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
@@ -79,17 +96,25 @@ export function useDjNoaVoice(options: VoiceOptions) {
   };
 
   const finishSession = () => {
+    clearRestart();
     activeRef.current = false;
+    conversationRef.current = false;
     listeningRef.current = false;
     processingRef.current = false;
     speakingRef.current = false;
     captureModeRef.current = null;
     setActive(false);
+    setConversationActive(false);
     setListening(false);
     setManualRecording(false);
     setVoiceMode('idle');
     releaseMicrophone();
     resumeWakeRecognition();
+  };
+
+  const endVoiceConversation = (status = 'Noah en espera.') => {
+    optionsRef.current.onStatus(status);
+    finishSession();
   };
 
   const stopRecorder = (discard = false) => {
@@ -101,56 +126,102 @@ export function useDjNoaVoice(options: VoiceOptions) {
     try { recorder.stop(); } catch { stoppingRef.current = false; }
   };
 
-  const stopSession = (status?: string) => {
+  const stopSession = (status = 'Noah en espera.') => {
     discardRef.current = true;
+    clearRestart();
     try { recorderRef.current?.stop(); } catch { /* noop */ }
     try { fallbackRecognitionRef.current?.abort(); } catch { /* noop */ }
     window.speechSynthesis?.cancel();
-    finishSession();
-    if (status) optionsRef.current.onStatus(status);
+    endVoiceConversation(status);
   };
 
-  const speakOnce = (text: string) => {
-    releaseMicrophone();
-    if (!('speechSynthesis' in window) || !text.trim()) {
+  const continueListening = () => {
+    clearRestart();
+    if (!conversationRef.current || !activeRef.current) {
       finishSession();
+      return;
+    }
+    processingRef.current = false;
+    speakingRef.current = false;
+    restartTimerRef.current = window.setTimeout(() => {
+      restartTimerRef.current = null;
+      if (!conversationRef.current || !activeRef.current) return;
+      void startCapture('wake');
+    }, DIALOG_RESTART_MS);
+  };
+
+  const speakVoice = (text: string, continueAfter = false) => {
+    releaseMicrophone();
+    clearRestart();
+    const clean = text.trim();
+    if (!('speechSynthesis' in window) || !clean) {
+      if (continueAfter && conversationRef.current) continueListening();
+      else finishSession();
       return;
     }
 
     speakingRef.current = true;
     setVoiceMode('speaking');
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = 'es-MX';
-    utterance.rate = 1.06;
+    utterance.rate = 1.07;
     utterance.pitch = 1;
     const preferred = preferredSpanishVoice();
     if (preferred) utterance.voice = preferred;
-    utterance.onend = finishSession;
-    utterance.onerror = finishSession;
+    utterance.onend = () => {
+      speakingRef.current = false;
+      if (continueAfter && conversationRef.current) continueListening();
+      else finishSession();
+    };
+    utterance.onerror = () => {
+      speakingRef.current = false;
+      if (continueAfter && conversationRef.current) continueListening();
+      else finishSession();
+    };
     window.speechSynthesis.speak(utterance);
   };
 
-  const processText = async (text: string) => {
-    if (!text.trim()) {
-      optionsRef.current.onStatus('No escuché una frase. Toca el botón cuando quieras intentarlo otra vez.');
-      finishSession();
+  const processVoiceText = async (text: string) => {
+    const clean = text.trim();
+    if (!clean) {
+      endVoiceConversation();
       return;
     }
 
-    optionsRef.current.onLiveText(text);
-    optionsRef.current.onStatus('…');
+    if (CLOSE_DIALOG.test(clean)) {
+      conversationRef.current = false;
+      setConversationActive(false);
+      optionsRef.current.onStatus('Listo. Aquí estoy cuando me necesites.');
+      speakVoice('Listo. Aquí estoy cuando me necesites.', false);
+      return;
+    }
+
+    optionsRef.current.onStatus('Pensando…');
     processingRef.current = true;
     setVoiceMode('processing');
     try {
-      const reply = await optionsRef.current.onCommand(text);
+      const reply = await optionsRef.current.onCommand(clean);
       processingRef.current = false;
-      if (reply) speakOnce(reply);
-      else finishSession();
+      if (!conversationRef.current) {
+        finishSession();
+        return;
+      }
+      if (reply?.trim()) {
+        optionsRef.current.onStatus(reply);
+        speakVoice(reply, true);
+      } else {
+        continueListening();
+      }
     } catch {
       processingRef.current = false;
-      optionsRef.current.onStatus('No pude completar la orden. Inténtalo otra vez cuando quieras.');
-      finishSession();
+      if (conversationRef.current) {
+        const message = 'No pude completar eso. Dímelo otra vez.';
+        optionsRef.current.onStatus(message);
+        speakVoice(message, true);
+      } else {
+        finishSession();
+      }
     }
   };
 
@@ -179,18 +250,24 @@ export function useDjNoaVoice(options: VoiceOptions) {
         commitManualDictation(merged);
         return;
       }
-      await processText(merged);
+      await processVoiceText(merged);
     } catch {
       processingRef.current = false;
       if (prefix.trim()) {
         if (captureMode === 'manual') commitManualDictation(prefix);
-        else await processText(prefix);
+        else await processVoiceText(prefix);
         return;
       }
-      optionsRef.current.onStatus(navigator.onLine
-        ? 'No pude procesar el audio. Toca el micrófono para intentarlo otra vez.'
-        : 'Estoy sin internet. Para entender la voz necesito conexión.');
-      finishSession();
+      if (captureMode === 'wake' && conversationRef.current) {
+        const message = navigator.onLine ? 'No entendí bien. Dímelo otra vez.' : 'Necesito internet para entender la voz.';
+        optionsRef.current.onStatus(message);
+        speakVoice(message, navigator.onLine);
+      } else {
+        optionsRef.current.onStatus(navigator.onLine
+          ? 'No pude procesar el audio. Toca el micrófono para intentarlo otra vez.'
+          : 'Estoy sin internet. Para entender la voz necesito conexión.');
+        finishSession();
+      }
     }
   };
 
@@ -209,11 +286,11 @@ export function useDjNoaVoice(options: VoiceOptions) {
     }
 
     const elapsed = now - captureStartedAtRef.current;
-    if (speechSeenRef.current && now - lastVoiceAtRef.current >= SILENCE_AFTER_VOICE_MS) {
+    if (speechSeenRef.current && now - lastVoiceAtRef.current >= DIALOG_SILENCE_MS) {
       stopRecorder();
       return;
     }
-    if (!speechSeenRef.current && elapsed >= NO_VOICE_TIMEOUT_MS) {
+    if (!speechSeenRef.current && elapsed >= DIALOG_NO_VOICE_MS) {
       stopRecorder();
       return;
     }
@@ -289,14 +366,16 @@ export function useDjNoaVoice(options: VoiceOptions) {
         wakePrefixRef.current = '';
 
         if (shouldDiscard || !activeRef.current) return;
-        if (finishedMode === 'wake' && !hadSpeech) {
-          optionsRef.current.onStatus('No escuché el comando después de Noah.');
-          finishSession();
+        if (finishedMode === 'wake' && !hadSpeech && !prefixText.trim()) {
+          endVoiceConversation();
           return;
         }
         if (!chunks.length && !prefixText.trim()) {
-          optionsRef.current.onStatus('No escuché nada. Toca el micrófono cuando quieras hablarme.');
-          finishSession();
+          if (finishedMode === 'wake') endVoiceConversation();
+          else {
+            optionsRef.current.onStatus('No escuché nada. Toca el micrófono cuando quieras hablarme.');
+            finishSession();
+          }
           return;
         }
 
@@ -306,8 +385,11 @@ export function useDjNoaVoice(options: VoiceOptions) {
       };
 
       recorder.onerror = () => {
-        optionsRef.current.onStatus('Hubo un problema con el micrófono. Tócalo para volver a intentarlo.');
-        finishSession();
+        if (conversationRef.current) endVoiceConversation('No pude abrir bien el micrófono.');
+        else {
+          optionsRef.current.onStatus('Hubo un problema con el micrófono. Tócalo para volver a intentarlo.');
+          finishSession();
+        }
       };
 
       recorder.start(250);
@@ -336,7 +418,7 @@ export function useDjNoaVoice(options: VoiceOptions) {
       const name = error instanceof DOMException ? error.name : '';
       optionsRef.current.onStatus(
         name === 'NotAllowedError' || name === 'SecurityError'
-          ? 'Necesito permiso para usar el micrófono. Permítelo para Noah y vuelve a tocar el botón.'
+          ? 'Necesito permiso para usar el micrófono. Permítelo para Noah y vuelve a intentarlo.'
           : 'No pude abrir el micrófono en este navegador.'
       );
       finishSession();
@@ -346,13 +428,24 @@ export function useDjNoaVoice(options: VoiceOptions) {
   async function beginWakeCommand(prefix = '') {
     if (activeRef.current || processingRef.current || speakingRef.current) return;
     suspendWakeRecognition();
-    optionsRef.current.onOpen();
+    optionsRef.current.onOpen('voice');
     activeRef.current = true;
+    conversationRef.current = true;
     setActive(true);
+    setConversationActive(true);
     setVoiceMode('wake');
+
+    const remainder = prefix.trim();
+    if (!remainder) {
+      const greeting = GREETINGS[Math.floor(Date.now() / 60000) % GREETINGS.length];
+      optionsRef.current.onStatus(greeting);
+      speakVoice(greeting, true);
+      return;
+    }
+
     optionsRef.current.onStatus('NOAH · Te escucho…');
-    await new Promise((resolve) => window.setTimeout(resolve, 220));
-    await startCapture('wake', prefix);
+    await new Promise((resolve) => window.setTimeout(resolve, 140));
+    await startCapture('wake', remainder);
   }
 
   function startRecognitionFallback(captureMode: CaptureMode, prefix = '') {
@@ -385,13 +478,18 @@ export function useDjNoaVoice(options: VoiceOptions) {
         optionsRef.current.onStatus('NOAH · Te escucho…');
       }
     } catch {
-      optionsRef.current.onStatus('No pude iniciar el micrófono. Tócalo para intentarlo otra vez.');
+      optionsRef.current.onStatus('No pude iniciar el micrófono. Inténtalo otra vez.');
       finishSession();
     }
   }
 
   const toggle = async () => {
-    optionsRef.current.onOpen();
+    optionsRef.current.onOpen('manual');
+
+    if (conversationRef.current) {
+      stopSession();
+      return;
+    }
 
     if (modeRef.current === 'manual' && listeningRef.current) {
       optionsRef.current.onStatus('Transcribiendo…');
@@ -400,15 +498,6 @@ export function useDjNoaVoice(options: VoiceOptions) {
       } else if (fallbackRecognitionRef.current) {
         fallbackManualStopRef.current = true;
         try { fallbackRecognitionRef.current.stop(); } catch { /* noop */ }
-      }
-      return;
-    }
-
-    if (modeRef.current === 'wake' && listeningRef.current) {
-      optionsRef.current.onStatus('Enviando…');
-      if (recorderRef.current) stopRecorder();
-      else {
-        try { fallbackRecognitionRef.current?.stop(); } catch { /* noop */ }
       }
       return;
     }
@@ -465,6 +554,7 @@ export function useDjNoaVoice(options: VoiceOptions) {
           }, 180);
           return;
         }
+
         fallbackModeRef.current = null;
         fallbackPrefixRef.current = '';
         fallbackManualStopRef.current = false;
@@ -472,15 +562,23 @@ export function useDjNoaVoice(options: VoiceOptions) {
           commitManualDictation(text);
           return;
         }
-        void processText(text);
+        if (!text.trim()) {
+          endVoiceConversation();
+          return;
+        }
+        void processVoiceText(text);
       };
       fallbackRecognition.onerror = (event) => {
         const error = String(event.error || '');
         if (fallbackModeRef.current === 'manual' && error === 'no-speech' && !fallbackManualStopRef.current) return;
+        if (fallbackModeRef.current === 'wake' && error === 'no-speech' && conversationRef.current) {
+          endVoiceConversation();
+          return;
+        }
         optionsRef.current.onStatus(
           error === 'not-allowed' || error === 'service-not-allowed'
             ? 'Necesito permiso para usar el micrófono.'
-            : 'No pude escuchar la frase. Toca el micrófono para intentarlo otra vez.'
+            : 'No pude escuchar la frase. Inténtalo otra vez.'
         );
         finishSession();
       };
@@ -488,6 +586,7 @@ export function useDjNoaVoice(options: VoiceOptions) {
     }
 
     return () => {
+      clearRestart();
       discardRef.current = true;
       try { recorderRef.current?.stop(); } catch { /* noop */ }
       try { fallbackRecognitionRef.current?.abort(); } catch { /* noop */ }
@@ -496,5 +595,14 @@ export function useDjNoaVoice(options: VoiceOptions) {
     };
   }, []);
 
-  return { active, listening, manualRecording, wakeListening, mode, toggle };
+  return {
+    active,
+    conversationActive,
+    listening,
+    manualRecording,
+    wakeListening,
+    mode,
+    toggle,
+    stop: () => stopSession()
+  };
 }
