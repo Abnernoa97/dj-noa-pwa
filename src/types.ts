@@ -96,26 +96,3 @@ export interface HistoryItem {
 }
 
 export type AppView = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
-export type AssistantEventRef = 'created_event';
-
-export type AssistantAction =
-  | { type: 'create_event'; title: string; date: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
-  | { type: 'update_event'; eventId: string; title?: string; date?: string; time?: string; venue?: string; address?: string; notes?: string; status?: EventStatus }
-  | { type: 'delete_event'; eventId: string }
-  | { type: 'create_reminder'; title: string; dueAt?: string; eventId?: string; eventRef?: AssistantEventRef; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean }
-  | { type: 'update_reminder'; reminderId: string; title?: string; dueAt?: string; eventId?: string; notes?: string; priority?: ReminderPriority; repeat?: ReminderRepeat; notificationEnabled?: boolean; done?: boolean }
-  | { type: 'delete_reminder'; reminderId: string }
-  | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; financialType?: FinancialType; notes?: string; eventId?: string; eventRef?: AssistantEventRef; calendarDate?: string; values?: Record<string, SheetValue> }
-  | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; financialType?: FinancialType; notes?: string; eventId?: string; calendarDate?: string; values?: Record<string, SheetValue> }
-  | { type: 'delete_sheet_row'; rowId: string }
-  | { type: 'clear_sheet_rows' }
-  | { type: 'add_sheet_column'; name: string; key?: string; columnType?: SheetColumn['type']; formula?: string }
-  | { type: 'navigate'; view: AppView }
-  | { type: 'open_map'; eventId: string }
-  | { type: 'query_total'; category?: string; status?: SheetStatus }
-  | { type: 'none'; message?: string };
-
-export interface AssistantResponse {
-  reply: string;
-  actions: AssistantAction[];
-}

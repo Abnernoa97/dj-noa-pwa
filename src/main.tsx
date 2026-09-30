@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import AppMaintenance from './AppMaintenance';
-import AssistantPlanPreview from './AssistantPlanPreview';
 import DataSafetyPanel from './DataSafetyPanel';
 import SportsEnhancer from './SportsEnhancer';
 import './styles.css';
@@ -14,10 +13,7 @@ import './sheet.css';
 import './sheet-fields.css';
 import './reminders.css';
 import './viewport-layout.css';
-import './live-actions.css';
-import './assistant-plan.css';
-import './voice-modes.css';
-import './conversation-dock.css';
+import './noah-voice.css';
 import './data-safety.css';
 import './visual-polish.css';
 import './excel-scroll-fix.css';
@@ -63,7 +59,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
     <SportsEnhancer />
     <AppMaintenance />
-    <AssistantPlanPreview />
     <DataSafetyPanel />
   </React.StrictMode>
 );

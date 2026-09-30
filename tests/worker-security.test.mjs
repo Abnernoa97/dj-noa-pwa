@@ -15,36 +15,24 @@ test('uses one canonical Wrangler config and one Worker entrypoint', () => {
   assert.equal(existsSync(new URL('../worker/package.json', import.meta.url)), false);
 });
 
-test('frontend API calls are same-origin and have no legacy Worker URL override', () => {
-  const memory = read('src/assistantMemory.ts');
-  const voice = read('src/useDjNoaVoice.ts');
-  const reminders = read('src/reminderNotifications.ts');
-
-  assert.equal(memory.includes('VITE_DJNOA_WORKER_URL'), false);
-  assert.equal(memory.includes('djnoa.workerUrl'), false);
-  assert.match(memory, /fetch\('\/api\/assistant'/);
-  assert.equal(voice.includes('VITE_DJNOA_WORKER_URL'), false);
-  assert.equal(voice.includes('/api/transcribe'), false);
-  assert.equal(voice.includes('fetch('), false);
-  assert.match(reminders, /fetch\('\/api\/push\/key'/);
-  assert.match(reminders, /fetch\('\/api\/push\/subscribe'/);
-  assert.match(reminders, /fetch\('\/api\/reminders\/sync'/);
-  assert.match(reminders, /fetch\('\/api\/push\/test'/);
-  assert.equal(reminders.includes('window.location.origin'), false);
-});
-
-test('sensitive AI routes have a single owner in the Worker router', () => {
+test('new Noah voice chat is same-origin and legacy assistant routes are gone', () => {
+  const voice = read('src/NoahVoice.tsx');
   const entry = read('worker/src/entry.ts');
-  const base = read('worker/src/index.ts');
 
-  assert.equal((entry.match(/url\.pathname === '\/api\/assistant'/g) || []).length, 1);
-  assert.equal((entry.match(/url\.pathname === '\/api\/transcribe'/g) || []).length, 1);
-  assert.equal(base.includes("url.pathname === '/api/assistant'"), false);
-  assert.equal(base.includes("url.pathname === '/api/transcribe'"), false);
+  assert.match(voice, /fetch\('\/api\/noah-chat'/);
+  assert.equal(voice.includes('VITE_DJNOA_WORKER_URL'), false);
+  assert.equal(entry.includes("'/api/assistant'"), false);
+  assert.equal(entry.includes("'/api/transcribe'"), false);
+  assert.equal((entry.match(/url\.pathname === '\/api\/noah-chat'/g) || []).length, 1);
   assert.match(entry, /requestComesFromApp/);
   assert.match(entry, /enforceRateLimit/);
-  assert.match(entry, /MAX_ASSISTANT_BYTES/);
-  assert.match(entry, /MAX_AUDIO_BYTES/);
+});
+
+test('legacy wake-word and recorder frontend modules are deleted', () => {
+  assert.equal(existsSync(new URL('../src/useDjNoaVoice.ts', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/ConversationDock.tsx', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/voice/transcript.ts', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/voice/recognitionTypes.ts', import.meta.url)), false);
 });
 
 test('base Worker owns only health, push, reminders and assets', () => {

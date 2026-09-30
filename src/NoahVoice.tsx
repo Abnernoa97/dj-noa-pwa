@@ -1,0 +1,311 @@
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Mic, Square } from 'lucide-react';
+
+type VoiceStatus = 'idle' | 'starting' | 'listening' | 'thinking' | 'speaking' | 'error';
+type ChatTurn = { role: 'user' | 'assistant'; content: string };
+type OrbPosition = { x: number; y: number };
+
+export type NoahVoiceHandle = {
+  start: () => void;
+  stop: () => void;
+};
+
+const POSITION_KEY = 'dj-noa-voice-button-position-v1';
+const CLOSE_SESSION = /^(?:listo|terminamos|termina|eso es todo|ya estuvo|gracias(?: noah| noa)?|cierra(?: la conversación)?|hasta luego)$/i;
+
+function recognitionCtor() {
+  const scope = window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any };
+  return scope.SpeechRecognition || scope.webkitSpeechRecognition || null;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
+  const [active, setActive] = useState(false);
+  const [status, setStatus] = useState<VoiceStatus>('idle');
+  const [position, setPosition] = useState<OrbPosition | null>(null);
+
+  const activeRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const restartTimerRef = useRef<number | null>(null);
+  const processingRef = useRef(false);
+  const speakingRef = useRef(false);
+  const stoppingRef = useRef(false);
+  const ignoreUntilRef = useRef(0);
+  const historyRef = useRef<ChatTurn[]>([]);
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
+
+  const clearRestart = () => {
+    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
+    restartTimerRef.current = null;
+  };
+
+  const stopMicrophone = () => {
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+  };
+
+  const stopSession = () => {
+    stoppingRef.current = true;
+    activeRef.current = false;
+    setActive(false);
+    setStatus('idle');
+    processingRef.current = false;
+    speakingRef.current = false;
+    clearRestart();
+    try { recognitionRef.current?.abort?.(); } catch { /* noop */ }
+    recognitionRef.current = null;
+    try { window.speechSynthesis?.cancel?.(); } catch { /* noop */ }
+    stopMicrophone();
+    window.setTimeout(() => { stoppingRef.current = false; }, 120);
+  };
+
+  const speak = (text: string, after?: () => void) => {
+    const clean = text.trim();
+    if (!clean || !('speechSynthesis' in window)) {
+      after?.();
+      return;
+    }
+
+    speakingRef.current = true;
+    setStatus('speaking');
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    // Deliberately use the device/browser Spanish voice instead of forcing a scored voice.
+    utterance.lang = 'es-MX';
+    utterance.rate = 0.98;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    const done = () => {
+      speakingRef.current = false;
+      ignoreUntilRef.current = Date.now() + 180;
+      if (activeRef.current) setStatus('listening');
+      after?.();
+    };
+    utterance.onend = done;
+    utterance.onerror = done;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const askNoah = async (message: string) => {
+    const clean = message.trim();
+    if (!clean || !activeRef.current || processingRef.current || speakingRef.current) return;
+
+    if (CLOSE_SESSION.test(clean)) {
+      speak('Listo.', stopSession);
+      return;
+    }
+
+    processingRef.current = true;
+    setStatus('thinking');
+    const previous = historyRef.current.slice(-10);
+
+    try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 9000);
+      const response = await fetch('/api/noah-chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: clean, history: previous }),
+        signal: controller.signal
+      });
+      window.clearTimeout(timeout);
+      if (!response.ok) throw new Error('chat_unavailable');
+      const payload = await response.json() as { text?: string };
+      const answer = String(payload.text || '').trim() || 'Dime otra vez.';
+      historyRef.current = [...previous, { role: 'user', content: clean }, { role: 'assistant', content: answer }].slice(-12);
+      processingRef.current = false;
+      if (activeRef.current) speak(answer);
+    } catch {
+      processingRef.current = false;
+      if (activeRef.current) speak('No pude responder ahora. Dime otra vez.');
+    }
+  };
+
+  const scheduleRecognitionRestart = (delay = 120) => {
+    clearRestart();
+    if (!activeRef.current || stoppingRef.current || document.visibilityState !== 'visible') return;
+    restartTimerRef.current = window.setTimeout(() => {
+      restartTimerRef.current = null;
+      startRecognition();
+    }, delay);
+  };
+
+  function startRecognition() {
+    if (!activeRef.current || stoppingRef.current || document.visibilityState !== 'visible') return;
+    const Ctor = recognitionCtor();
+    if (!Ctor) {
+      setStatus('error');
+      return;
+    }
+
+    const recognition = new Ctor();
+    recognition.lang = 'es-MX';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      if (activeRef.current && !speakingRef.current && !processingRef.current) setStatus('listening');
+    };
+
+    recognition.onresult = (event: any) => {
+      if (!activeRef.current || processingRef.current || speakingRef.current || Date.now() < ignoreUntilRef.current) return;
+      const finals: string[] = [];
+      for (let index = event.resultIndex ?? 0; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (!result?.isFinal) continue;
+        const text = String(result?.[0]?.transcript || '').trim();
+        if (text) finals.push(text);
+      }
+      const finalText = finals.join(' ').trim();
+      if (finalText) void askNoah(finalText);
+    };
+
+    recognition.onerror = (event: any) => {
+      const error = String(event?.error || '');
+      if (!activeRef.current || stoppingRef.current || error === 'aborted') return;
+      if (error === 'not-allowed' || error === 'service-not-allowed') {
+        setStatus('error');
+        stopSession();
+        return;
+      }
+      scheduleRecognitionRestart(180);
+    };
+
+    recognition.onend = () => {
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      if (activeRef.current && !stoppingRef.current) scheduleRecognitionRestart();
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      scheduleRecognitionRestart(180);
+    }
+  }
+
+  const startSession = async () => {
+    if (activeRef.current) return;
+    if (!recognitionCtor()) {
+      setStatus('error');
+      return;
+    }
+
+    activeRef.current = true;
+    stoppingRef.current = false;
+    historyRef.current = [];
+    setActive(true);
+    setStatus('starting');
+
+    // Local TTS makes the first response immediate; no network round trip is involved.
+    speak('Aquí estoy.');
+
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        micStreamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+      }
+      if (!activeRef.current) {
+        stopMicrophone();
+        return;
+      }
+      startRecognition();
+    } catch {
+      setStatus('error');
+      stopSession();
+    }
+  };
+
+  useImperativeHandle(ref, () => ({ start: () => void startSession(), stop: stopSession }));
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(POSITION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as OrbPosition;
+        if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+          setPosition({
+            x: clamp(saved.x, 10, Math.max(10, window.innerWidth - 70)),
+            y: clamp(saved.y, 70, Math.max(70, window.innerHeight - 150))
+          });
+        }
+      }
+    } catch { /* noop */ }
+
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible' && activeRef.current) stopSession();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      stopSession();
+    };
+  }, []);
+
+  const pointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position?.x ?? rect.left,
+      originY: position?.y ?? rect.top,
+      moved: false
+    };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* noop */ }
+  };
+
+  const pointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < 7) return;
+    drag.moved = true;
+    event.preventDefault();
+    setPosition({
+      x: clamp(drag.originX + dx, 10, Math.max(10, window.innerWidth - 70)),
+      y: clamp(drag.originY + dy, 70, Math.max(70, window.innerHeight - 150))
+    });
+  };
+
+  const pointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* noop */ }
+    if (drag.moved) {
+      if (position) {
+        try { localStorage.setItem(POSITION_KEY, JSON.stringify(position)); } catch { /* noop */ }
+      }
+      return;
+    }
+    if (activeRef.current) stopSession();
+    else void startSession();
+  };
+
+  return (
+    <button
+      type="button"
+      className={`noah-voice-orb ${status} ${active ? 'active' : ''}`}
+      style={position ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' } : undefined}
+      onPointerDown={pointerDown}
+      onPointerMove={pointerMove}
+      onPointerUp={pointerUp}
+      onPointerCancel={() => { dragRef.current = null; }}
+      aria-label={active ? 'Terminar conversación con Noah' : 'Hablar con Noah'}
+      title={active ? 'Terminar conversación' : 'Hablar con Noah'}
+    >
+      <span className="noah-voice-ring" />
+      <span className="noah-voice-core">{active ? <Square size={15} fill="currentColor" /> : <Mic size={22} />}</span>
+    </button>
+  );
+});
+
+export default NoahVoice;

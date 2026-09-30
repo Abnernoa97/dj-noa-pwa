@@ -4,7 +4,8 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import NbaWorkspace from '../NbaWorkspace';
 import type { AppView, EventItem, ReminderItem } from '../types';
-import { money } from './assistantActions';
+
+const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 
 type Props = {
   todayEventCount: number;
@@ -40,7 +41,7 @@ export default function HomeView({
     <section className="home-view">
       <div className="home-summary">
         <div><span>HOY</span><strong>{todayEventCount ? `${todayEventCount} evento${todayEventCount > 1 ? 's' : ''}` : 'Sin eventos hoy'}</strong></div>
-        <button onClick={onVoice}><Mic size={18} /> Hablar con DJ NOA</button>
+        <button onClick={onVoice}><Mic size={18} /> Hablar con Noah</button>
       </div>
 
       <div className="sports-corner-stack" aria-label="Deportes">
