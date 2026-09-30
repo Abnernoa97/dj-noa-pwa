@@ -48,7 +48,9 @@ type Props = {
   onBack: () => void;
 };
 
-const CACHE_KEY = 'dj-noa-mlb-snapshot-v2';
+type FavoriteSide = 'away' | 'home' | null;
+
+const CACHE_KEY = 'dj-noa-mlb-snapshot-v3';
 const DIVISION_ORDER = ['Este', 'Central', 'Oeste'];
 
 function readCachedSnapshot(): MlbSnapshot | null {
@@ -69,6 +71,32 @@ function odd(value?: number) {
   return value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`;
 }
 
+function impliedProbability(value?: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return 0;
+  return value < 0 ? (-value) / ((-value) + 100) : 100 / (value + 100);
+}
+
+function favoriteFromOdds(away?: number, home?: number): FavoriteSide {
+  const awayProbability = impliedProbability(away);
+  const homeProbability = impliedProbability(home);
+  if (!awayProbability || !homeProbability || Math.abs(awayProbability - homeProbability) < 0.0001) return null;
+  return awayProbability > homeProbability ? 'away' : 'home';
+}
+
+function favoriteForGame(game: MlbGame): FavoriteSide {
+  if (game.books.length) {
+    let awayVotes = 0;
+    let homeVotes = 0;
+    for (const book of game.books) {
+      const favorite = favoriteFromOdds(book.away, book.home);
+      if (favorite === 'away') awayVotes += 1;
+      if (favorite === 'home') homeVotes += 1;
+    }
+    if (awayVotes !== homeVotes) return awayVotes > homeVotes ? 'away' : 'home';
+  }
+  return favoriteFromOdds(game.consensusAway, game.consensusHome);
+}
+
 function shortTeamName(name: string) {
   const parts = name.trim().split(/\s+/);
   return parts.length > 1 ? parts.slice(-1)[0] : name;
@@ -87,6 +115,12 @@ function dateLabel(date: string) {
   return Number.isFinite(value.getTime())
     ? format(value, "d 'de' MMMM", { locale: es })
     : date;
+}
+
+function marketLabel(game: MlbGame) {
+  if (game.books.length > 1) return 'PROMEDIO';
+  if (game.books.length === 1) return game.books[0].provider.toUpperCase();
+  return 'MERCADO';
 }
 
 export default function MlbWorkspace({ onBack }: Props) {
@@ -154,10 +188,29 @@ export default function MlbWorkspace({ onBack }: Props) {
     [divisions, division]
   );
 
-  const liveGames = useMemo(() => (snapshot?.games || []).filter((game) => game.status === 'live'), [snapshot]);
-  const displayedGames = liveGames.length ? liveGames : (snapshot?.nextGames || []);
-  const showingLive = liveGames.length > 0;
-  const gamesDate = showingLive ? today : (snapshot?.nextDate || today);
+  const todayGames = useMemo(() => {
+    return (snapshot?.games || [])
+      .filter((game) => game.status !== 'final')
+      .sort((a, b) => {
+        if (a.status !== b.status) {
+          if (a.status === 'live') return -1;
+          if (b.status === 'live') return 1;
+        }
+        const aTime = new Date(a.startTime).getTime();
+        const bTime = new Date(b.startTime).getTime();
+        return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
+      });
+  }, [snapshot]);
+
+  const nextGames = useMemo(
+    () => (snapshot?.nextGames || []).filter((game) => game.status !== 'final'),
+    [snapshot]
+  );
+
+  const showingToday = todayGames.length > 0;
+  const displayedGames = showingToday ? todayGames : nextGames;
+  const gamesDate = showingToday ? today : (snapshot?.nextDate || today);
+  const hasLive = displayedGames.some((game) => game.status === 'live');
 
   return (
     <section className="mlb-workspace">
@@ -201,48 +254,61 @@ export default function MlbWorkspace({ onBack }: Props) {
           </div> : null}
         </section>
 
-        <section className={`mlb-games-section ${showingLive ? 'is-live' : 'is-next'}`}>
+        <section className={`mlb-games-section ${showingToday ? 'is-today' : 'is-next'} ${hasLive ? 'has-live' : ''}`}>
           <div className="mlb-games-title">
             <div>
-              <span>{showingLive ? 'EN VIVO' : `PRÓXIMOS · ${dateLabel(gamesDate).toUpperCase()}`}</span>
-              <h2>{showingLive ? 'Juegos al momento' : 'Próximos juegos'}</h2>
+              <span>{showingToday ? `HOY · ${dateLabel(gamesDate).toUpperCase()}${hasLive ? ' · EN VIVO' : ''}` : `PRÓXIMOS · ${dateLabel(gamesDate).toUpperCase()}`}</span>
+              <h2>Enfrentamientos y momios</h2>
             </div>
             <small>{displayedGames.length} {displayedGames.length === 1 ? 'juego' : 'juegos'}</small>
           </div>
 
           {error ? <div className="mlb-data-note">{error}</div> : null}
           {loading && !snapshot ? <div className="mlb-loading games">Buscando juegos y momios…</div> : null}
-          {!loading && snapshot && !displayedGames.length ? <div className="mlb-no-games">No hay juegos en vivo ni juegos programados para el siguiente día.</div> : null}
+          {!loading && snapshot && !displayedGames.length ? <div className="mlb-no-games">No quedan juegos de hoy ni hay juegos programados para el siguiente día.</div> : null}
 
           <div className="mlb-games-list">
-            {displayedGames.map((game, index) => (
-              <article className={`mlb-game-card ${index % 2 ? 'red-edge' : 'blue-edge'}`} key={game.id}>
-                <div className="mlb-game-meta"><span className={`mlb-status ${game.status}`}>{gameClock(game)}</span><small>{game.venue || 'MLB'}</small></div>
+            {displayedGames.map((game, index) => {
+              const favorite = favoriteForGame(game);
+              return (
+                <article className={`mlb-game-card ${index % 2 ? 'red-edge' : 'blue-edge'} ${game.status === 'live' ? 'is-live-card' : ''}`} key={game.id}>
+                  <div className="mlb-game-meta"><span className={`mlb-status ${game.status}`}>{gameClock(game)}</span><small>{game.venue || 'MLB'}</small></div>
 
-                <div className="mlb-matchup">
-                  <div className="mlb-club away">
-                    {game.away.logo ? <img src={game.away.logo} alt="" /> : <span className="mlb-logo-fallback">{game.away.abbreviation.slice(0, 1)}</span>}
-                    <strong>{game.away.abbreviation}</strong>
-                    <small>{shortTeamName(game.away.name)}</small>
+                  <div className="mlb-matchup">
+                    <div className={`mlb-club away ${favorite === 'away' ? 'market-favorite' : ''}`}>
+                      {game.away.logo ? <img src={game.away.logo} alt="" /> : <span className="mlb-logo-fallback">{game.away.abbreviation.slice(0, 1)}</span>}
+                      <strong>{game.away.abbreviation}</strong>
+                      <small>{shortTeamName(game.away.name)}</small>
+                      {favorite === 'away' ? <em>FAVORITO</em> : null}
+                    </div>
+                    <div className="mlb-versus"><span>VS</span>{game.status !== 'scheduled' && (game.away.score || game.home.score) ? <b>{game.away.score || '0'} · {game.home.score || '0'}</b> : null}</div>
+                    <div className={`mlb-club home ${favorite === 'home' ? 'market-favorite' : ''}`}>
+                      {game.home.logo ? <img src={game.home.logo} alt="" /> : <span className="mlb-logo-fallback">{game.home.abbreviation.slice(0, 1)}</span>}
+                      <strong>{game.home.abbreviation}</strong>
+                      <small>{shortTeamName(game.home.name)}</small>
+                      {favorite === 'home' ? <em>FAVORITO</em> : null}
+                    </div>
                   </div>
-                  <div className="mlb-versus"><span>VS</span>{game.status !== 'scheduled' && (game.away.score || game.home.score) ? <b>{game.away.score || '0'} · {game.home.score || '0'}</b> : null}</div>
-                  <div className="mlb-club home">
-                    {game.home.logo ? <img src={game.home.logo} alt="" /> : <span className="mlb-logo-fallback">{game.home.abbreviation.slice(0, 1)}</span>}
-                    <strong>{game.home.abbreviation}</strong>
-                    <small>{shortTeamName(game.home.name)}</small>
+
+                  <div className="mlb-moneyline">
+                    <span className="mlb-moneyline-label">MONEYLINE {game.books.length ? `· ${game.books.length} ${game.books.length === 1 ? 'CASA' : 'CASAS'}` : ''}</span>
+                    <div className="mlb-moneyline-values">
+                      <div className={`mlb-odd-side away ${favorite === 'away' ? 'favorite' : ''}`}><small>{game.away.abbreviation}</small><strong>{odd(game.consensusAway)}</strong></div>
+                      <span className="mlb-market-label">{marketLabel(game)}</span>
+                      <div className={`mlb-odd-side home ${favorite === 'home' ? 'favorite' : ''}`}><small>{game.home.abbreviation}</small><strong>{odd(game.consensusHome)}</strong></div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="mlb-moneyline">
-                  <span className="mlb-moneyline-label">MOMIO {game.books.length ? `· ${game.books.length} ${game.books.length === 1 ? 'CASA' : 'CASAS'}` : ''}</span>
-                  <div className="mlb-moneyline-values"><strong>{odd(game.consensusAway)}</strong><span>CONSENSO</span><strong>{odd(game.consensusHome)}</strong></div>
-                </div>
-
-                {game.books.length ? <div className="mlb-books">
-                  {game.books.slice(0, 3).map((book) => <div key={`${game.id}-${book.provider}`}><span>{book.provider}</span><b>{odd(book.away)}</b><b>{odd(book.home)}</b></div>)}
-                </div> : <div className="mlb-no-odds">Momio todavía no publicado.</div>}
-              </article>
-            ))}
+                  {game.books.length ? <div className="mlb-books">
+                    <div className="mlb-books-head"><span>CASA</span><b>{game.away.abbreviation}</b><b>{game.home.abbreviation}</b></div>
+                    {game.books.slice(0, 5).map((book) => {
+                      const bookFavorite = favoriteFromOdds(book.away, book.home);
+                      return <div key={`${game.id}-${book.provider}`}><span>{book.provider}</span><b className={bookFavorite === 'away' ? 'is-favorite' : ''}>{odd(book.away)}</b><b className={bookFavorite === 'home' ? 'is-favorite' : ''}>{odd(book.home)}</b></div>;
+                    })}
+                  </div> : <div className="mlb-no-odds">Momio todavía no publicado por las casas.</div>}
+                </article>
+              );
+            })}
           </div>
 
           {snapshot ? <div className="mlb-updated">Actualizado {new Date(snapshot.updatedAt).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })}</div> : null}
