@@ -132,10 +132,17 @@ function marketConsensus(books: BookView[]) {
   };
 }
 
-async function loadGames(date: string): Promise<GameView[]> {
-  const compact = date.replaceAll('-', '');
-  const payload = rec(await getJson(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${compact}&limit=100`));
-  const games = list(payload.events).map((raw) => {
+function sortGames(games: GameView[]) {
+  return games.sort((a, b) => {
+    const aTime = new Date(a.startTime).getTime();
+    const bTime = new Date(b.startTime).getTime();
+    return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
+  });
+}
+
+function parseEspnGames(payload: unknown): GameView[] {
+  const root = rec(payload);
+  const games = list(root.events).map((raw) => {
     const event = rec(raw);
     const competition = rec(list(event.competitions)[0]);
     const competitors = list(competition.competitors).map(rec);
@@ -159,12 +166,83 @@ async function loadGames(date: string): Promise<GameView[]> {
       books
     } satisfies GameView;
   }).filter(Boolean) as GameView[];
+  return sortGames(games);
+}
 
-  return games.sort((a, b) => {
-    const aTime = new Date(a.startTime).getTime();
-    const bTime = new Date(b.startTime).getTime();
-    return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
-  });
+function officialStatus(value: unknown) {
+  const status = rec(value);
+  const abstract = str(status.abstractGameState).toLowerCase();
+  const detailed = str(status.detailedState) || str(status.abstractGameState) || 'PROGRAMADO';
+  if (abstract === 'live') return { status: 'live' as const, statusText: detailed };
+  if (abstract === 'final') return { status: 'final' as const, statusText: detailed };
+  return { status: 'scheduled' as const, statusText: detailed };
+}
+
+function officialTeam(slot: AnyRecord): TeamView {
+  const team = rec(slot.team);
+  const name = str(team.name) || str(team.teamName) || 'Equipo';
+  const teamId = int(team.id);
+  const score = num(slot.score);
+  return {
+    name,
+    abbreviation: abbr(name, str(team.abbreviation)),
+    logo: teamId ? `https://www.mlbstatic.com/team-logos/${teamId}.svg` : undefined,
+    score: score === undefined ? undefined : String(score)
+  };
+}
+
+async function loadOfficialGames(date: string): Promise<GameView[]> {
+  const payload = rec(await getJson(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=team,venue,linescore`));
+  const games: GameView[] = [];
+  for (const rawDate of list(payload.dates)) {
+    const dateRecord = rec(rawDate);
+    for (const rawGame of list(dateRecord.games)) {
+      const game = rec(rawGame);
+      const teams = rec(game.teams);
+      const awaySlot = rec(teams.away);
+      const homeSlot = rec(teams.home);
+      const status = officialStatus(game.status);
+      const venue = rec(game.venue);
+      games.push({
+        id: String(int(game.gamePk) || crypto.randomUUID()),
+        startTime: str(game.gameDate),
+        status: status.status,
+        statusText: status.statusText,
+        venue: str(venue.name) || undefined,
+        away: officialTeam(awaySlot),
+        home: officialTeam(homeSlot),
+        books: []
+      });
+    }
+  }
+  return sortGames(games);
+}
+
+async function loadEspnGames(date: string, seasonType?: 2 | 3) {
+  const compact = date.replaceAll('-', '');
+  const seasonParam = seasonType ? `&seasontype=${seasonType}` : '';
+  const payload = await getJson(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${compact}&limit=100${seasonParam}`);
+  return parseEspnGames(payload);
+}
+
+async function loadGames(date: string): Promise<GameView[]> {
+  // ESPN's default scoreboard can return an empty slate during postseason.
+  // Try the normal feed first, then explicitly postseason, then MLB's official schedule.
+  try {
+    const normal = await loadEspnGames(date);
+    if (normal.length) return normal;
+  } catch {
+    // Continue to postseason/offical fallbacks.
+  }
+
+  try {
+    const postseason = await loadEspnGames(date, 3);
+    if (postseason.length) return postseason;
+  } catch {
+    // Continue to official MLB schedule.
+  }
+
+  return loadOfficialGames(date);
 }
 
 function divisionName(value: string) {
