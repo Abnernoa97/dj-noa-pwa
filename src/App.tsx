@@ -172,12 +172,9 @@ export default function App() {
     await refresh();
   };
 
-  const deleteEvent = async () => {
-    if (!selectedEvent) return;
-    await deleteEventWithRelations(selectedEvent.id);
-    setEventEditorOpen(false);
-    setSelectedEvent(null);
-    setEventCreateDate(null);
+  const deleteSelectedEvents = async (selected: EventItem[]) => {
+    for (const event of selected) await deleteEventWithRelations(event.id);
+    await refresh();
   };
 
   const requestExecutionCancel = () => {
@@ -423,7 +420,7 @@ export default function App() {
           onCreateEvent={() => openEventEditor()}
           onToggleReminder={toggleReminder}
         />}
-        {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} />}
+        {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
         {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
         {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
         {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
@@ -455,7 +452,7 @@ export default function App() {
 
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
 
-      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); setEventCreateDate(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
+      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); setEventCreateDate(null); }} onSave={saveEvent} />}
     </div>
   );
 }
