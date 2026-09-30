@@ -7,6 +7,7 @@ import {
   transcribeAudio,
   VOICE_THRESHOLD
 } from './voice/audio';
+import { ensureNoahMicrophone } from './voice/microphoneSession';
 import type { CaptureMode, RecognitionLike, VoiceMode, VoiceOptions } from './voice/recognitionTypes';
 import { getRecognitionCtor, mergeTranscripts, transcriptFromEvent } from './voice/transcript';
 import { useWakeWord } from './voice/useWakeWord';
@@ -90,8 +91,10 @@ export function useDjNoaVoice(options: VoiceOptions) {
   };
 
   const releaseMicrophone = () => {
+    // The physical microphone is owned by the shared wake/voice session and
+    // stays open while the app is visible. Here we only detach this turn's
+    // recorder/analyser references so Android does not power-cycle the mic.
     stopMeter();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   };
 
@@ -151,7 +154,7 @@ export function useDjNoaVoice(options: VoiceOptions) {
   };
 
   const speakVoice = (text: string, continueAfter = false) => {
-    const keepMicSessionOpen = continueAfter && conversationRef.current && Boolean(streamRef.current);
+    const keepMicSessionOpen = continueAfter && conversationRef.current;
     if (keepMicSessionOpen) stopMeter();
     else releaseMicrophone();
     clearRestart();
@@ -306,16 +309,9 @@ export function useDjNoaVoice(options: VoiceOptions) {
   async function getStream() {
     const current = streamRef.current;
     if (current?.getAudioTracks().some((track) => track.readyState === 'live')) return current;
-    if (!navigator.mediaDevices?.getUserMedia) return null;
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
-    });
-    streamRef.current = stream;
-    return stream;
+    const shared = await ensureNoahMicrophone();
+    if (shared) streamRef.current = shared;
+    return shared;
   }
 
   async function startCapture(captureMode: CaptureMode, prefix = '') {
@@ -358,9 +354,7 @@ export function useDjNoaVoice(options: VoiceOptions) {
         listeningRef.current = false;
         setListening(false);
         setManualRecording(false);
-
-        const keepMicSessionOpen = finishedMode === 'wake' && conversationRef.current;
-        if (!keepMicSessionOpen) releaseMicrophone();
+        releaseMicrophone();
 
         const shouldDiscard = discardRef.current;
         discardRef.current = false;
