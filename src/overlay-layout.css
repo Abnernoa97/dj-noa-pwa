@@ -3,22 +3,39 @@
    The navigation itself stays visible and unchanged. */
 
 .reminder-editor-backdrop,
-.calendar-summary-backdrop{
+.calendar-summary-backdrop,
+.event-editor-backdrop{
   bottom:calc(58px + env(safe-area-inset-bottom))!important;
   z-index:32!important;
   overscroll-behavior:contain!important;
 }
 
 .reminder-editor,
-.calendar-summary-sheet{
+.calendar-summary-sheet,
+.event-editor{
   max-height:calc(100dvh - 74px - env(safe-area-inset-bottom))!important;
   scroll-padding-bottom:28px!important;
   padding-bottom:28px!important;
 }
 
 /* Keep the last controls/items fully visible before the persistent menu. */
-.reminder-editor-actions{
+.reminder-editor-actions,
+.event-editor-actions{
   margin-bottom:8px!important;
+}
+
+/* Editing an existing event must always expose a clear destructive action. */
+.event-editor-actions .delete-event-button{
+  min-height:50px!important;
+  flex:1 1 0!important;
+  border-color:rgba(206,112,112,.34)!important;
+  background:rgba(206,112,112,.08)!important;
+  color:#e3abab!important;
+}
+
+.event-editor-actions .save-event-button{
+  min-height:50px!important;
+  flex:1 1 0!important;
 }
 
 .calendar-summary-sheet .day-summary{
