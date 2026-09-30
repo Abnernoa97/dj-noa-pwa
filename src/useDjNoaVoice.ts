@@ -11,9 +11,9 @@ import type { CaptureMode, RecognitionLike, VoiceMode, VoiceOptions } from './vo
 import { getRecognitionCtor, mergeTranscripts, transcriptFromEvent } from './voice/transcript';
 import { useWakeWord } from './voice/useWakeWord';
 
-const DIALOG_SILENCE_MS = 1650;
-const DIALOG_NO_VOICE_MS = 12000;
-const DIALOG_RESTART_MS = 260;
+const DIALOG_SILENCE_MS = 2400;
+const DIALOG_NO_VOICE_MS = 15000;
+const DIALOG_RESTART_MS = 140;
 const CLOSE_DIALOG = /^(?:gracias(?: noah)?|listo(?: noah)?|eso es todo|ya está|ya estuvo|termina(?: conversación)?|terminar(?: conversación)?|cierra(?: conversación)?|descansa(?: noah)?|hasta luego)$/i;
 const GREETINGS = [
   'Hola. ¿Qué hacemos?',
@@ -151,7 +151,9 @@ export function useDjNoaVoice(options: VoiceOptions) {
   };
 
   const speakVoice = (text: string, continueAfter = false) => {
-    releaseMicrophone();
+    const keepMicSessionOpen = continueAfter && conversationRef.current && Boolean(streamRef.current);
+    if (keepMicSessionOpen) stopMeter();
+    else releaseMicrophone();
     clearRestart();
     const clean = text.trim();
     if (!('speechSynthesis' in window) || !clean) {
@@ -356,7 +358,9 @@ export function useDjNoaVoice(options: VoiceOptions) {
         listeningRef.current = false;
         setListening(false);
         setManualRecording(false);
-        releaseMicrophone();
+
+        const keepMicSessionOpen = finishedMode === 'wake' && conversationRef.current;
+        if (!keepMicSessionOpen) releaseMicrophone();
 
         const shouldDiscard = discardRef.current;
         discardRef.current = false;
