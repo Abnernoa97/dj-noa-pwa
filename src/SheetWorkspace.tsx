@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Camera, Columns3, Download, Mic, Plus, Search, Trash2, Upload } from 'lucide-react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from './db';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
+const LONG_PRESS_MS = 480;
+const LONG_PRESS_MOVE_TOLERANCE = 10;
 
 type Props = {
   rows: SheetRow[];
@@ -116,20 +119,28 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   const [status, setStatus] = useState<'all' | SheetStatus>('all');
   const [sort, setSort] = useState<SortMode>('newest');
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectionIds, setSelectionIds] = useState<Set<string>>(() => new Set());
   const [photos, setPhotos] = useState<PhotoView[]>([]);
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [draftColumn, setDraftColumn] = useState<DraftColumn>({ name: '', type: 'text', formula: '' });
   const fileRef = useRef<HTMLInputElement | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   const selectedRow = rows.find((row) => row.id === selectedRowId) || null;
+  const selectionCount = selectionIds.size;
   const loadColumns = async () => setColumns(await db.sheetColumns.orderBy('position').toArray());
 
   useEffect(() => { void loadColumns(); }, []);
 
   useEffect(() => {
     if (!openRowId) return;
-    if (rows.some((row) => row.id === openRowId)) setSelectedRowId(openRowId);
+    if (rows.some((row) => row.id === openRowId)) {
+      setSelectionIds(new Set());
+      setSelectedRowId(openRowId);
+    }
     onOpenRowHandled?.();
   }, [openRowId, rows, onOpenRowHandled]);
 
@@ -138,6 +149,19 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     else localStorage.removeItem('djnoa.activeSheetRowId');
     return () => localStorage.removeItem('djnoa.activeSheetRowId');
   }, [selectedRowId]);
+
+  useEffect(() => {
+    setSelectionIds((current) => {
+      if (!current.size) return current;
+      const valid = new Set(rows.map((row) => row.id));
+      const next = new Set([...current].filter((id) => valid.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [rows]);
+
+  useEffect(() => () => {
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current);
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -199,16 +223,84 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     const now = new Date().toISOString();
     await db.sheetRows.add({ id, label: 'Nuevo movimiento', category: 'General', amount: 0, status: 'pending', description: '', notes: '', values: {}, createdAt: now, updatedAt: now });
     await onChanged();
+    setSelectionIds(new Set());
     setSelectedRowId(id);
   };
 
-  const deleteRow = async (row: SheetRow) => {
-    if (!window.confirm(`¿Eliminar “${row.label}”?`)) return;
-    await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
-      await db.sheetPhotos.where('rowId').equals(row.id).delete();
-      await db.sheetRows.delete(row.id);
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  };
+
+  const toggleRowSelection = (id: string) => {
+    setSelectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-    setSelectedRowId(null);
+  };
+
+  const startRowPress = (id: string, event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    clearLongPress();
+    longPressTriggeredRef.current = false;
+    longPressStartRef.current = { x: event.clientX, y: event.clientY };
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressStartRef.current = null;
+      longPressTriggeredRef.current = true;
+      setSelectionIds((current) => {
+        const next = new Set(current);
+        next.add(id);
+        return next;
+      });
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(18);
+    }, LONG_PRESS_MS);
+  };
+
+  const moveRowPress = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const start = longPressStartRef.current;
+    if (!start) return;
+    if (Math.abs(event.clientX - start.x) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(event.clientY - start.y) > LONG_PRESS_MOVE_TOLERANCE) clearLongPress();
+  };
+
+  const endRowPress = () => clearLongPress();
+
+  const handleRowClick = (row: SheetRow) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+    if (selectionIds.size) {
+      toggleRowSelection(row.id);
+      return;
+    }
+    setSelectedRowId(row.id);
+  };
+
+  const editSelectedRow = () => {
+    if (selectionIds.size !== 1) return;
+    const id = [...selectionIds][0];
+    setSelectionIds(new Set());
+    setSelectedRowId(id);
+  };
+
+  const deleteSelectedRows = async () => {
+    const ids = [...selectionIds];
+    if (!ids.length) return;
+    const selected = rows.filter((row) => selectionIds.has(row.id));
+    const label = ids.length === 1 ? `“${selected[0]?.label || 'esta fila'}”` : `${ids.length} filas`;
+    if (!window.confirm(`¿Eliminar ${label}?`)) return;
+    await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
+      for (const id of ids) await db.sheetPhotos.where('rowId').equals(id).delete();
+      await db.sheetRows.bulkDelete(ids);
+    });
+    if (selectedRowId && selectionIds.has(selectedRowId)) setSelectedRowId(null);
+    setSelectionIds(new Set());
     await onChanged();
   };
 
@@ -326,6 +418,15 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
         </div>
       </div>
 
+      {selectionCount > 0 && <div className="sheet-selection-bar" role="toolbar" aria-label="Acciones para filas seleccionadas">
+        <button className="sheet-selection-close" type="button" onClick={() => setSelectionIds(new Set())} aria-label="Cancelar selección"><X size={20} /></button>
+        <strong>{selectionCount} {selectionCount === 1 ? 'seleccionada' : 'seleccionadas'}</strong>
+        <div className="sheet-selection-actions">
+          <button type="button" onClick={editSelectedRow} disabled={selectionCount !== 1}><Pencil size={17} /><span>Editar</span></button>
+          <button className="sheet-selection-delete" type="button" onClick={() => void deleteSelectedRows()}><Trash2 size={17} /><span>Eliminar</span></button>
+        </div>
+      </div>}
+
       <input ref={fileRef} className="sheet-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); event.currentTarget.value = ''; }} />
 
       <div className="sheet-mini-summary"><span>Total <b>{money.format(totals.all)}</b></span><span>Pagado <b>{money.format(totals.paid)}</b></span><span>Pendiente <b>{money.format(totals.pending)}</b></span></div>
@@ -343,14 +444,26 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
         <div className="excel-body">
           {filtered.length ? filtered.map((row, index) => {
             const event = events.find((item) => item.id === row.eventId);
-            return <button className="excel-row" key={row.id} onClick={() => setSelectedRowId(row.id)}><span className="excel-row-number">{index + 1}</span><span>{row.label}</span><span>{row.category}</span><span className="excel-money">{money.format(row.amount)}</span><span className={`excel-status ${row.status}`}>{shortStatus(row.status)}</span><span>{event?.title || '—'}</span></button>;
+            const isSelected = selectionIds.has(row.id);
+            return <button
+              className={`excel-row ${isSelected ? 'is-selected' : ''}`}
+              key={row.id}
+              onPointerDown={(pointerEvent) => startRowPress(row.id, pointerEvent)}
+              onPointerMove={moveRowPress}
+              onPointerUp={endRowPress}
+              onPointerCancel={endRowPress}
+              onPointerLeave={endRowPress}
+              onContextMenu={(contextEvent) => contextEvent.preventDefault()}
+              onClick={() => handleRowClick(row)}
+              aria-pressed={selectionCount > 0 ? isSelected : undefined}
+            ><span className="excel-row-number">{isSelected ? <Check size={14} /> : index + 1}</span><span>{row.label}</span><span>{row.category}</span><span className="excel-money">{money.format(row.amount)}</span><span className={`excel-status ${row.status}`}>{shortStatus(row.status)}</span><span>{event?.title || '—'}</span></button>;
           }) : <div className="excel-empty">Sin filas</div>}
         </div>
       </div>
-      <p className="sheet-table-hint">Nombre = texto del registro · Categoría = tipo libre · Evento = vínculo con un evento real.</p>
+      <p className="sheet-table-hint">Mantén presionada una fila para seleccionarla · Nombre = texto · Categoría = tipo libre · Evento = vínculo real.</p>
 
       {selectedRow && <div className="sheet-detail-page">
-        <header className="sheet-detail-header"><button onClick={() => setSelectedRowId(null)} aria-label="Volver"><ArrowLeft size={21} /></button><div><span>FILA</span><strong>{selectedRow.label}</strong></div><button className="sheet-detail-delete" onClick={() => void deleteRow(selectedRow)} aria-label="Eliminar"><Trash2 size={18} /></button></header>
+        <header className="sheet-detail-header"><button onClick={() => setSelectedRowId(null)} aria-label="Volver"><ArrowLeft size={21} /></button><div><span>FILA</span><strong>{selectedRow.label}</strong></div><span className="sheet-detail-header-spacer" aria-hidden="true" /></header>
         <main className="sheet-detail-content">
           <section className="sheet-detail-card sheet-detail-primary">
             <label className="sheet-wide"><span>Nombre / concepto</span><input value={selectedRow.label} onChange={(e) => void patchRow(selectedRow, { label: e.target.value })} placeholder="Ej. Evento concretado" /></label>
