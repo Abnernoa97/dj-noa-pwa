@@ -1,48 +1,45 @@
 .noah-action-overlay {
   position: fixed;
   left: 50%;
-  bottom: calc(112px + env(safe-area-inset-bottom));
+  bottom: calc(106px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 4200;
-  width: min(88vw, 430px);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  border-radius: 24px;
-  border: 1px solid rgba(221, 195, 125, 0.3);
-  background: rgba(4, 24, 17, 0.9);
-  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(18px) saturate(125%);
-  -webkit-backdrop-filter: blur(18px) saturate(125%);
-  color: #f5edd9;
-  animation: noahActionIn 180ms ease-out;
+  width: min(90vw, 450px);
+  padding: 14px 15px 13px;
+  border-radius: 25px;
+  border: 1px solid rgba(221, 195, 125, 0.28);
+  background: linear-gradient(180deg, rgba(5, 27, 19, 0.96), rgba(3, 19, 14, 0.94));
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  color: #f6efdc;
+  animation: noahActionIn 190ms cubic-bezier(.2,.8,.2,1);
   pointer-events: none;
 }
 
-.noah-action-overlay.done {
-  border-color: rgba(221, 195, 125, 0.48);
-}
+.noah-action-overlay.done { border-color: rgba(221, 195, 125, 0.5); }
+.noah-action-overlay.error { border-color: rgba(255, 145, 145, 0.38); }
 
-.noah-action-overlay.error {
-  border-color: rgba(255, 145, 145, 0.35);
+.noah-action-topline {
+  display: flex;
+  align-items: center;
+  gap: 11px;
 }
 
 .noah-action-icon {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, rgba(226, 201, 137, 0.19), rgba(226, 201, 137, 0.06));
-  border: 1px solid rgba(226, 201, 137, 0.3);
+  background: radial-gradient(circle at 35% 30%, rgba(241, 220, 160, 0.24), rgba(226, 201, 137, 0.055));
+  border: 1px solid rgba(226, 201, 137, 0.28);
   color: #ead69d;
+  box-shadow: 0 0 24px rgba(226, 201, 137, 0.08);
 }
 
-.noah-action-overlay.error .noah-action-icon {
-  color: #ffc4c4;
-}
+.noah-action-overlay.error .noah-action-icon { color: #ffc4c4; }
 
 .noah-action-copy {
   min-width: 0;
@@ -54,37 +51,103 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
   color: rgba(234, 214, 157, 0.72);
   font-weight: 700;
 }
 
-.noah-action-copy strong {
+.noah-action-copy > strong {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 16px;
   font-weight: 500;
-  line-height: 1.15;
+  line-height: 1.12;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.noah-action-copy span {
-  font-size: 12px;
-  color: rgba(245, 237, 217, 0.64);
+.noah-action-copy > span {
+  font-size: 11.5px;
+  color: rgba(245, 237, 217, 0.62);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.noah-action-icon .spin {
-  animation: noahActionSpin 0.85s linear infinite;
+.noah-action-steps {
+  position: relative;
+  margin-top: 11px;
+  padding: 9px 10px 6px;
+  border-radius: 17px;
+  background: rgba(255,255,255,0.026);
+  border: 1px solid rgba(255,255,255,0.045);
+  display: grid;
+  gap: 6px;
 }
 
-@keyframes noahActionSpin {
-  to { transform: rotate(360deg); }
+.noah-action-step {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 18px;
+  color: rgba(245, 237, 217, 0.36);
+  transition: color 180ms ease, transform 180ms ease, opacity 180ms ease;
 }
+
+.noah-action-step.active {
+  color: #f6efdc;
+  transform: translateX(2px);
+}
+
+.noah-action-step.done { color: rgba(245, 237, 217, 0.72); }
+
+.noah-action-step-mark {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgba(234, 214, 157, 0.38);
+  border: 1px solid rgba(234, 214, 157, 0.12);
+}
+
+.noah-action-step.active .noah-action-step-mark {
+  color: #ead69d;
+  border-color: rgba(234, 214, 157, 0.38);
+  box-shadow: 0 0 18px rgba(234, 214, 157, 0.12);
+}
+
+.noah-action-step.done .noah-action-step-mark {
+  color: #ead69d;
+  border-color: rgba(234, 214, 157, 0.26);
+  background: rgba(234, 214, 157, 0.08);
+}
+
+.noah-action-step > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: .01em;
+}
+
+.noah-action-step > strong {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(234, 214, 157, 0.82);
+}
+
+.noah-action-icon .spin,
+.noah-action-step-mark .spin { animation: noahActionSpin 0.85s linear infinite; }
+
+@keyframes noahActionSpin { to { transform: rotate(360deg); } }
 
 @keyframes noahActionIn {
   from { opacity: 0; transform: translate(-50%, 8px) scale(0.97); }
@@ -93,8 +156,11 @@
 
 @media (max-width: 520px) {
   .noah-action-overlay {
-    width: calc(100vw - 34px);
-    bottom: calc(104px + env(safe-area-inset-bottom));
-    border-radius: 22px;
+    width: calc(100vw - 28px);
+    bottom: calc(99px + env(safe-area-inset-bottom));
+    border-radius: 23px;
+    padding: 13px 14px 12px;
   }
+
+  .noah-action-step > strong { max-width: 118px; }
 }

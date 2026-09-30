@@ -11,7 +11,15 @@ import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
 import { scheduleReminderNotifications } from './reminderNotifications';
 import type { AppView, EventItem, ReminderItem, SheetRow } from './types';
-import { eventActionLabel, type NoahActionActivity, type NoahEventAction, type NoahEventActionResult } from './noahEvents';
+import {
+  eventActionLabel,
+  sectionName,
+  type NoahActionActivity,
+  type NoahActionStep,
+  type NoahEventAction,
+  type NoahEventActionResult,
+  type NoahEventPatch
+} from './noahEvents';
 import BottomNav from './app/BottomNav';
 import HomeView from './app/HomeView';
 
@@ -28,6 +36,52 @@ function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
 
 function sortEvents(items: EventItem[]) {
   return [...items].sort((a, b) => `${a.date}T${a.showTime || a.time || '00:00'}`.localeCompare(`${b.date}T${b.showTime || b.time || '00:00'}`));
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+const fieldLabels: Partial<Record<keyof NoahEventPatch, string>> = {
+  title: 'Nombre',
+  date: 'Fecha',
+  callTime: 'Llamada',
+  soundcheckTime: 'Prueba de sonido',
+  showTime: 'Show',
+  venue: 'Venue',
+  address: 'Dirección',
+  details: 'Detalles',
+  dressCode: 'Vestuario',
+  contactName: 'Contacto',
+  contactPhone: 'Teléfono',
+  mapUrl: 'Google Maps',
+  notes: 'Notas',
+  status: 'Estado'
+};
+
+function fieldValue(key: keyof NoahEventPatch, value: unknown) {
+  if (key === 'status') return value === 'confirmed' ? 'Confirmado' : value === 'tentative' ? 'Por confirmar' : value === 'done' ? 'Terminado' : '';
+  return String(value ?? '').trim();
+}
+
+function patchEntries(patch: NoahEventPatch) {
+  return (Object.entries(patch) as Array<[keyof NoahEventPatch, unknown]>)
+    .filter(([key]) => key !== 'time')
+    .filter(([key]) => Boolean(fieldLabels[key]));
+}
+
+function progressSteps(entries: Array<[keyof NoahEventPatch, unknown]>, prefix: string, activeIndex: number, complete = false): NoahActionStep[] {
+  const steps: NoahActionStep[] = [
+    { id: `${prefix}-open`, label: prefix === 'create' ? 'Preparando ficha' : 'Abriendo ficha', state: complete || activeIndex > 0 ? 'done' : 'active' },
+    ...entries.map(([key, value], index) => ({
+      id: `${prefix}-${String(key)}`,
+      label: fieldLabels[key] || String(key),
+      value: fieldValue(key, value),
+      state: complete || index + 1 < activeIndex ? 'done' : index + 1 === activeIndex ? 'active' : 'pending'
+    } as NoahActionStep)),
+    { id: `${prefix}-save`, label: 'Guardando cambios', state: complete ? 'done' : activeIndex > entries.length ? 'active' : 'pending' }
+  ];
+  return steps;
 }
 
 export default function App() {
@@ -88,7 +142,7 @@ export default function App() {
       noahActivityTimerRef.current = window.setTimeout(() => {
         setNoahActivity(null);
         noahActivityTimerRef.current = null;
-      }, 1150);
+      }, 1650);
     }
   };
 
@@ -123,7 +177,6 @@ export default function App() {
 
   const executeNoahEventAction = async (action: NoahEventAction): Promise<NoahEventActionResult> => {
     const label = eventActionLabel(action, events);
-    showNoahActivity({ phase: 'working', ...label });
 
     try {
       setMlbOpen(false);
@@ -131,83 +184,132 @@ export default function App() {
       setSelectedEvent(null);
       setEventCreateDate(null);
 
+      if (action.type === 'navigate_section') {
+        const name = sectionName(action.section);
+        showNoahActivity({ phase: 'working', title: `Pasando a ${name}`, detail: 'Cambiando de contexto', scope: 'NAVEGACIÓN' });
+        setEventHubId(null);
+        if (action.section === 'calendar') setMonth(startOfMonth(new Date()));
+        setView(action.section);
+        await sleep(220);
+        showNoahActivity({ phase: 'done', title: name, detail: 'Listo', scope: 'NAVEGACIÓN' });
+        return { ok: true, message: `Perfecto, pasamos a ${name}.` };
+      }
+
       if (action.type === 'open_events') {
+        showNoahActivity({ phase: 'working', ...label });
         setEventHubId(null);
         setView('events');
-        showNoahActivity({ phase: 'done', title: 'Eventos abiertos', detail: 'Agenda lista' });
-        return { ok: true, message: 'Eventos abiertos.' };
+        await sleep(180);
+        showNoahActivity({ phase: 'done', title: 'Eventos', detail: 'Agenda lista', scope: 'EVENTOS' });
+        return { ok: true, message: 'Aquí están tus eventos.' };
       }
 
       if (action.type === 'create_event') {
+        const entries = patchEntries(action.event);
+        showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', 0) });
+        setView('events');
+        setEventHubId(null);
+        await sleep(180);
+
         const now = new Date().toISOString();
-        const showTime = action.event.showTime ?? action.event.time ?? '';
         const item: EventItem = {
           id: uid(),
           title: action.event.title.trim(),
           date: action.event.date,
-          time: showTime,
-          callTime: action.event.callTime,
-          soundcheckTime: action.event.soundcheckTime,
-          showTime,
-          venue: action.event.venue,
-          address: action.event.address,
-          details: action.event.details,
-          dressCode: action.event.dressCode,
-          contactName: action.event.contactName,
-          contactPhone: action.event.contactPhone,
-          mapUrl: action.event.mapUrl,
-          notes: action.event.notes,
+          time: '',
+          showTime: '',
           status: action.event.status || 'confirmed',
           createdAt: now,
           updatedAt: now
         };
         await db.events.add(item);
         setEvents((current) => sortEvents([...current, item]));
-        setEventHubId(null);
-        setView('events');
-        showNoahActivity({ phase: 'done', title: 'Evento creado', detail: item.title });
-        return { ok: true, message: `Creé ${item.title}.` };
+        setEventHubId(item.id);
+        await sleep(240);
+
+        let currentItem = item;
+        for (let index = 0; index < entries.length; index += 1) {
+          const [key, value] = entries[index];
+          if (key === 'title' || key === 'date' || key === 'status') continue;
+          showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', index + 1) });
+          const patch: Partial<EventItem> & { updatedAt: string } = { [key]: value, updatedAt: new Date().toISOString() } as Partial<EventItem> & { updatedAt: string };
+          if (key === 'showTime') patch.time = String(value || '');
+          await db.events.update(item.id, patch);
+          currentItem = { ...currentItem, ...patch };
+          setEvents((current) => sortEvents(current.map((event) => event.id === item.id ? currentItem : event)));
+          await sleep(260);
+        }
+
+        showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', entries.length + 1) });
+        await sleep(180);
+        showNoahActivity({ phase: 'done', title: 'Evento creado', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', entries.length + 2, true) });
+        return { ok: true, message: 'Listo, evento creado.' };
       }
 
       const target = events.find((event) => event.id === action.eventId);
       if (!target) {
-        showNoahActivity({ phase: 'error', title: 'Evento no encontrado', detail: 'No hice cambios' });
-        return { ok: false, message: 'No encontré ese evento. No hice ningún cambio.' };
+        showNoahActivity({ phase: 'error', title: 'Evento no encontrado', detail: 'No hice cambios', scope: 'EVENTOS' });
+        return { ok: false, message: 'No encontré ese evento.' };
       }
 
       if (action.type === 'open_event') {
+        showNoahActivity({ phase: 'working', title: 'Abriendo ficha', detail: target.title, scope: 'EVENTOS' });
         setView('events');
         setEventHubId(target.id);
-        showNoahActivity({ phase: 'done', title: 'Evento abierto', detail: target.title });
-        return { ok: true, message: `Abrí ${target.title}.` };
+        await sleep(200);
+        showNoahActivity({ phase: 'done', title: target.title, detail: 'Ficha abierta', scope: 'EVENTOS' });
+        return { ok: true, message: 'Aquí está.' };
       }
 
       if (action.type === 'update_event') {
-        const now = new Date().toISOString();
-        const patch: Partial<EventItem> & { updatedAt: string } = { ...action.patch, updatedAt: now };
-        if (patch.title !== undefined && !patch.title.trim()) delete patch.title;
-        if (action.patch.showTime !== undefined && action.patch.time === undefined) patch.time = action.patch.showTime;
-        if (action.patch.time !== undefined && action.patch.showTime === undefined) patch.showTime = action.patch.time;
-        await db.events.update(target.id, patch);
-        const updated = { ...target, ...patch } as EventItem;
-        setEvents((current) => sortEvents(current.map((event) => event.id === target.id ? updated : event)));
+        const entries = patchEntries(action.patch);
+        showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: target.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', 0) });
         setView('events');
-        showNoahActivity({ phase: 'done', title: 'Evento actualizado', detail: updated.title });
-        return { ok: true, message: `Actualicé ${updated.title}.` };
+        setEventHubId(target.id);
+        await sleep(250);
+
+        let currentTarget = target;
+        for (let index = 0; index < entries.length; index += 1) {
+          const [key, value] = entries[index];
+          showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', index + 1) });
+          const patch: Partial<EventItem> & { updatedAt: string } = { [key]: value, updatedAt: new Date().toISOString() } as Partial<EventItem> & { updatedAt: string };
+          if (key === 'showTime') patch.time = String(value || '');
+          await db.events.update(target.id, patch);
+          currentTarget = { ...currentTarget, ...patch };
+          setEvents((current) => sortEvents(current.map((event) => event.id === target.id ? currentTarget : event)));
+          await sleep(285);
+        }
+
+        showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 1) });
+        await sleep(180);
+        showNoahActivity({ phase: 'done', title: 'Evento actualizado', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 2, true) });
+        return { ok: true, message: 'Listo, quedó actualizado.' };
       }
 
       if (action.type === 'delete_event') {
-        await deleteEventWithRelations(target.id);
+        const steps: NoahActionStep[] = [
+          { id: 'delete-locate', label: 'Evento localizado', value: target.title, state: 'active' },
+          { id: 'delete-links', label: 'Revisando vínculos', state: 'pending' },
+          { id: 'delete-final', label: 'Eliminando', state: 'pending' }
+        ];
         setView('events');
-        showNoahActivity({ phase: 'done', title: 'Evento eliminado', detail: target.title });
-        return { ok: true, message: `Eliminé ${target.title}.` };
+        setEventHubId(target.id);
+        showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps });
+        await sleep(260);
+        showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps: steps.map((step, index) => ({ ...step, state: index === 0 ? 'done' : index === 1 ? 'active' : 'pending' })) });
+        await sleep(260);
+        showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps: steps.map((step, index) => ({ ...step, state: index < 2 ? 'done' : 'active' })) });
+        await deleteEventWithRelations(target.id);
+        await sleep(160);
+        showNoahActivity({ phase: 'done', title: 'Evento eliminado', detail: target.title, scope: 'EVENTOS', steps: steps.map((step) => ({ ...step, state: 'done' })) });
+        return { ok: true, message: 'Listo, quedó eliminado.' };
       }
 
-      showNoahActivity({ phase: 'error', title: 'Acción no disponible', detail: 'No hice cambios' });
+      showNoahActivity({ phase: 'error', title: 'Acción no disponible', detail: 'No hice cambios', scope: 'EVENTOS' });
       return { ok: false, message: 'Esa acción todavía no está disponible.' };
     } catch {
-      showNoahActivity({ phase: 'error', title: 'No pude completar la acción', detail: label.detail });
-      return { ok: false, message: 'No pude completar ese cambio en Eventos.' };
+      showNoahActivity({ phase: 'error', title: 'No pude completar la acción', detail: label.detail, scope: label.scope || 'EVENTOS' });
+      return { ok: false, message: 'No pude completar ese cambio.' };
     }
   };
 
@@ -275,7 +377,7 @@ export default function App() {
         </>}
       </main>
 
-      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setView(next); }} />
+      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setView(next); }} />
       <NoahVoice ref={noahRef} events={events} section={mlbOpen ? 'mlb' : view} onEventAction={executeNoahEventAction} />
       <NoahActionOverlay activity={noahActivity} />
 

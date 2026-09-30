@@ -6,7 +6,7 @@ import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 type VoiceStatus = 'idle' | 'starting' | 'listening' | 'thinking' | 'speaking' | 'error';
 type ChatTurn = { role: 'user' | 'assistant'; content: string };
 type OrbPosition = { x: number; y: number };
-type PendingConfirmation = { actions: NoahEventAction[]; reply: string };
+type PendingConfirmation = { actions: NoahEventAction[] };
 
 type Props = {
   events: EventItem[];
@@ -236,20 +236,20 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     window.speechSynthesis.speak(utterance);
   };
 
-  const executeEventActions = async (actions: NoahEventAction[], successText: string) => {
+  const executeEventActions = async (actions: NoahEventAction[]) => {
     processingRef.current = true;
     setStatus('thinking');
-    let failed: NoahEventActionResult | null = null;
+    let finalResult: NoahEventActionResult = { ok: true, message: 'Listo.' };
+
     for (const action of actions) {
       const result = await onEventAction(action);
-      if (!result.ok) {
-        failed = result;
-        break;
-      }
+      finalResult = result;
+      if (!result.ok) break;
     }
+
     processingRef.current = false;
     if (!activeRef.current) return;
-    speak(failed ? failed.message : (successText || 'Listo.'), startRecognition);
+    speak(finalResult.message || 'Listo.', startRecognition);
   };
 
   const askNoah = async (message: string) => {
@@ -262,7 +262,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     if (pending) {
       if (YES_CONFIRM.test(clean.trim())) {
         pendingConfirmationRef.current = null;
-        await executeEventActions(pending.actions, pending.reply || 'Listo.');
+        await executeEventActions(pending.actions);
         return;
       }
       if (NO_CONFIRM.test(clean.trim())) {
@@ -284,7 +284,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
 
     processingRef.current = true;
     setStatus('thinking');
-    const previous = historyRef.current.slice(-10);
+    const previous = historyRef.current.slice(-12);
     const now = new Date();
     const eventSnapshot = events.slice(0, 80).map((event) => ({
       id: event.id,
@@ -330,10 +330,10 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
       const actions = Array.isArray(payload.eventActions) ? payload.eventActions : [];
       const userTurn: ChatTurn = { role: 'user', content: clean };
       const assistantTurn: ChatTurn = { role: 'assistant', content: answer };
-      historyRef.current = [...previous, userTurn, assistantTurn].slice(-12);
+      historyRef.current = [...previous, userTurn, assistantTurn].slice(-16);
 
       if (actions.some((action) => action.type === 'delete_event')) {
-        pendingConfirmationRef.current = { actions, reply: answer };
+        pendingConfirmationRef.current = { actions };
         const names = actions
           .filter((action): action is Extract<NoahEventAction, { type: 'delete_event' }> => action.type === 'delete_event')
           .map((action) => events.find((event) => event.id === action.eventId)?.title)
@@ -345,7 +345,8 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
       }
 
       if (actions.length) {
-        await executeEventActions(actions, answer);
+        processingRef.current = false;
+        await executeEventActions(actions);
         return;
       }
 

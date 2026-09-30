@@ -6,6 +6,7 @@ type Env = { AI: AiBinding };
 type ChatTurn = { role?: string; content?: string };
 type EventSnapshot = Record<string, unknown>;
 type EventAction = Record<string, unknown>;
+type NavigableSection = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,6 +41,10 @@ function cleanString(value: unknown, max = 500) {
   if (typeof value !== 'string') return undefined;
   const clean = value.trim().slice(0, max);
   return clean || undefined;
+}
+
+function normalize(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function cleanTime(value: unknown) {
@@ -84,6 +89,10 @@ function sanitizePatch(raw: unknown) {
   return patch;
 }
 
+function cleanSection(value: unknown): NavigableSection | undefined {
+  return value === 'home' || value === 'events' || value === 'calendar' || value === 'sheet' || value === 'reminders' ? value : undefined;
+}
+
 function sanitizeActions(raw: unknown, eventIds: Set<string>) {
   if (!Array.isArray(raw)) return [];
   const actions: EventAction[] = [];
@@ -91,6 +100,12 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
     if (!item || typeof item !== 'object') continue;
     const action = item as Record<string, unknown>;
     const type = String(action.type || '');
+
+    if (type === 'navigate_section') {
+      const section = cleanSection(action.section);
+      if (section) actions.push({ type, section });
+      continue;
+    }
 
     if (type === 'open_events') {
       actions.push({ type });
@@ -123,37 +138,54 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
   return actions;
 }
 
+function navigationIntent(text: string): { section: NavigableSection; reply: string } | null {
+  const clean = normalize(text);
+  const transition = '(?:pasemos|pasamos|pasar|pasaramos|vamos|vayamos|ve|abre|abrir|cambia|cambiemos|cambiar|ir|vamonos|llevame|llevame a|quiero ir)';
+  const matches = (term: string) => new RegExp(`${transition}\\s+(?:a\\s+|al\\s+|la\\s+)?${term}\\b`).test(clean);
+
+  if (matches('calendario')) return { section: 'calendar', reply: 'Perfecto, pasamos a Calendario.' };
+  if (matches('eventos?')) return { section: 'events', reply: 'Perfecto, pasamos a Eventos.' };
+  if (matches('excel') || matches('tabla')) return { section: 'sheet', reply: 'Perfecto, pasamos a Excel.' };
+  if (matches('tareas?') || matches('recordatorios?')) return { section: 'reminders', reply: 'Perfecto, pasamos a Tareas.' };
+  if (matches('inicio') || matches('home')) return { section: 'home', reply: 'Perfecto, volvemos a Inicio.' };
+  return null;
+}
+
 function mutationIntent(text: string) {
-  return /\b(crea|crear|creame|agrega|añade|pon|edita|editar|cambia|cambiar|modifica|actualiza|mueve|reprograma|borra|borrar|elimina|eliminar|abre|abrir)\b/i.test(text);
+  return /\b(crea|crear|creame|agrega|anade|añade|pon|edita|editar|cambia|cambiar|modifica|actualiza|mueve|reprograma|borra|borrar|elimina|eliminar|abre|abrir)\b/i.test(text);
 }
 
 function systemPrompt(contextText: string) {
-  return `Eres Noah, el asistente de voz personal de DJ NOA. Hablas español de México, natural, breve y preciso. En esta etapa tienes control TOTAL de la sección EVENTOS y ninguna otra sección todavía.
+  return `Eres Noah, el asistente personal de voz de DJ NOA. Hablas español de México como una persona: natural, continuo, breve y sin frases robóticas. Mantienes el hilo de la conversación aunque el usuario cambie de sección o de tema.
 
-FUENTE DE VERDAD DE EVENTOS:
+CONTEXTO ACTUAL:
 ${contextText}
 
-CAPACIDADES EN EVENTOS:
-- leer, buscar, resumir y contestar preguntas usando exclusivamente los eventos recibidos;
-- crear eventos;
-- editar título, fecha, hora, llamada, prueba de sonido, show, venue, dirección, detalles, vestuario, contacto, teléfono, Maps, notas y estado;
-- borrar eventos;
-- abrir la lista de Eventos o una ficha concreta.
+HERRAMIENTAS DISPONIBLES AHORA:
+- EVENTOS: leer, buscar, resumir, crear, editar, borrar y abrir eventos usando CURRENT_EVENTS.
+- NAVEGACIÓN: puedes cambiar libremente entre Inicio, Eventos, Calendario, Excel y Tareas.
 
-REGLAS:
+REGLAS DE CONVERSACIÓN:
+1. Nunca discutas con el usuario sobre qué sección debe terminar primero. Si dice “terminamos Eventos, pasemos a Calendario”, simplemente cambia a Calendario.
+2. Nunca digas “estamos terminando Eventos”, “todavía no hemos terminado Eventos” ni frases equivalentes.
+3. Una respuesta hablada por turno. Corta, humana y directa. No enumeres en voz lo que la interfaz ya mostrará visualmente.
+4. Mantén continuidad con HISTORY. Si el usuario cambia de tema, síguelo naturalmente.
+5. No inventes datos ni acciones ejecutadas.
+
+REGLAS DE EVENTOS:
 1. Nunca inventes un eventId. Para update/delete/open usa EXACTAMENTE un id de CURRENT_EVENTS.
-2. Si hay ambigüedad entre dos eventos, pregunta cuál y devuelve cero acciones.
+2. Si hay ambigüedad real entre dos eventos, pregunta cuál y devuelve cero acciones.
 3. Para fechas relativas usa CURRENT_LOCAL_DATETIME. Devuelve fechas YYYY-MM-DD y horas HH:mm en formato 24h.
-4. Puedes devolver varias acciones en orden si el usuario pide varias cosas en una sola frase.
+4. Puedes devolver varias acciones en orden si el usuario pide varias modificaciones en una sola frase.
 5. Para consultas solamente, eventActions debe ser [].
-6. Si el usuario pide algo de Calendario, Excel, Tareas, MLB o NBA, explica en una frase que ahora estamos terminando Eventos.
-7. No afirmes que una acción ya se ejecutó si no la incluyes en eventActions.
-8. Respuesta hablada muy corta: normalmente una sola frase.
+6. Para cambios de sección usa navigate_section. Cambiar de sección NO termina la conversación.
+7. Si el usuario pide una operación interna de Calendario, Excel o Tareas que aún no está representada por una acción disponible, no inventes que la hiciste. Puedes navegar a esa sección y continuar la conversación desde ahí.
 
-RESPONDE SOLO JSON VÁLIDO, sin markdown, con esta forma exacta:
-{"reply":"frase breve","eventActions":[]}
+RESPONDE SOLO JSON VÁLIDO, sin markdown:
+{"reply":"una sola frase breve","eventActions":[]}
 
 Acciones permitidas:
+{"type":"navigate_section","section":"home|events|calendar|sheet|reminders"}
 {"type":"open_events"}
 {"type":"open_event","eventId":"id existente"}
 {"type":"create_event","event":{"title":"...","date":"YYYY-MM-DD","showTime":"HH:mm","venue":"...","status":"confirmed"}}
@@ -176,13 +208,13 @@ async function runModel(env: Env, messages: Array<{ role: string; content: strin
         { rejectIfBusy: false }
       );
     } catch (error) {
-      console.warn('Noah Events reliable model fallback', error);
+      console.warn('Noah reliable model fallback', error);
     }
   }
 
   return env.AI.run(
     '@cf/meta/llama-3.1-8b-instruct-fast',
-    { messages, temperature: 0, max_tokens: 650 },
+    { messages, temperature: 0.1, max_tokens: 650 },
     { rejectIfBusy: false }
   );
 }
@@ -198,6 +230,14 @@ export async function handleNoahChat(request: Request, env: Env) {
     };
     const message = String(body?.message || '').trim().slice(0, 1600);
     if (!message) return json({ error: 'message_required' }, 400);
+
+    const directNavigation = navigationIntent(message);
+    if (directNavigation) {
+      return json({
+        text: directNavigation.reply,
+        eventActions: [{ type: 'navigate_section', section: directNavigation.section }]
+      });
+    }
 
     const events = Array.isArray(body.context?.events)
       ? body.context!.events!.slice(0, 80).map((event) => ({
@@ -229,7 +269,7 @@ export async function handleNoahChat(request: Request, env: Env) {
     });
 
     const history = Array.isArray(body.history)
-      ? body.history.slice(-10).map((item) => ({
+      ? body.history.slice(-12).map((item) => ({
           role: item?.role === 'assistant' ? 'assistant' : 'user',
           content: String(item?.content || '').trim().slice(0, 900)
         })).filter((item) => item.content)
@@ -246,11 +286,11 @@ export async function handleNoahChat(request: Request, env: Env) {
     const parsed = parseJsonObject(raw);
 
     if (!parsed) {
-      const text = raw.replace(/```(?:json)?|```/gi, '').trim().slice(0, 700);
+      const text = raw.replace(/```(?:json)?|```/gi, '').trim().slice(0, 500);
       return json({ text: text || 'No entendí bien. Dímelo otra vez.', eventActions: [] });
     }
 
-    const reply = cleanString(parsed.reply, 700) || 'Listo.';
+    const reply = cleanString(parsed.reply, 420) || 'Listo.';
     const eventActions = sanitizeActions(parsed.eventActions, eventIds);
     return json({ text: reply, eventActions });
   } catch (error) {
