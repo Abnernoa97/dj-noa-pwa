@@ -27,6 +27,8 @@ type Context = {
   sheetRows: SheetRow[];
 };
 
+export type AssistantInputMode = 'text' | 'voice';
+
 function normalize(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
@@ -113,7 +115,8 @@ export async function askAssistantWithMemory(
   command: string,
   context: Context,
   recentHistory: AssistantMemoryItem[] = [],
-  uiContext?: AssistantUiContext
+  uiContext?: AssistantUiContext,
+  inputMode: AssistantInputMode = 'text'
 ): Promise<AssistantResponse> {
   const bulkDelete = resolveBulkSheetDelete(command, context, recentHistory);
   if (bulkDelete) return bulkDelete;
@@ -131,6 +134,7 @@ export async function askAssistantWithMemory(
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           command,
+          inputMode,
           now: new Date().toISOString(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Mexico_City',
           locale: 'es-MX',
