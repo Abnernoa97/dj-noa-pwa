@@ -1,6 +1,5 @@
 /* Premium home workspace.
-   Home keeps the photographic identity, but uses the same large editorial scale
-   and deliberate spacing as Calendar / Events / Excel / Tasks. */
+   Home keeps the photographic identity and a deliberately minimal editorial composition. */
 
 .app-shell:has(.home-view) .background-photo{
   background-position:center 34%!important;
@@ -11,7 +10,7 @@
 .app-shell:has(.home-view) .background-shade{
   background:
     radial-gradient(circle at 50% 22%,rgba(216,183,105,.10),transparent 24%),
-    linear-gradient(180deg,rgba(2,10,7,.30) 0%,rgba(2,10,7,.44) 35%,rgba(2,9,6,.63) 66%,rgba(2,7,5,.92) 100%)!important;
+    linear-gradient(180deg,rgba(2,10,7,.30) 0%,rgba(2,10,7,.42) 37%,rgba(2,9,6,.58) 68%,rgba(2,7,5,.91) 100%)!important;
 }
 
 .app-shell:has(.home-view) .topbar{
@@ -52,7 +51,7 @@
 
 .home-view::before{
   content:"EVENTOS   ·   CALENDARIO   ·   EXCEL   ·   TAREAS"!important;
-  top:16%!important;
+  top:18%!important;
   left:50%!important;
   transform:translate(-50%,-50%)!important;
   max-width:92vw!important;
@@ -65,156 +64,46 @@
 }
 
 .home-view::after{
-  top:21%!important;
+  top:23%!important;
   width:64px!important;
   height:1px!important;
   background:linear-gradient(90deg,transparent,rgba(218,184,101,.78),transparent)!important;
 }
 
-.home-view .next-event-card{
-  position:absolute!important;
-  left:50%!important;
-  bottom:clamp(230px,25dvh,390px)!important;
-  transform:translateX(-50%)!important;
-  width:min(calc(100% - 26px),610px)!important;
-  min-height:154px!important;
-  margin:0!important;
-  padding:18px 20px!important;
-  display:grid!important;
-  grid-template-columns:76px minmax(0,1fr)!important;
-  grid-template-rows:auto 1fr!important;
-  gap:12px 18px!important;
-  align-items:center!important;
-  border:1px solid rgba(220,190,119,.25)!important;
-  border-radius:25px!important;
-  background:linear-gradient(145deg,rgba(6,24,17,.82),rgba(3,12,9,.69))!important;
-  box-shadow:0 22px 55px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.025)!important;
-  backdrop-filter:blur(22px) saturate(.92)!important;
+.mlb-corner-badge{
+  position:absolute;
+  top:30px;
+  right:12px;
+  width:86px;
+  min-height:54px;
+  padding:8px 10px 7px;
+  border:1px solid rgba(220,190,119,.24);
+  border-radius:16px;
+  background:linear-gradient(145deg,rgba(5,22,15,.72),rgba(3,11,8,.54));
+  box-shadow:0 16px 38px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.025);
+  backdrop-filter:blur(18px) saturate(.92);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  z-index:3;
 }
 
-.home-view .card-heading{
-  grid-column:1/-1!important;
-  min-height:20px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:space-between!important;
-  font-size:9.5px!important;
-  line-height:1!important;
-  letter-spacing:.18em!important;
-  font-weight:700!important;
-  color:rgba(235,219,179,.62)!important;
+.mlb-corner-badge img{
+  display:block;
+  width:60px;
+  height:30px;
+  object-fit:contain;
 }
 
-.home-view .card-heading svg{
-  width:19px!important;
-  height:19px!important;
-  stroke-width:1.5!important;
-  color:rgba(234,216,171,.68)!important;
-}
-
-.home-view .event-date-block{
-  width:76px!important;
-  height:84px!important;
-  border-radius:20px!important;
-  border:1px solid rgba(220,190,119,.34)!important;
-  background:linear-gradient(180deg,rgba(214,180,96,.11),rgba(214,180,96,.035))!important;
-  box-shadow:inset 0 0 24px rgba(214,180,96,.025)!important;
-}
-
-.home-view .event-date-block strong{
-  font-size:39px!important;
-  line-height:.92!important;
-  font-weight:400!important;
-  color:#eadbb4!important;
-}
-
-.home-view .event-date-block span{
-  margin-top:7px!important;
-  font-size:9px!important;
-  line-height:1!important;
-  letter-spacing:.18em!important;
-  color:rgba(238,222,181,.72)!important;
-}
-
-.home-view .event-main-copy{
-  min-width:0!important;
-  align-self:center!important;
-}
-
-.home-view .event-main-copy h3{
-  margin:0 0 7px!important;
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-size:22px!important;
-  line-height:1.08!important;
-  font-weight:400!important;
-  letter-spacing:.01em!important;
-  color:#f4e8c7!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-}
-
-.home-view .event-main-copy p{
-  margin:0 0 12px!important;
-  font-size:11px!important;
-  line-height:1.35!important;
-  color:rgba(255,255,255,.56)!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-}
-
-.home-view .event-home-actions{
-  min-height:30px!important;
-  display:flex!important;
-  align-items:center!important;
-  flex-wrap:wrap!important;
-  gap:12px!important;
-}
-
-.home-view .direction-button{
-  min-height:34px!important;
-  padding:0 12px!important;
-  border:1px solid rgba(220,190,119,.22)!important;
-  border-radius:999px!important;
-  background:rgba(214,180,96,.045)!important;
-  font-size:9px!important;
-  line-height:1!important;
-  letter-spacing:.10em!important;
-  color:#eadbb4!important;
-}
-
-.home-view .event-detail-link{
-  min-height:32px!important;
-  padding:0!important;
-  border:0!important;
-  border-bottom:1px solid rgba(220,190,119,.32)!important;
-  border-radius:0!important;
-  background:transparent!important;
-  font-size:9px!important;
-  line-height:1!important;
-  letter-spacing:.16em!important;
-  font-weight:700!important;
-  text-transform:uppercase!important;
-  color:#eadbb4!important;
-}
-
-.home-view .empty-state{
-  grid-column:1/-1!important;
-  padding:8px 0 5px!important;
-}
-
-.home-view .empty-state p{
-  margin:0 0 12px!important;
-  font-size:12px!important;
-  color:rgba(255,255,255,.58)!important;
-}
-
-.home-view .empty-state button{
-  min-height:38px!important;
-  padding:0 14px!important;
-  font-size:9px!important;
-  border-radius:999px!important;
+.mlb-corner-badge span{
+  font-size:7px;
+  line-height:1;
+  letter-spacing:.22em;
+  padding-left:.22em;
+  font-weight:700;
+  color:rgba(239,225,190,.62);
 }
 
 .app-shell:has(.home-view) .bottom-nav{
@@ -256,12 +145,10 @@
   .app-shell:has(.home-view) .topbar{height:88px!important;min-height:88px!important}
   .app-shell:has(.home-view) .topbar h1{font-size:42px!important}
   .app-shell:has(.home-view) .content{height:calc(100dvh - 147px)!important}
-  .home-view::before{top:13%!important}
-  .home-view::after{top:18%!important}
-  .home-view .next-event-card{bottom:clamp(160px,21dvh,235px)!important;min-height:136px!important;padding:15px 17px!important;grid-template-columns:66px minmax(0,1fr)!important;gap:10px 15px!important}
-  .home-view .event-date-block{width:66px!important;height:72px!important;border-radius:17px!important}
-  .home-view .event-date-block strong{font-size:33px!important}
-  .home-view .event-main-copy h3{font-size:19px!important}
+  .home-view::before{top:15%!important}
+  .home-view::after{top:20%!important}
+  .mlb-corner-badge{top:20px;right:9px;width:78px;min-height:50px;padding:7px 9px 6px}
+  .mlb-corner-badge img{width:54px;height:27px}
   .app-shell:has(.home-view) .nav-button{min-height:44px!important}
   .app-shell:has(.home-view) .voice-orb{width:54px!important;height:54px!important;bottom:66px!important}
 }
@@ -270,9 +157,6 @@
   .app-shell:has(.home-view) .topbar{height:114px!important;min-height:114px!important}
   .app-shell:has(.home-view) .topbar h1{font-size:60px!important}
   .app-shell:has(.home-view) .content{height:calc(100dvh - 178px)!important}
-  .home-view .next-event-card{width:min(calc(100% - 50px),680px)!important;min-height:170px!important;padding:20px 24px!important;grid-template-columns:82px minmax(0,1fr)!important}
-  .home-view .event-date-block{width:82px!important;height:92px!important}
-  .home-view .event-date-block strong{font-size:42px!important}
-  .home-view .event-main-copy h3{font-size:25px!important}
-  .home-view .event-main-copy p{font-size:12px!important}
+  .mlb-corner-badge{top:36px;right:24px;width:102px;min-height:64px}
+  .mlb-corner-badge img{width:72px;height:36px}
 }
