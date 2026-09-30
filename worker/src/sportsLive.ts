@@ -50,7 +50,8 @@ function alias(value: string) {
 }
 
 async function getJson(url: string): Promise<unknown> {
-  const response = await fetch(url, { headers: { accept: 'application/json', 'user-agent': 'DJ-NOA/1.0' } });
+  const safeUrl = url.replace(/^http:\/\//i, 'https://');
+  const response = await fetch(safeUrl, { headers: { accept: 'application/json', 'user-agent': 'DJ-NOA/1.0' } });
   if (!response.ok) throw new Error(`upstream_${response.status}`);
   return response.json();
 }
@@ -104,6 +105,11 @@ function marketMoneyLine(item: AnyRecord, side: 'away' | 'home') {
     ?? num(item[`${side}Moneyline`]);
 }
 
+function marketProviderName(item: AnyRecord, fallback = 'Mercado') {
+  const provider = rec(item.provider);
+  return str(provider.name) || str(provider.displayName) || str(item.providerName) || fallback;
+}
+
 function marketsFrom(value: unknown): BookView[] {
   const rows = new Map<string, BookView>();
   for (const raw of list(value)) {
@@ -111,12 +117,46 @@ function marketsFrom(value: unknown): BookView[] {
     const away = marketMoneyLine(item, 'away');
     const home = marketMoneyLine(item, 'home');
     if (away === undefined || home === undefined || away === 0 || home === 0) continue;
-    const provider = rec(item.provider);
-    const providerName = str(provider.name) || str(provider.displayName) || str(item.providerName) || 'Mercado';
+    const providerName = marketProviderName(item);
     const key = providerName.trim().toLowerCase();
     if (!rows.has(key)) rows.set(key, { provider: providerName, away, home });
   }
   return Array.from(rows.values()).slice(0, 5);
+}
+
+async function loadCoreOdds(sport: Sport, eventId: string, competitionId: string): Promise<BookView[]> {
+  const path = sport === 'MLB' ? 'baseball' : 'basketball';
+  const league = sport === 'MLB' ? 'mlb' : 'nba';
+  const payload = rec(await getJson(`https://sports.core.api.espn.com/v2/sports/${path}/leagues/${league}/events/${encodeURIComponent(eventId)}/competitions/${encodeURIComponent(competitionId)}/odds?limit=20`));
+  const books: BookView[] = [];
+  const seen = new Set<string>();
+  for (const raw of list(payload.items)) {
+    let item = rec(raw);
+    const ref = str(item.$ref);
+    if (ref) {
+      try { item = rec(await getJson(ref)); } catch { /* keep embedded item */ }
+    }
+    const away = marketMoneyLine(item, 'away');
+    const home = marketMoneyLine(item, 'home');
+    if (away === undefined || home === undefined || away === 0 || home === 0) continue;
+    let providerName = marketProviderName(item, 'Casa');
+    const provider = rec(item.provider);
+    const providerRef = str(provider.$ref);
+    if ((!str(provider.name) && !str(provider.displayName)) && providerRef) {
+      try {
+        const providerPayload = rec(await getJson(providerRef));
+        providerName = str(providerPayload.name) || str(providerPayload.displayName) || providerName;
+      } catch { /* provider id is still enough to keep the market */ }
+    }
+    const providerId = str(provider.id);
+    if (providerName === 'Casa' && providerId) providerName = `Casa ${providerId}`;
+    const key = providerName.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    books.push({ provider: providerName, away, home });
+    if (books.length >= 5) break;
+  }
+  return books;
 }
 
 function impliedProbability(american: number) {
@@ -144,7 +184,7 @@ function competitionFrom(value: unknown) {
   return rec(list(root.competitions)[0]);
 }
 
-function parseEspnGame(payload: unknown, fallbackEvent?: AnyRecord): GameView | undefined {
+function parseEspnGame(payload: unknown, fallbackEvent?: AnyRecord, overrideBooks?: BookView[]): GameView | undefined {
   const root = rec(payload);
   const competition = competitionFrom(root);
   const fallbackCompetition = rec(list(rec(fallbackEvent).competitions)[0]);
@@ -155,9 +195,10 @@ function parseEspnGame(payload: unknown, fallbackEvent?: AnyRecord): GameView | 
   if (!awayRaw || !homeRaw) return undefined;
 
   const event = Object.keys(rec(fallbackEvent)).length ? rec(fallbackEvent) : rec(root.header);
-  const books = marketsFrom(root.pickcenter).length
+  const embeddedBooks = marketsFrom(root.pickcenter).length
     ? marketsFrom(root.pickcenter)
     : marketsFrom(activeCompetition.odds);
+  const books = overrideBooks?.length ? overrideBooks : embeddedBooks;
   const market = consensus(books);
   const status = statusView(rec(root.header).competitions ? activeCompetition.status : rec(event.status));
   const venue = rec(activeCompetition.venue);
@@ -201,16 +242,22 @@ async function loadEspnLiveGame(sport: Sport, date: string, awayName: string, aw
       const event = findEvent(payload, awayName, awayAbbr, homeName, homeAbbr);
       if (!event) continue;
       const id = str(event.id);
+      const competition = rec(list(event.competitions)[0]);
+      const competitionId = str(competition.id) || id;
+      let coreBooks: BookView[] = [];
+      if (id && competitionId) {
+        try { coreBooks = await loadCoreOdds(sport, id, competitionId); } catch { /* fall back to summary/scoreboard odds */ }
+      }
       if (id) {
         try {
           const summary = await getJson(`https://site.api.espn.com/apis/site/v2/sports/${path}/summary?event=${encodeURIComponent(id)}`);
-          const parsed = parseEspnGame(summary, event);
+          const parsed = parseEspnGame(summary, event, coreBooks);
           if (parsed) return parsed;
         } catch {
           // Scoreboard still provides status/score when summary is temporarily unavailable.
         }
       }
-      const parsed = parseEspnGame({ competitions: list(event.competitions) }, event);
+      const parsed = parseEspnGame({ competitions: list(event.competitions) }, event, coreBooks);
       if (parsed) return parsed;
     } catch {
       // Try the next ESPN feed.
@@ -342,6 +389,7 @@ export async function handleSportsLive(request: Request): Promise<Response> {
   try {
     response.game = await loadEspnLiveGame(sport, date, awayName, away, homeName, home);
     if (!response.game) warnings.push('live_game_not_found');
+    else if (!response.game.books.length) warnings.push('odds_not_published');
   } catch {
     warnings.push('live_game_unavailable');
   }
