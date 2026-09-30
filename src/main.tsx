@@ -34,6 +34,7 @@ import './mlb-matchups.css';
 import './nba.css';
 import './sports-detail.css';
 import './sports-context.css';
+import './sports-realtime.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
