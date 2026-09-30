@@ -5,6 +5,7 @@ import App from './App';
 import AppMaintenance from './AppMaintenance';
 import AssistantPlanPreview from './AssistantPlanPreview';
 import DataSafetyPanel from './DataSafetyPanel';
+import SportsEnhancer from './SportsEnhancer';
 import './styles.css';
 import './events.css';
 import './event-hub.css';
@@ -58,6 +59,7 @@ updateSW = registerSW({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <SportsEnhancer />
     <AppMaintenance />
     <AssistantPlanPreview />
     <DataSafetyPanel />
