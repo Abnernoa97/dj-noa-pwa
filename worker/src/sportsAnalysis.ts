@@ -43,6 +43,7 @@ export async function handleSportsAnalysis(request: Request, env: Env): Promise<
   const away = rec(game.away);
   const home = rec(game.home);
   const books = list(game.books).slice(0, 5);
+  const sportsContext = rec(body.sportsContext);
   const context = {
     sport,
     matchup: `${str(away.name) || str(away.abbreviation)} vs ${str(home.name) || str(home.abbreviation)}`,
@@ -54,19 +55,20 @@ export async function handleSportsAnalysis(request: Request, env: Env): Promise<
     consensusHome: game.consensusHome,
     books,
     awayStanding: body.awayStanding ?? null,
-    homeStanding: body.homeStanding ?? null
+    homeStanding: body.homeStanding ?? null,
+    verifiedContext: Object.keys(sportsContext).length ? sportsContext : null
   };
 
-  const prompt = `Eres DJ NOA Sports, un analista neutral de datos deportivos y mercado. Analiza SOLO la información suministrada. No inventes lesiones, pitchers, lineups, jugadores ni estadísticas ausentes. No garantices resultados ni presentes una apuesta como segura. Explica qué está favoreciendo el mercado y los riesgos. Responde exclusivamente JSON válido con: {"summary":"2-3 frases en español","market":"1 frase","edge":"1 frase descriptiva, sin recomendar apostar","risks":["riesgo 1","riesgo 2"]}. Datos: ${JSON.stringify(context)}`;
+  const prompt = `Eres DJ NOA Sports, un analista neutral de datos deportivos y mercado. Analiza SOLO la información suministrada. No inventes lesiones, pitchers, lineups, jugadores ni estadísticas ausentes. Si un dato no está disponible, dilo claramente. No garantices resultados ni presentes una apuesta como segura. Explica qué está favoreciendo el mercado, la forma reciente, información de disponibilidad publicada y los riesgos. Responde exclusivamente JSON válido con: {"summary":"2-3 frases en español","market":"1 frase","edge":"1 frase descriptiva, sin recomendar apostar","risks":["riesgo 1","riesgo 2"]}. Datos: ${JSON.stringify(context)}`;
 
   try {
     const output = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       messages: [
-        { role: 'system', content: 'Devuelve exclusivamente JSON válido. Sé preciso y conservador.' },
+        { role: 'system', content: 'Devuelve exclusivamente JSON válido. Sé preciso, neutral y conservador. Nunca inventes datos deportivos.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.2,
-      max_tokens: 500
+      temperature: 0.15,
+      max_tokens: 600
     }, { rejectIfBusy: false });
 
     const direct = normalizeAnalysis(output);
