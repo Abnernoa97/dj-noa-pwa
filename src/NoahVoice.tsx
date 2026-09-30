@@ -11,6 +11,7 @@ export type NoahVoiceHandle = {
 };
 
 const POSITION_KEY = 'dj-noa-voice-button-position-v1';
+const TURN_SILENCE_MS = 1400;
 const CLOSE_SESSION = /^(?:listo|terminamos|termina|eso es todo|ya estuvo|gracias(?: noah| noa)?|cierra(?: la conversación)?|hasta luego)$/i;
 
 function recognitionCtor() {
@@ -22,6 +23,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+function normalizeSpeech(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState<VoiceStatus>('idle');
@@ -30,16 +35,31 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
   const activeRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const restartTimerRef = useRef<number | null>(null);
+  const turnTimerRef = useRef<number | null>(null);
   const processingRef = useRef(false);
   const speakingRef = useRef(false);
   const stoppingRef = useRef(false);
   const ignoreUntilRef = useRef(0);
+  const finalPartsRef = useRef<string[]>([]);
+  const interimRef = useRef('');
+  const lastSubmittedRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   const historyRef = useRef<ChatTurn[]>([]);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
 
   const clearRestart = () => {
     if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
     restartTimerRef.current = null;
+  };
+
+  const clearTurnTimer = () => {
+    if (turnTimerRef.current !== null) window.clearTimeout(turnTimerRef.current);
+    turnTimerRef.current = null;
+  };
+
+  const resetTurnBuffer = () => {
+    clearTurnTimer();
+    finalPartsRef.current = [];
+    interimRef.current = '';
   };
 
   const stopSession = () => {
@@ -50,6 +70,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     processingRef.current = false;
     speakingRef.current = false;
     clearRestart();
+    resetTurnBuffer();
     try { recognitionRef.current?.abort?.(); } catch { /* noop */ }
     recognitionRef.current = null;
     try { window.speechSynthesis?.cancel?.(); } catch { /* noop */ }
@@ -63,6 +84,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
       return;
     }
 
+    resetTurnBuffer();
     speakingRef.current = true;
     setStatus('speaking');
     window.speechSynthesis.cancel();
@@ -73,7 +95,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     utterance.volume = 1;
     const done = () => {
       speakingRef.current = false;
-      ignoreUntilRef.current = Date.now() + 180;
+      ignoreUntilRef.current = Date.now() + 320;
       if (activeRef.current) setStatus('listening');
       after?.();
     };
@@ -85,6 +107,11 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
   const askNoah = async (message: string) => {
     const clean = message.trim();
     if (!clean || !activeRef.current || processingRef.current || speakingRef.current) return;
+
+    const normalized = normalizeSpeech(clean);
+    const previousSubmission = lastSubmittedRef.current;
+    if (normalized && normalized === previousSubmission.text && Date.now() - previousSubmission.at < 5000) return;
+    lastSubmittedRef.current = { text: normalized, at: Date.now() };
 
     if (CLOSE_SESSION.test(clean)) {
       speak('Listo.', stopSession);
@@ -119,17 +146,43 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     }
   };
 
-  const scheduleRecognitionRestart = (delay = 120) => {
+  const flushTurn = () => {
+    clearTurnTimer();
+    if (!activeRef.current || processingRef.current || speakingRef.current) {
+      resetTurnBuffer();
+      return;
+    }
+
+    const pieces = [...finalPartsRef.current];
+    const interim = interimRef.current.trim();
+    if (interim) pieces.push(interim);
+    const fullText = pieces.join(' ').replace(/\s+/g, ' ').trim();
+    resetTurnBuffer();
+    if (fullText) void askNoah(fullText);
+  };
+
+  const scheduleTurnFlush = () => {
+    clearTurnTimer();
+    if (!activeRef.current || processingRef.current || speakingRef.current) return;
+    turnTimerRef.current = window.setTimeout(flushTurn, TURN_SILENCE_MS);
+  };
+
+  const scheduleRecognitionRestart = (delay = 140) => {
     clearRestart();
     if (!activeRef.current || stoppingRef.current || document.visibilityState !== 'visible') return;
     restartTimerRef.current = window.setTimeout(() => {
       restartTimerRef.current = null;
+      if (speakingRef.current || processingRef.current) {
+        scheduleRecognitionRestart(220);
+        return;
+      }
       startRecognition();
     }, delay);
   };
 
   function startRecognition() {
     if (!activeRef.current || stoppingRef.current || document.visibilityState !== 'visible') return;
+    if (recognitionRef.current) return;
     const Ctor = recognitionCtor();
     if (!Ctor) {
       setStatus('error');
@@ -149,15 +202,26 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
 
     recognition.onresult = (event: any) => {
       if (!activeRef.current || processingRef.current || speakingRef.current || Date.now() < ignoreUntilRef.current) return;
-      const finals: string[] = [];
+
+      let heardSomething = false;
+      let latestInterim = interimRef.current;
+
       for (let index = event.resultIndex ?? 0; index < event.results.length; index += 1) {
         const result = event.results[index];
-        if (!result?.isFinal) continue;
         const text = String(result?.[0]?.transcript || '').trim();
-        if (text) finals.push(text);
+        if (!text) continue;
+        heardSomething = true;
+
+        if (result?.isFinal) {
+          finalPartsRef.current.push(text);
+          latestInterim = '';
+        } else {
+          latestInterim = text;
+        }
       }
-      const finalText = finals.join(' ').trim();
-      if (finalText) void askNoah(finalText);
+
+      interimRef.current = latestInterim;
+      if (heardSomething) scheduleTurnFlush();
     };
 
     recognition.onerror = (event: any) => {
@@ -168,7 +232,8 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
         stopSession();
         return;
       }
-      scheduleRecognitionRestart(180);
+      if (error !== 'no-speech') resetTurnBuffer();
+      scheduleRecognitionRestart(220);
     };
 
     recognition.onend = () => {
@@ -179,7 +244,8 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     try {
       recognition.start();
     } catch {
-      scheduleRecognitionRestart(180);
+      recognitionRef.current = null;
+      scheduleRecognitionRestart(220);
     }
   }
 
@@ -193,12 +259,13 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     activeRef.current = true;
     stoppingRef.current = false;
     historyRef.current = [];
+    lastSubmittedRef.current = { text: '', at: 0 };
+    resetTurnBuffer();
     setActive(true);
     setStatus('starting');
 
-    // SpeechRecognition is now the only microphone owner. No parallel getUserMedia stream.
-    startRecognition();
-    speak('Aquí estoy.');
+    // One greeting only. Listening starts after Noah has completely finished speaking.
+    speak('Hola, ¿en qué te puedo ayudar hoy?', startRecognition);
   };
 
   useImperativeHandle(ref, () => ({ start: startSession, stop: stopSession }));
