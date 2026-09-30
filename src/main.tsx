@@ -22,6 +22,7 @@ import './visual-polish.css';
 import './excel-scroll-fix.css';
 import './scroll-fix.css';
 import './calendar-focus.css';
+import './calendar-week-day.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
