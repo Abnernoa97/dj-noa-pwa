@@ -17,13 +17,15 @@ test('uses one canonical Wrangler config and one Worker entrypoint', () => {
 
 test('frontend API calls are same-origin and have no legacy Worker URL override', () => {
   const memory = read('src/assistantMemory.ts');
-  const audio = read('src/voice/audio.ts');
+  const voice = read('src/useDjNoaVoice.ts');
   const reminders = read('src/reminderNotifications.ts');
 
   assert.equal(memory.includes('VITE_DJNOA_WORKER_URL'), false);
   assert.equal(memory.includes('djnoa.workerUrl'), false);
   assert.match(memory, /fetch\('\/api\/assistant'/);
-  assert.match(audio, /fetch\('\/api\/transcribe'/);
+  assert.equal(voice.includes('VITE_DJNOA_WORKER_URL'), false);
+  assert.equal(voice.includes('/api/transcribe'), false);
+  assert.equal(voice.includes('fetch('), false);
   assert.match(reminders, /fetch\('\/api\/push\/key'/);
   assert.match(reminders, /fetch\('\/api\/push\/subscribe'/);
   assert.match(reminders, /fetch\('\/api\/reminders\/sync'/);
