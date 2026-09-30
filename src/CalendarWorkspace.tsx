@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { addDays, addMonths, format, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
+import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
 import type { EventItem, ReminderItem, SheetRow } from './types';
@@ -53,8 +53,10 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
   const monthStart = startOfMonth(month);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
   const monthDays: Date[] = [];
-  for (let day = gridStart; monthDays.length < 42; day = addDays(day, 1)) monthDays.push(day);
+  for (let day = gridStart; day <= gridEnd; day = addDays(day, 1)) monthDays.push(day);
+  const calendarWeekCount = monthDays.length / 7;
 
   const weekStart = startOfWeek(month, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
@@ -147,13 +149,13 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
       <div className="calendar-view-switch"><button className={mode === 'month' ? 'active' : ''} onClick={() => selectMode('month')}>Mes</button><button className={mode === 'week' ? 'active' : ''} onClick={() => selectMode('week')}>Semana</button><button className={mode === 'day' ? 'active' : ''} onClick={() => selectMode('day')}>Día</button></div>
 
-      {mode === 'month' && <><div className="weekday-row weekday-row-full">{['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid calendar-grid-rich">{monthDays.map((day) => {
+      {mode === 'month' && <><div className="weekday-row weekday-row-full">{['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((day) => <span key={day}>{day}</span>)}</div><div className={`calendar-grid calendar-grid-rich weeks-${calendarWeekCount}`}>{monthDays.map((day) => {
         const dateKey = format(day, 'yyyy-MM-dd');
-        const bundle = itemsForDate(dateKey);
         const outside = day.getMonth() !== month.getMonth();
-        const selected = isSameDay(day, selectedDate);
+        const bundle = outside ? { events: [], reminders: [], rows: [] } : itemsForDate(dateKey);
+        const selected = !outside && isSameDay(day, selectedDate);
         const totalItems = bundle.events.length + bundle.reminders.length + bundle.rows.length;
-        return <button key={dateKey} className={`calendar-day rich-day ${outside ? 'outside' : ''} ${isSameDay(day, new Date()) ? 'today' : ''} ${selected ? 'selected' : ''}`} onClick={() => openDay(day)}><span className="rich-day-number">{format(day, 'd')}</span><div className="rich-day-dots">{bundle.events.length > 0 && <i className="event" />}{bundle.reminders.length > 0 && <i className="task" />}{bundle.rows.length > 0 && <i className="sheet" />}</div>{totalItems > 0 && <small>{totalItems}</small>}</button>;
+        return <button key={dateKey} type="button" disabled={outside} aria-hidden={outside ? true : undefined} className={`calendar-day rich-day ${outside ? 'outside' : ''} ${!outside && isSameDay(day, new Date()) ? 'today' : ''} ${selected ? 'selected' : ''}`} onClick={() => openDay(day)}>{!outside && <><span className="rich-day-number">{format(day, 'd')}</span><div className="rich-day-dots">{bundle.events.length > 0 && <i className="event" />}{bundle.reminders.length > 0 && <i className="task" />}{bundle.rows.length > 0 && <i className="sheet" />}</div>{totalItems > 0 && <small>{totalItems}</small>}</>}</button>;
       })}</div></>}
 
       {mode === 'week' && <div className="calendar-week rich-week">{weekDays.map((day) => {
