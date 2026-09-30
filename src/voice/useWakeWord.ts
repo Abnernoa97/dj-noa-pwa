@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { ensureNoahMicrophone, stopNoahMicrophone } from './microphoneSession';
 import type { RecognitionLike } from './recognitionTypes';
 import { getRecognitionCtor, transcriptFromEvent, WAKE_WORD } from './transcript';
 
-const WAKE_RESTART_MS = 700;
+const WAKE_RESTART_MS = 180;
+const WAKE_ERROR_RESTART_MS = 900;
 
 type Options = {
   isBlocked: () => boolean;
@@ -26,10 +28,18 @@ export function useWakeWord(options: Options) {
     restartTimerRef.current = null;
   };
 
-  const start = () => {
+  const start = async () => {
     const recognition = recognitionRef.current;
     if (!mountedRef.current || !recognition || suspendedRef.current || deniedRef.current || runningRef.current) return;
     if (optionsRef.current.isBlocked() || document.visibilityState !== 'visible') return;
+
+    // Keep one physical microphone stream alive while the app is visible. The
+    // browser speech recognizer may internally restart, but Android no longer
+    // has to power-cycle the microphone for every recognition session.
+    await ensureNoahMicrophone();
+    if (!mountedRef.current || suspendedRef.current || deniedRef.current || runningRef.current) return;
+    if (optionsRef.current.isBlocked() || document.visibilityState !== 'visible') return;
+
     try {
       recognition.start();
       runningRef.current = true;
@@ -44,7 +54,7 @@ export function useWakeWord(options: Options) {
     if (!mountedRef.current || suspendedRef.current || deniedRef.current) return;
     restartTimerRef.current = window.setTimeout(() => {
       restartTimerRef.current = null;
-      start();
+      void start();
     }, delay);
   };
 
@@ -56,6 +66,8 @@ export function useWakeWord(options: Options) {
       try { recognitionRef.current?.abort(); } catch { /* noop */ }
     }
     runningRef.current = false;
+    // Do not stop the shared microphone here. Noah's active voice conversation
+    // reuses the same stream, which prevents the open/close chime between modes.
   };
 
   const resume = () => {
@@ -91,20 +103,24 @@ export function useWakeWord(options: Options) {
         const error = String(event.error || '');
         if (error === 'not-allowed' || error === 'service-not-allowed') {
           deniedRef.current = true;
+          stopNoahMicrophone();
           return;
         }
-        if (!suspendedRef.current) schedule(1200);
+        if (!suspendedRef.current) schedule(WAKE_ERROR_RESTART_MS);
       };
       recognitionRef.current = recognition;
-      schedule(900);
+      schedule(500);
     }
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') schedule(350);
-      else {
+      if (document.visibilityState === 'visible') {
+        void ensureNoahMicrophone().finally(() => schedule(180));
+      } else {
+        clearRestart();
         setListening(false);
         try { recognitionRef.current?.abort(); } catch { /* noop */ }
         runningRef.current = false;
+        stopNoahMicrophone();
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -114,6 +130,7 @@ export function useWakeWord(options: Options) {
       clearRestart();
       suspendedRef.current = true;
       try { recognitionRef.current?.abort(); } catch { /* noop */ }
+      stopNoahMicrophone();
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
