@@ -18,6 +18,7 @@ import './assistant-plan.css';
 import './voice-modes.css';
 import './conversation-dock.css';
 import './data-safety.css';
+import './visual-polish.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
