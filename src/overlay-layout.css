@@ -41,3 +41,145 @@
 .calendar-summary-sheet .day-summary{
   padding-bottom:10px!important;
 }
+
+/* Excel detail: same large, readable workspace language as Events/Calendar/Tasks. */
+.sheet-detail-page{
+  inset:0 0 calc(58px + env(safe-area-inset-bottom)) 0!important;
+  padding-bottom:24px!important;
+  background:radial-gradient(circle at 50% 10%,rgba(18,44,31,.22),transparent 38%),linear-gradient(180deg,#07130e,#030806)!important;
+  scrollbar-width:none!important;
+}
+.sheet-detail-page::-webkit-scrollbar{display:none!important}
+.sheet-detail-header{
+  min-height:88px!important;
+  padding:max(16px,env(safe-area-inset-top)) 18px 14px!important;
+  grid-template-columns:50px minmax(0,1fr) 50px!important;
+  gap:12px!important;
+}
+.sheet-detail-header>button{
+  width:48px!important;
+  height:48px!important;
+}
+.sheet-detail-header>button svg{width:23px!important;height:23px!important}
+.sheet-detail-header span{
+  font-size:9px!important;
+  letter-spacing:.20em!important;
+}
+.sheet-detail-header strong{
+  margin-top:5px!important;
+  font-size:clamp(27px,7vw,38px)!important;
+  line-height:1.04!important;
+}
+.sheet-detail-header-spacer{width:48px!important;height:48px!important}
+.sheet-detail-content{
+  width:min(100%,820px)!important;
+  padding:18px 18px 34px!important;
+  gap:16px!important;
+}
+.sheet-detail-card{
+  padding:18px!important;
+  border-radius:20px!important;
+  border-color:rgba(217,190,123,.14)!important;
+  background:rgba(214,180,96,.035)!important;
+}
+.sheet-detail-primary{
+  gap:14px!important;
+}
+.sheet-detail-card label>span{
+  margin-bottom:8px!important;
+  font-size:9px!important;
+  line-height:1.2!important;
+  letter-spacing:.15em!important;
+  color:rgba(232,216,173,.56)!important;
+}
+.sheet-detail-card input,
+.sheet-detail-card select,
+.sheet-detail-card textarea{
+  border-radius:15px!important;
+  padding:14px 16px!important;
+  font-size:15px!important;
+  line-height:1.4!important;
+  border-color:rgba(217,190,123,.16)!important;
+  background:#06110c!important;
+}
+.sheet-detail-card input,
+.sheet-detail-card select{
+  height:58px!important;
+}
+.sheet-detail-card textarea{
+  min-height:128px!important;
+}
+.sheet-category-presets{
+  margin-top:10px!important;
+  gap:8px!important;
+}
+.sheet-category-presets button{
+  min-height:40px!important;
+  padding:0 13px!important;
+  border-radius:20px!important;
+  font-size:10px!important;
+}
+.sheet-detail-section-title{
+  margin-bottom:14px!important;
+  gap:14px!important;
+}
+.sheet-detail-section-title span{
+  font-size:10px!important;
+  letter-spacing:.15em!important;
+}
+.sheet-detail-section-title small{
+  margin-top:5px!important;
+  font-size:10px!important;
+}
+.sheet-detail-section-title button{
+  min-height:48px!important;
+  padding:0 16px!important;
+  border-radius:14px!important;
+  font-size:11px!important;
+}
+.sheet-photo-empty{
+  min-height:130px!important;
+  border-radius:16px!important;
+  font-size:11px!important;
+  gap:9px!important;
+}
+.sheet-photo-empty svg{width:26px!important;height:26px!important}
+.sheet-photo-grid{gap:10px!important}
+.sheet-photo-grid figure{border-radius:15px!important}
+.sheet-custom-toggle{min-height:48px!important}
+.sheet-custom-toggle span{font-size:13px!important}
+.sheet-custom-toggle b{font-size:24px!important}
+.sheet-custom-toggle svg{width:20px!important;height:20px!important}
+.sheet-custom-content{margin-top:16px!important;padding-top:16px!important;gap:12px!important}
+.sheet-custom-field{grid-template-columns:minmax(0,1fr) 46px!important;gap:10px!important}
+.sheet-custom-field>button{width:46px!important;height:58px!important;border-radius:14px!important}
+.sheet-formula-value{height:58px!important;border-radius:15px!important;padding:0 16px!important;font-size:14px!important}
+.sheet-new-field{gap:10px!important;margin-top:8px!important;padding-top:16px!important}
+.sheet-new-field>button{min-height:50px!important;border-radius:14px!important;font-size:11px!important}
+
+@media(max-width:560px){
+  .sheet-detail-header{min-height:82px!important;padding:max(14px,env(safe-area-inset-top)) 14px 12px!important;grid-template-columns:46px minmax(0,1fr) 46px!important}
+  .sheet-detail-header>button{width:44px!important;height:44px!important}
+  .sheet-detail-header strong{font-size:28px!important}
+  .sheet-detail-header-spacer{width:44px!important;height:44px!important}
+  .sheet-detail-content{padding:14px 12px 32px!important;gap:14px!important}
+  .sheet-detail-card{padding:15px!important;border-radius:18px!important}
+  .sheet-detail-primary{grid-template-columns:1fr 1fr!important;gap:12px!important}
+  .sheet-detail-card input,.sheet-detail-card select{height:56px!important;font-size:14px!important}
+  .sheet-detail-card textarea{font-size:14px!important;min-height:120px!important}
+  .sheet-detail-card label>span{font-size:8.5px!important}
+  .sheet-category-presets button{min-height:38px!important;padding:0 11px!important;font-size:9px!important}
+  .sheet-detail-section-title button{min-height:46px!important;padding:0 14px!important}
+}
+
+@media(max-width:380px){
+  .sheet-detail-primary{grid-template-columns:1fr!important}
+  .sheet-detail-primary .sheet-wide{grid-column:1!important}
+}
+
+@media(min-width:700px){
+  .sheet-detail-content{padding:22px 26px 38px!important;gap:18px!important}
+  .sheet-detail-card{padding:21px!important}
+  .sheet-detail-card input,.sheet-detail-card select{height:62px!important;font-size:16px!important}
+  .sheet-detail-card textarea{font-size:16px!important;min-height:140px!important}
+}
