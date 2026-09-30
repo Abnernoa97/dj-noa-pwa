@@ -23,9 +23,11 @@ export type RecognitionLike = {
 
 export type RecognitionCtor = new () => RecognitionLike;
 
+export type VoiceOpenMode = 'manual' | 'voice';
+
 export type VoiceOptions = {
   onCommand: (text: string) => Promise<string | undefined>;
-  onOpen: () => void;
+  onOpen: (mode: VoiceOpenMode) => void;
   onLiveText: (text: string) => void;
   onStatus: (text: string) => void;
 };
