@@ -19,16 +19,28 @@
 .events-hn-caption{margin:11px 0 0;font-size:8px;letter-spacing:.27em;text-transform:uppercase;color:rgba(244,241,232,.52)}
 .events-hn-add{position:absolute!important;right:0!important;top:3px!important;width:44px!important;height:44px!important;border-radius:50%!important;border:1px solid rgba(217,190,123,.22)!important;background:rgba(214,180,96,.04)!important;color:#eadbb4!important}
 
+.events-selection-bar{position:sticky;top:0;z-index:30;min-height:64px;margin:0 0 18px;padding:8px 10px;display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:10px;border:1px solid rgba(229,189,98,.45);background:rgba(4,13,9,.96);box-shadow:0 12px 34px rgba(0,0,0,.42);backdrop-filter:blur(18px)}
+.events-selection-bar>strong{font-family:Georgia,"Times New Roman",serif;font-size:18px;font-weight:400;color:#eadbb4;white-space:nowrap}
+.events-selection-close{width:42px;height:42px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(214,180,96,.05);color:#eadbb4}
+.events-selection-actions{display:flex;align-items:center;gap:6px}
+.events-selection-actions button{min-height:42px;padding:0 12px;border:1px solid rgba(217,190,123,.20);background:rgba(214,180,96,.055);color:#eadbb4;display:flex;align-items:center;justify-content:center;gap:7px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.events-selection-actions button.danger{border-color:rgba(206,112,112,.34);background:rgba(206,112,112,.08);color:#e3abab}
+.events-selection-actions button:disabled{opacity:.32}
+
 .events-page .events-section-label{margin:0 0 10px!important;padding-left:2px!important;font-size:8px!important;line-height:1!important;letter-spacing:.22em!important;font-weight:800!important;color:rgba(232,216,173,.44)!important}
 .events-page .history-label{margin-top:28px!important}
 .events-page .event-list{display:flex!important;flex-direction:column!important;gap:9px!important;max-height:none!important;overflow:visible!important}
 .events-page .history-list{opacity:.72!important}
 
-.hn-event-card{position:relative;width:100%;padding:16px 54px 16px 16px;border:1px solid rgba(229,189,98,.40);border-radius:0;background:linear-gradient(105deg,rgba(0,0,0,.54),rgba(28,20,8,.25),rgba(0,0,0,.42));color:#f4f1e8;backdrop-filter:blur(7px);cursor:pointer;transition:border-color .16s ease,background .16s ease;outline:none}
+.hn-event-card{position:relative;width:100%;padding:16px 54px 16px 16px;border:1px solid rgba(229,189,98,.40);border-radius:0;background:linear-gradient(105deg,rgba(0,0,0,.54),rgba(28,20,8,.25),rgba(0,0,0,.42));color:#f4f1e8;backdrop-filter:blur(7px);cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .14s ease,box-shadow .14s ease;outline:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
 .hn-event-card:focus-visible{border-color:rgba(229,189,98,.85)}
 .hn-event-card.is-expanded{border-color:rgba(229,189,98,.72);background:linear-gradient(105deg,rgba(26,18,7,.56),rgba(4,11,8,.55),rgba(24,17,7,.44))}
+.hn-event-card.selection-mode{cursor:default}
+.hn-event-card.is-selected{border-color:#d9bd77;background:linear-gradient(105deg,rgba(61,45,16,.58),rgba(10,23,16,.74),rgba(45,33,13,.54));box-shadow:inset 0 0 0 1px rgba(234,219,180,.30),0 10px 28px rgba(0,0,0,.22);transform:scale(.995)}
 .hn-event-expand{position:absolute;top:8px;right:8px;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:transparent;color:#d9bd77;font:400 25px/1 Georgia,"Times New Roman",serif;touch-action:manipulation;z-index:2}
 .hn-event-expand:active{background:rgba(229,189,98,.10)}
+.hn-event-select-mark{position:absolute;top:13px;right:13px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(234,219,180,.40);background:rgba(3,10,7,.72);color:#07110d;z-index:3;transition:background .14s ease,border-color .14s ease,color .14s ease}
+.hn-event-select-mark.selected{background:#eadbb4;border-color:#eadbb4;color:#07110d}
 .hn-event-day{color:#d9bd77;font-size:9px;letter-spacing:.20em;text-transform:uppercase}
 .hn-event-title{margin-top:7px;color:#f6f0df;font-family:Georgia,"Times New Roman",serif;font-size:26px;line-height:1.05;font-weight:400}
 .hn-event-venue{margin-top:8px;color:rgba(244,241,232,.82);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
@@ -106,19 +118,24 @@
   gap:12px!important;
   margin-top:20px!important;
 }
-.event-editor .delete-event-button,.event-editor .save-event-button{
+.event-editor .save-event-button{
   min-height:58px!important;
   border-radius:16px!important;
   font-size:13px!important;
   gap:9px!important;
 }
-.event-editor .delete-event-button svg,.event-editor .save-event-button svg{width:20px!important;height:20px!important}
+.event-editor .save-event-button svg{width:20px!important;height:20px!important}
 
 @media(max-width:520px){
   .events-page{padding:16px 12px 20px!important}
   .events-hn-header{padding-left:46px;padding-right:46px;margin-bottom:20px}
   .events-hn-brand{font-size:13px}.events-hn-header h2{font-size:42px}.events-hn-caption{font-size:7px;letter-spacing:.22em}
   .events-hn-add{width:40px!important;height:40px!important}
+  .events-selection-bar{grid-template-columns:38px minmax(0,1fr);gap:8px;padding:8px;margin-bottom:16px}
+  .events-selection-close{width:38px;height:38px}
+  .events-selection-bar>strong{font-size:16px}
+  .events-selection-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;width:100%;gap:7px}
+  .events-selection-actions button{min-height:44px;font-size:9px}
   .hn-event-card{padding:15px 50px 15px 14px}
   .hn-event-title{font-size:24px}
   .hn-event-time-grid{grid-template-columns:1fr 1fr}
@@ -131,7 +148,7 @@
   .event-editor .event-form-grid{grid-template-columns:1fr 1fr!important}
   .event-editor .event-form input,.event-editor .event-form select,.event-editor .event-form textarea{font-size:14px!important;min-height:56px!important}
   .event-editor .event-form textarea{min-height:112px!important}
-  .event-editor .delete-event-button,.event-editor .save-event-button{min-height:56px!important;font-size:12px!important}
+  .event-editor .save-event-button{min-height:56px!important;font-size:12px!important}
 }
 
 @media(max-width:370px){
