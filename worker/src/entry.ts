@@ -2,6 +2,7 @@ import baseWorker, { ReminderScheduler } from './index';
 import { handleDjNoaAssistant } from './djNoaAssistant';
 import { expandDeterministicRecurrence } from './deterministicRecurrence';
 import { handleMlbRequest } from './mlb';
+import { handleNbaRequest } from './nba';
 
 export { ReminderScheduler };
 
@@ -137,6 +138,10 @@ export default {
 
     if (url.pathname === '/api/mlb') {
       return handleMlbRequest(request);
+    }
+
+    if (url.pathname === '/api/nba') {
+      return handleNbaRequest(request);
     }
 
     if (url.pathname === '/api/assistant') {
