@@ -97,12 +97,38 @@ function teamView(value: AnyRecord): TeamView {
   };
 }
 
+function americanNumber(value: unknown): number | undefined {
+  const direct = num(value);
+  if (direct !== undefined) return direct;
+  const item = rec(value);
+  for (const candidate of [item.american, item.alternateDisplayValue, item.displayValue, item.value]) {
+    const parsed = num(candidate);
+    if (parsed !== undefined) return parsed;
+  }
+  return undefined;
+}
+
+function usableMoneyLine(value: unknown): number | undefined {
+  const parsed = americanNumber(value);
+  if (parsed === undefined || parsed === 0 || Math.abs(parsed) > 5000) return undefined;
+  return parsed;
+}
+
 function marketMoneyLine(item: AnyRecord, side: 'away' | 'home') {
   const teamOdds = rec(side === 'away' ? item.awayTeamOdds : item.homeTeamOdds);
-  return num(teamOdds.moneyLine)
-    ?? num(teamOdds.moneyline)
-    ?? num(item[`${side}MoneyLine`])
-    ?? num(item[`${side}Moneyline`]);
+  const current = rec(teamOdds.current);
+  const close = rec(teamOdds.close);
+  const open = rec(teamOdds.open);
+  return usableMoneyLine(teamOdds.moneyLine)
+    ?? usableMoneyLine(teamOdds.moneyline)
+    ?? usableMoneyLine(current.moneyLine)
+    ?? usableMoneyLine(current.moneyline)
+    ?? usableMoneyLine(close.moneyLine)
+    ?? usableMoneyLine(close.moneyline)
+    ?? usableMoneyLine(open.moneyLine)
+    ?? usableMoneyLine(open.moneyline)
+    ?? usableMoneyLine(item[`${side}MoneyLine`])
+    ?? usableMoneyLine(item[`${side}Moneyline`]);
 }
 
 function marketProviderName(item: AnyRecord, fallback = 'Mercado') {
@@ -116,7 +142,7 @@ function marketsFrom(value: unknown): BookView[] {
     const item = rec(raw);
     const away = marketMoneyLine(item, 'away');
     const home = marketMoneyLine(item, 'home');
-    if (away === undefined || home === undefined || away === 0 || home === 0) continue;
+    if (away === undefined || home === undefined) continue;
     const providerName = marketProviderName(item);
     const key = providerName.trim().toLowerCase();
     if (!rows.has(key)) rows.set(key, { provider: providerName, away, home });
@@ -124,11 +150,16 @@ function marketsFrom(value: unknown): BookView[] {
   return Array.from(rows.values()).slice(0, 5);
 }
 
+function twoWayImpliedSum(away: number, home: number) {
+  const implied = (american: number) => american > 0 ? 100 / (american + 100) : (-american) / ((-american) + 100);
+  return implied(away) + implied(home);
+}
+
 async function loadCoreOdds(sport: Sport, eventId: string, competitionId: string): Promise<BookView[]> {
   const path = sport === 'MLB' ? 'baseball' : 'basketball';
   const league = sport === 'MLB' ? 'mlb' : 'nba';
   const payload = rec(await getJson(`https://sports.core.api.espn.com/v2/sports/${path}/leagues/${league}/events/${encodeURIComponent(eventId)}/competitions/${encodeURIComponent(competitionId)}/odds?limit=20`));
-  const books: BookView[] = [];
+  const candidates: BookView[] = [];
   const seen = new Set<string>();
   for (const raw of list(payload.items)) {
     let item = rec(raw);
@@ -138,7 +169,9 @@ async function loadCoreOdds(sport: Sport, eventId: string, competitionId: string
     }
     const away = marketMoneyLine(item, 'away');
     const home = marketMoneyLine(item, 'home');
-    if (away === undefined || home === undefined || away === 0 || home === 0) continue;
+    if (away === undefined || home === undefined) continue;
+    const sum = twoWayImpliedSum(away, home);
+    if (sum < 0.98 || sum > 1.18) continue;
     let providerName = marketProviderName(item, 'Casa');
     const provider = rec(item.provider);
     const providerRef = str(provider.$ref);
@@ -153,10 +186,14 @@ async function loadCoreOdds(sport: Sport, eventId: string, competitionId: string
     const key = providerName.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    books.push({ provider: providerName, away, home });
-    if (books.length >= 5) break;
+    candidates.push({ provider: providerName, away, home });
   }
-  return books;
+  candidates.sort((a, b) => {
+    const aPreferred = /espn\s*bet|draftkings/i.test(a.provider) ? 0 : 1;
+    const bPreferred = /espn\s*bet|draftkings/i.test(b.provider) ? 0 : 1;
+    return aPreferred - bPreferred;
+  });
+  return candidates.slice(0, 5);
 }
 
 function impliedProbability(american: number) {
@@ -304,7 +341,6 @@ async function loadMlbForm(name: string, abbreviation: string, targetDate: strin
       const away = rec(teams.away);
       const home = rec(teams.home);
       const awayTeam = rec(away.team);
-      const homeTeam = rec(home.team);
       const mineAway = num(awayTeam.id) === teamId;
       const mine = mineAway ? away : home;
       const opponent = mineAway ? home : away;
