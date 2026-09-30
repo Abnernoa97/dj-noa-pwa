@@ -37,6 +37,15 @@ const TEAM_ABBR: Record<string, string> = {
   'Texas Rangers': 'TEX', 'Toronto Blue Jays': 'TOR', 'Washington Nationals': 'WSH'
 };
 
+const DIVISION_META: Record<number, { league: 'AL' | 'NL'; name: string }> = {
+  200: { league: 'AL', name: 'Oeste' },
+  201: { league: 'AL', name: 'Este' },
+  202: { league: 'AL', name: 'Central' },
+  203: { league: 'NL', name: 'Oeste' },
+  204: { league: 'NL', name: 'Este' },
+  205: { league: 'NL', name: 'Central' }
+};
+
 function rec(value: unknown): AnyRecord { return value && typeof value === 'object' && !Array.isArray(value) ? value as AnyRecord : {}; }
 function list(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
 function str(value: unknown) { return typeof value === 'string' ? value : ''; }
@@ -46,6 +55,13 @@ function num(value: unknown): number | undefined {
 }
 function int(value: unknown, fallback = 0) { const parsed = num(value); return parsed === undefined ? fallback : Math.trunc(parsed); }
 function abbr(name: string, supplied?: string) { return supplied?.trim().toUpperCase() || TEAM_ABBR[name] || name.split(/\s+/).map((part) => part[0]).join('').slice(0, 3).toUpperCase(); }
+
+function nextDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
 
 async function getJson(url: string): Promise<unknown> {
   const response = await fetch(url, { headers: { accept: 'application/json' } });
@@ -111,7 +127,11 @@ async function loadGames(date: string): Promise<GameView[]> {
 }
 
 function divisionName(value: string) {
-  return value.replace(/^American League\s+/i, '').replace(/^National League\s+/i, '').replace(/^AL\s+/i, '').replace(/^NL\s+/i, '') || 'División';
+  const trimmed = value.replace(/^American League\s+/i, '').replace(/^National League\s+/i, '').replace(/^AL\s+/i, '').replace(/^NL\s+/i, '');
+  if (/east/i.test(trimmed)) return 'Este';
+  if (/central/i.test(trimmed)) return 'Central';
+  if (/west/i.test(trimmed)) return 'Oeste';
+  return trimmed || 'División';
 }
 
 async function standingsForSeason(season: number): Promise<StandingView[]> {
@@ -121,15 +141,18 @@ async function standingsForSeason(season: number): Promise<StandingView[]> {
     const standing = rec(rawRecord);
     const division = rec(standing.division);
     const leagueInfo = rec(standing.league);
+    const divisionId = int(division.id);
     const divisionFull = str(division.name);
-    const league: 'AL' | 'NL' = /american/i.test(divisionFull) || int(leagueInfo.id) === 103 ? 'AL' : 'NL';
+    const mapped = DIVISION_META[divisionId];
+    const league: 'AL' | 'NL' = mapped?.league || (/american/i.test(divisionFull) || int(leagueInfo.id) === 103 ? 'AL' : 'NL');
+    const divisionLabel = mapped?.name || divisionName(divisionFull);
     for (const rawTeam of list(standing.teamRecords)) {
       const teamRecord = rec(rawTeam);
       const team = rec(teamRecord.team);
       const name = str(team.name) || 'Equipo';
       rows.push({
         league,
-        division: divisionName(divisionFull),
+        division: divisionLabel,
         team: name,
         abbreviation: abbr(name, str(team.abbreviation)),
         wins: int(teamRecord.wins),
@@ -159,16 +182,28 @@ export async function handleMlbRequest(request: Request): Promise<Response> {
   const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'invalid_date' }, 400);
 
-  const [gamesResult, standingsResult] = await Promise.allSettled([loadGames(date), loadStandings(date)]);
-  if (gamesResult.status === 'rejected' && standingsResult.status === 'rejected') return json({ error: 'mlb_upstream_unavailable' }, 502);
+  const next = nextDate(date);
+  const [gamesResult, nextGamesResult, standingsResult] = await Promise.allSettled([
+    loadGames(date),
+    loadGames(next),
+    loadStandings(date)
+  ]);
+
+  if (gamesResult.status === 'rejected' && nextGamesResult.status === 'rejected' && standingsResult.status === 'rejected') {
+    return json({ error: 'mlb_upstream_unavailable' }, 502);
+  }
+
   const warnings: string[] = [];
   if (gamesResult.status === 'rejected') warnings.push('games_unavailable');
+  if (nextGamesResult.status === 'rejected') warnings.push('next_games_unavailable');
   if (standingsResult.status === 'rejected') warnings.push('standings_unavailable');
 
   return json({
     date,
+    nextDate: next,
     updatedAt: new Date().toISOString(),
     games: gamesResult.status === 'fulfilled' ? gamesResult.value : [],
+    nextGames: nextGamesResult.status === 'fulfilled' ? nextGamesResult.value : [],
     standings: standingsResult.status === 'fulfilled' ? standingsResult.value : [],
     warnings
   });

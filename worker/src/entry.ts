@@ -1,7 +1,6 @@
 import baseWorker, { ReminderScheduler } from './index';
 import { handleDjNoaAssistant } from './djNoaAssistant';
 import { expandDeterministicRecurrence } from './deterministicRecurrence';
-import { handleMlbRequest } from './mlb';
 
 export { ReminderScheduler };
 
@@ -133,10 +132,6 @@ export default {
 
     if (url.pathname.startsWith('/api/') && url.pathname !== '/api/health' && !requestComesFromApp(request, url)) {
       return json({ error: 'forbidden_source' }, 403);
-    }
-
-    if (url.pathname === '/api/mlb') {
-      return handleMlbRequest(request);
     }
 
     if (url.pathname === '/api/assistant') {

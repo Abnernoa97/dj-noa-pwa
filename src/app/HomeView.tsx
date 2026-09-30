@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Bell, CalendarDays, FileSpreadsheet, MapPin, Mic } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AppView, EventItem, ReminderItem } from '../types';
 import { money } from './assistantActions';
-import MlbWorkspace from '../MlbWorkspace';
 
 type Props = {
   todayEventCount: number;
@@ -30,10 +28,6 @@ export default function HomeView({
   onView,
   onToggleReminder
 }: Props) {
-  const [mlbOpen, setMlbOpen] = useState(false);
-
-  if (mlbOpen) return <MlbWorkspace onBack={() => setMlbOpen(false)} />;
-
   return (
     <section className="home-view">
       <div className="home-summary">
@@ -41,10 +35,10 @@ export default function HomeView({
         <button onClick={onVoice}><Mic size={18} /> Hablar con DJ NOA</button>
       </div>
 
-      <button className="mlb-corner-badge" type="button" onClick={() => setMlbOpen(true)} aria-label="Abrir MLB">
+      <div className="mlb-corner-badge" aria-label="Major League Baseball">
         <img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" alt="MLB" />
         <span>MLB</span>
-      </button>
+      </div>
 
       <div className="section-label-row"><span>ACCESOS RÁPIDOS</span></div>
       <div className="quick-grid">

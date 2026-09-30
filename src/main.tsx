@@ -28,7 +28,6 @@ import './sheet-focus.css';
 import './reminders-focus.css';
 import './overlay-layout.css';
 import './home-focus.css';
-import './mlb.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
