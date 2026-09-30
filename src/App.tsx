@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { askAssistantWithMemory } from './assistantMemory';
@@ -78,7 +77,7 @@ export default function App() {
   };
 
   const refreshConversation = async () => {
-    const history = (await db.history.orderBy('createdAt').reverse().limit(8).toArray()).reverse() as unknown as StoredHistoryItem[];
+    const history = (await db.history.orderBy('createdAt').reverse().limit(60).toArray()).reverse() as unknown as StoredHistoryItem[];
     setConversation(history.map((item) => ({
       id: item.id,
       command: item.command,
@@ -250,7 +249,7 @@ export default function App() {
     try {
       if (isUndoCommand(clean)) return await undoLastCommand();
 
-      const recentHistory = (await db.history.orderBy('createdAt').reverse().limit(10).toArray()).reverse() as unknown as StoredHistoryItem[];
+      const recentHistory = (await db.history.orderBy('createdAt').reverse().limit(24).toArray()).reverse() as unknown as StoredHistoryItem[];
       const response = await askAssistantWithMemory(
         clean,
         { events, reminders, sheetRows },
@@ -370,9 +369,9 @@ export default function App() {
   };
 
   const {
-    active: voiceActive,
     listening,
     manualRecording,
+    wakeListening,
     mode: voiceMode,
     toggle: startListening
   } = useDjNoaVoice({
@@ -431,9 +430,7 @@ export default function App() {
         </>}
       </main>
 
-      {liveAction && <div className={`dj-live-action ${liveAction.status}`} role="status" aria-live="polite"><div className="dj-live-head"><div className="dj-live-kicker"><span className="dj-live-dot" />DJ NOA · {liveAction.status === 'working' ? 'TRABAJANDO' : liveAction.status === 'done' ? 'HECHO' : liveAction.status === 'cancelled' ? 'CANCELADO' : 'DETENIDO'}</div><div className="dj-live-controls"><span className="dj-live-count">{liveAction.current} de {liveAction.total}</span>{liveAction.status === 'working' && <button className="dj-live-cancel" onClick={requestExecutionCancel}>CANCELAR</button>}</div></div><strong>{liveAction.title}</strong><small>{liveAction.detail}</small><div className="dj-live-track"><span style={{ width: `${Math.max(8, (liveAction.current / Math.max(1, liveAction.total)) * 100)}%` }} /></div></div>}
-
-      <button className={`voice-orb ${voiceActive ? 'listening' : ''}`} onClick={startListening} disabled={busy && !liveAction} aria-label={busy && liveAction ? 'Decir detener a DJ NOA' : voiceActive ? 'Pausar DJ NOA' : 'Hablar con DJ NOA'}>{voiceActive ? <MicOff size={28} /> : <Mic size={28} />}<span>{listening ? 'ESCUCHANDO' : voiceActive ? 'ACTIVO' : busy && liveAction ? 'DETENER' : 'HABLAR'}</span></button>
+      {liveAction && <div className={`dj-live-action ${liveAction.status}`} role="status" aria-live="polite"><div className="dj-live-head"><div className="dj-live-kicker"><span className="dj-live-dot" />NOAH · {liveAction.status === 'working' ? 'TRABAJANDO' : liveAction.status === 'done' ? 'HECHO' : liveAction.status === 'cancelled' ? 'CANCELADO' : 'DETENIDO'}</div><div className="dj-live-controls"><span className="dj-live-count">{liveAction.current} de {liveAction.total}</span>{liveAction.status === 'working' && <button className="dj-live-cancel" onClick={requestExecutionCancel}>CANCELAR</button>}</div></div><strong>{liveAction.title}</strong><small>{liveAction.detail}</small><div className="dj-live-track"><span style={{ width: `${Math.max(8, (liveAction.current / Math.max(1, liveAction.total)) * 100)}%` }} /></div></div>}
 
       <BottomNav view={view} onView={(next) => { setMlbOpen(false); setView(next); }} />
 
@@ -451,6 +448,7 @@ export default function App() {
         busy={busy}
         listening={listening}
         manualRecording={manualRecording}
+        wakeListening={wakeListening}
         voiceMode={voiceMode}
         aiOnline={aiOnline}
       />
