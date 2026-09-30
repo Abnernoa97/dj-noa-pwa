@@ -1,30 +1,26 @@
-/* Canonical overlay layer for bottom sheets/editors.
-   The app content and fixed bottom navigation are sibling stacking contexts.
-   When a modal sheet opens inside .content, elevate that entire context above
-   the navigation so controls can never be covered by the fixed menu. */
-
-.app-shell:has(.reminder-editor-backdrop) .content,
-.app-shell:has(.calendar-summary-backdrop) .content{
-  z-index:40!important;
-}
+/* Canonical bottom-sheet spacing for the fixed navigation.
+   Editors and calendar details stop above the bottom menu instead of covering it.
+   The navigation itself stays visible and unchanged. */
 
 .reminder-editor-backdrop,
 .calendar-summary-backdrop{
-  z-index:60!important;
+  bottom:calc(58px + env(safe-area-inset-bottom))!important;
+  z-index:32!important;
   overscroll-behavior:contain!important;
 }
 
 .reminder-editor,
 .calendar-summary-sheet{
-  scroll-padding-bottom:calc(28px + env(safe-area-inset-bottom))!important;
-  padding-bottom:calc(28px + env(safe-area-inset-bottom))!important;
+  max-height:calc(100dvh - 74px - env(safe-area-inset-bottom))!important;
+  scroll-padding-bottom:28px!important;
+  padding-bottom:28px!important;
 }
 
-/* Keep the final action row comfortably reachable on short Android screens. */
+/* Keep the last controls/items fully visible before the persistent menu. */
 .reminder-editor-actions{
-  margin-bottom:6px!important;
+  margin-bottom:8px!important;
 }
 
 .calendar-summary-sheet .day-summary{
-  padding-bottom:8px!important;
+  padding-bottom:10px!important;
 }
