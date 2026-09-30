@@ -230,7 +230,7 @@ export default function App() {
     return reply;
   };
 
-  const runCommand = async (text = command): Promise<string | undefined> => {
+  const runCommand = async (text = command, inputMode: 'text' | 'voice' = 'text'): Promise<string | undefined> => {
     const clean = text.trim();
     if (!clean) return undefined;
 
@@ -242,7 +242,8 @@ export default function App() {
       return undefined;
     }
 
-    setAssistantOpen(true);
+    if (inputMode === 'text') setAssistantOpen(true);
+    else setAssistantOpen(false);
     setPendingCommand(clean);
     cancelRequestedRef.current = false;
     setBusy(true);
@@ -260,7 +261,8 @@ export default function App() {
           activeEventTitle: assistantContextEvent?.title,
           activeEventDate: assistantContextEvent?.date,
           activeEventVenue: assistantContextEvent?.venue
-        }
+        },
+        inputMode
       );
       setAssistantReply(response.reply);
       const visibleTotal = response.actions.filter((action) => actionMeta(action).visible).length;
@@ -375,8 +377,8 @@ export default function App() {
     mode: voiceMode,
     toggle: startListening
   } = useDjNoaVoice({
-    onCommand: runCommand,
-    onOpen: () => setAssistantOpen(true),
+    onCommand: (text) => runCommand(text, 'voice'),
+    onOpen: (mode) => setAssistantOpen(mode === 'manual'),
     onLiveText: setCommand,
     onStatus: setAssistantReply
   });
