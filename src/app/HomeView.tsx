@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, FileSpreadsheet, MapPin, Mic, Navigation, Plus } from 'lucide-react';
+import { Bell, CalendarDays, FileSpreadsheet, MapPin, Mic } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AppView, EventItem, ReminderItem } from '../types';
@@ -20,15 +20,12 @@ type Props = {
 
 export default function HomeView({
   todayEventCount,
-  upcoming,
   eventCount,
   total,
   openReminders,
   focusReminders,
   onVoice,
   onView,
-  onOpenEvent,
-  onCreateEvent,
   onToggleReminder
 }: Props) {
   return (
@@ -38,20 +35,10 @@ export default function HomeView({
         <button onClick={onVoice}><Mic size={18} /> Hablar con DJ NOA</button>
       </div>
 
-      <article className="glass-card next-event-card">
-        <div className="card-heading"><span>PRÓXIMO EVENTO</span><CalendarDays size={19} /></div>
-        {upcoming ? <>
-          <div className="event-date-block"><strong>{format(parseISO(upcoming.date), 'dd')}</strong><span>{format(parseISO(upcoming.date), 'MMM', { locale: es }).toUpperCase()}</span></div>
-          <div className="event-main-copy">
-            <h3>{upcoming.title}</h3>
-            <p>{upcoming.time || 'Horario pendiente'}{upcoming.venue ? ` · ${upcoming.venue}` : ''}</p>
-            <div className="event-home-actions">
-              {(upcoming.address || upcoming.venue) && <a className="direction-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(upcoming.address || upcoming.venue || '')}`} target="_blank" rel="noreferrer"><Navigation size={16} /> Cómo llegar</a>}
-              <button className="event-detail-link" onClick={() => onOpenEvent(upcoming)}>Detalles</button>
-            </div>
-          </div>
-        </> : <div className="empty-state"><p>No hay eventos próximos.</p><button onClick={onCreateEvent}><Plus size={16} /> Crear evento</button></div>}
-      </article>
+      <div className="mlb-corner-badge" aria-label="Major League Baseball">
+        <img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" alt="MLB" />
+        <span>MLB</span>
+      </div>
 
       <div className="section-label-row"><span>ACCESOS RÁPIDOS</span></div>
       <div className="quick-grid">
