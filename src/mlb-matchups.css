@@ -1,0 +1,140 @@
+/* MLB matchups and sportsbook moneyline layer. */
+.mlb-games-section.is-today .mlb-games-title span{color:#8ebcff}
+.mlb-games-section.has-live .mlb-games-title span{color:#ff5c75}
+
+.mlb-game-card.is-live-card{
+  border-color:rgba(255,91,117,.25);
+  box-shadow:0 24px 56px rgba(0,0,0,.27),0 0 0 1px rgba(255,73,101,.04),inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.mlb-club{position:relative}
+.mlb-club em{
+  position:absolute;
+  top:-12px;
+  right:0;
+  margin:0;
+  padding:4px 7px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.055);
+  color:rgba(255,255,255,.56);
+  font-style:normal;
+  font-size:6px;
+  line-height:1;
+  letter-spacing:.13em;
+  font-weight:900;
+}
+.mlb-club.home em{right:auto;left:0}
+.mlb-club.market-favorite em{
+  border-color:rgba(255,84,111,.28);
+  background:linear-gradient(135deg,rgba(32,92,180,.20),rgba(207,31,62,.18));
+  color:#fff;
+}
+
+.mlb-moneyline{
+  margin-top:22px;
+  padding:15px 14px 14px;
+}
+.mlb-moneyline-label{
+  margin-bottom:12px;
+  font-size:7.5px;
+  letter-spacing:.20em;
+}
+.mlb-moneyline-values{
+  grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr);
+  gap:10px;
+}
+.mlb-odd-side{
+  position:relative;
+  min-height:74px;
+  padding:11px 8px 10px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  background:rgba(255,255,255,.025);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.mlb-odd-side.away{background:linear-gradient(145deg,rgba(27,91,181,.13),rgba(255,255,255,.02))}
+.mlb-odd-side.home{background:linear-gradient(145deg,rgba(205,36,67,.11),rgba(255,255,255,.02))}
+.mlb-odd-side.favorite{
+  border-color:rgba(255,255,255,.20);
+  box-shadow:inset 0 0 28px rgba(255,255,255,.025),0 10px 22px rgba(0,0,0,.12);
+}
+.mlb-odd-side small{
+  font-size:8px;
+  line-height:1;
+  letter-spacing:.14em;
+  font-weight:900;
+  color:rgba(255,255,255,.48);
+}
+.mlb-odd-side strong{
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:34px!important;
+  line-height:.9!important;
+  font-weight:400!important;
+}
+.mlb-odd-side.away strong{color:#a8caff!important}
+.mlb-odd-side.home strong{color:#ff9eb0!important}
+.mlb-market-label{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:6.5px!important;
+  letter-spacing:.11em!important;
+  color:rgba(255,255,255,.36)!important;
+}
+
+.mlb-books{
+  margin-top:12px;
+  gap:5px;
+}
+.mlb-books>div{
+  min-height:36px;
+  grid-template-columns:minmax(0,1fr) 72px 72px;
+  padding:0 10px;
+  border:1px solid rgba(255,255,255,.035);
+  background:rgba(255,255,255,.028);
+  font-size:9px;
+}
+.mlb-books>div:not(.mlb-books-head):hover{background:rgba(255,255,255,.04)}
+.mlb-books .mlb-books-head{
+  min-height:27px;
+  border:0;
+  background:transparent;
+  color:rgba(255,255,255,.31);
+  font-size:7px;
+  letter-spacing:.12em;
+  font-weight:900;
+}
+.mlb-books .mlb-books-head b{
+  font-size:7px;
+  color:rgba(255,255,255,.38);
+}
+.mlb-books b{
+  font-size:11px;
+  font-variant-numeric:tabular-nums;
+}
+.mlb-books b.is-favorite{
+  color:#fff;
+  text-shadow:0 0 18px rgba(255,255,255,.24);
+}
+.mlb-books>div:not(.mlb-books-head) b.is-favorite:first-of-type{color:#b4d2ff}
+.mlb-books>div:not(.mlb-books-head) b.is-favorite:last-of-type{color:#ffafbd}
+
+@media(max-width:420px){
+  .mlb-moneyline-values{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr);gap:7px}
+  .mlb-odd-side{min-height:68px;padding:9px 5px}
+  .mlb-odd-side strong{font-size:30px!important}
+  .mlb-books>div{grid-template-columns:minmax(0,1fr) 60px 60px;padding:0 7px}
+  .mlb-club em{top:-10px;font-size:5.5px;padding:4px 6px}
+}
+
+@media(min-width:700px){
+  .mlb-moneyline{padding:17px 18px 16px}
+  .mlb-odd-side{min-height:82px}
+  .mlb-odd-side strong{font-size:38px!important}
+  .mlb-books>div{grid-template-columns:minmax(0,1fr) 84px 84px;min-height:38px}
+}
