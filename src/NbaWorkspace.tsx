@@ -31,6 +31,7 @@ type NbaSnapshot = {
   nextDate?: string;
   updatedAt: string;
   season?: number;
+  standingsSeason?: number;
   games: NbaGame[];
   nextGames?: NbaGame[];
   standings: NbaStanding[];
@@ -39,7 +40,7 @@ type NbaSnapshot = {
 type Props = { onBack: () => void };
 type FavoriteSide = 'away' | 'home' | null;
 
-const CACHE_KEY = 'dj-noa-nba-snapshot-v1';
+const CACHE_KEY = 'dj-noa-nba-snapshot-v2';
 
 function readCachedSnapshot(): NbaSnapshot | null {
   try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) as NbaSnapshot : null; } catch { return null; }
@@ -82,6 +83,26 @@ function seasonLabel(season?: number) {
   const start = season - 1;
   return `${start}-${String(season).slice(-2)}`;
 }
+function datePlusDays(date: string, days: number) {
+  const [year, month, day] = date.split('-').map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day));
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+function lastSeasonReference(date: string) {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const endYear = month >= 7 ? year : year - 1;
+  return `${endYear}-06-15`;
+}
+function futureGames(games?: NbaGame[]) {
+  return (games || []).filter((game) => game.status !== 'final');
+}
+async function fetchNbaSnapshot(date: string): Promise<NbaSnapshot> {
+  const response = await fetch(`/api/nba?date=${date}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`nba_${response.status}`);
+  return response.json() as Promise<NbaSnapshot>;
+}
 
 export default function NbaWorkspace({ onBack }: Props) {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -97,9 +118,42 @@ export default function NbaWorkspace({ onBack }: Props) {
   const load = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true); else setLoading(true);
     try {
-      const response = await fetch(`/api/nba?date=${today}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`nba_${response.status}`);
-      const data = await response.json() as NbaSnapshot;
+      let data = await fetchNbaSnapshot(today);
+
+      if (!data.standings?.length) {
+        try {
+          const previous = await fetchNbaSnapshot(lastSeasonReference(today));
+          if (previous.standings?.length) {
+            data = { ...data, standings: previous.standings, standingsSeason: previous.season };
+          }
+        } catch {
+          // Keep the primary response if historical standings are temporarily unavailable.
+        }
+      } else {
+        data = { ...data, standingsSeason: data.season };
+      }
+
+      const hasTodayOrTomorrow = futureGames(data.games).length > 0 || futureGames(data.nextGames).length > 0;
+      if (!hasTodayOrTomorrow) {
+        for (let offset = 2; offset <= 14; offset += 2) {
+          try {
+            const candidate = await fetchNbaSnapshot(datePlusDays(today, offset));
+            const sameDay = futureGames(candidate.games);
+            const followingDay = futureGames(candidate.nextGames);
+            if (sameDay.length) {
+              data = { ...data, nextDate: candidate.date, nextGames: sameDay };
+              break;
+            }
+            if (followingDay.length) {
+              data = { ...data, nextDate: candidate.nextDate || datePlusDays(candidate.date, 1), nextGames: followingDay };
+              break;
+            }
+          } catch {
+            // Keep searching later dates.
+          }
+        }
+      }
+
       setSnapshot(data); writeCachedSnapshot(data); setError('');
     } catch {
       const cached = readCachedSnapshot();
@@ -115,15 +169,16 @@ export default function NbaWorkspace({ onBack }: Props) {
   }, [load]);
 
   const activeRows = useMemo(() => (snapshot?.standings || []).filter((row) => row.conference === conference).sort((a, b) => a.rank - b.rank), [snapshot, conference]);
-  const todayGames = useMemo(() => (snapshot?.games || []).filter((game) => game.status !== 'final').sort((a, b) => {
+  const todayGames = useMemo(() => futureGames(snapshot?.games).sort((a, b) => {
     if (a.status !== b.status) { if (a.status === 'live') return -1; if (b.status === 'live') return 1; }
     return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
   }), [snapshot]);
-  const nextGames = useMemo(() => (snapshot?.nextGames || []).filter((game) => game.status !== 'final'), [snapshot]);
+  const nextGames = useMemo(() => futureGames(snapshot?.nextGames), [snapshot]);
   const showingToday = todayGames.length > 0;
   const displayedGames = showingToday ? todayGames : nextGames;
   const gamesDate = showingToday ? today : (snapshot?.nextDate || today);
   const hasLive = displayedGames.some((game) => game.status === 'live');
+  const standingsArePrevious = Boolean(snapshot?.standingsSeason && snapshot?.season && snapshot.standingsSeason !== snapshot.season);
 
   return (
     <section className="mlb-workspace nba-workspace">
@@ -139,7 +194,7 @@ export default function NbaWorkspace({ onBack }: Props) {
       <div className="mlb-page-scroll">
         <section className="mlb-standings-panel nba-standings-panel">
           <div className="mlb-section-head">
-            <div><span>NBA {seasonLabel(snapshot?.season)}</span><h2>Tabla de posiciones</h2></div>
+            <div><span>NBA {seasonLabel(snapshot?.standingsSeason || snapshot?.season)}{standingsArePrevious ? ' · ÚLTIMA TABLA' : ''}</span><h2>Tabla de posiciones</h2></div>
             <Trophy size={28} />
           </div>
 
@@ -174,7 +229,7 @@ export default function NbaWorkspace({ onBack }: Props) {
 
           {error ? <div className="mlb-data-note">{error}</div> : null}
           {loading && !snapshot ? <div className="mlb-loading games">Buscando juegos y momios…</div> : null}
-          {!loading && snapshot && !displayedGames.length ? <div className="mlb-no-games">No quedan juegos de hoy ni hay juegos programados para el siguiente día.</div> : null}
+          {!loading && snapshot && !displayedGames.length ? <div className="mlb-no-games">No encontré próximos juegos programados en los siguientes días.</div> : null}
 
           <div className="mlb-games-list">
             {displayedGames.map((game, index) => {
