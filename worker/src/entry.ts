@@ -4,6 +4,7 @@ import { expandDeterministicRecurrence } from './deterministicRecurrence';
 import { handleMlbRequest } from './mlb';
 import { handleNbaRequest } from './nba';
 import { handleSportsAnalysis } from './sportsAnalysis';
+import { handleSportsContext } from './sportsContext';
 
 export { ReminderScheduler };
 
@@ -143,6 +144,10 @@ export default {
 
     if (url.pathname === '/api/nba') {
       return handleNbaRequest(request);
+    }
+
+    if (url.pathname === '/api/sports-context') {
+      return handleSportsContext(request);
     }
 
     if (url.pathname === '/api/sports-analysis') {
