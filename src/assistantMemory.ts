@@ -114,9 +114,7 @@ export async function askAssistantWithMemory(
   recentHistory: AssistantMemoryItem[] = [],
   uiContext?: AssistantUiContext
 ): Promise<AssistantResponse> {
-  const workerUrl = (import.meta.env.VITE_DJNOA_WORKER_URL || window.location.origin).trim();
-
-  if (workerUrl && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       const sheetColumns = await db.sheetColumns.orderBy('position').toArray();
       const activeSheetRowId = localStorage.getItem('djnoa.activeSheetRowId') || undefined;
@@ -124,7 +122,7 @@ export async function askAssistantWithMemory(
       const focused = focusedContext(command, context, recentHistory, uiContext, activeSheetRowId);
       const history = [...toConversationHistory(recentHistory), sessionMemory(recentHistory, uiContext, focused.recentIds, activeSheetRowId)];
 
-      const response = await fetch(`${workerUrl.replace(/\/$/, '')}/api/assistant`, {
+      const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
