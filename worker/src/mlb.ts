@@ -85,23 +85,57 @@ function teamView(value: AnyRecord): TeamView {
   return { name, abbreviation: abbr(name, str(team.abbreviation)), logo: str(team.logo) || undefined, score: str(value.score) || undefined };
 }
 
+function marketMoneyLine(item: AnyRecord, side: 'away' | 'home') {
+  const teamOdds = rec(side === 'away' ? item.awayTeamOdds : item.homeTeamOdds);
+  return num(teamOdds.moneyLine)
+    ?? num(teamOdds.moneyline)
+    ?? num(item[`${side}MoneyLine`])
+    ?? num(item[`${side}Moneyline`]);
+}
+
 function marketView(competition: AnyRecord): BookView[] {
-  const rows: BookView[] = [];
+  const rows = new Map<string, BookView>();
   for (const raw of list(competition.odds)) {
     const item = rec(raw);
-    const away = num(rec(item.awayTeamOdds).moneyLine);
-    const home = num(rec(item.homeTeamOdds).moneyLine);
+    const away = marketMoneyLine(item, 'away');
+    const home = marketMoneyLine(item, 'home');
     if (away === undefined || home === undefined || away === 0 || home === 0) continue;
     const provider = rec(item.provider);
-    rows.push({ provider: str(provider.name) || str(provider.displayName) || 'Mercado', away, home });
+    const providerName = str(provider.name) || str(provider.displayName) || str(item.providerName) || 'Mercado';
+    const key = providerName.trim().toLowerCase();
+    if (!rows.has(key)) rows.set(key, { provider: providerName, away, home });
   }
-  return rows.slice(0, 3);
+  return Array.from(rows.values()).slice(0, 5);
+}
+
+function impliedProbability(american: number) {
+  return american < 0 ? (-american) / ((-american) + 100) : 100 / (american + 100);
+}
+
+function americanFromProbability(probability: number) {
+  if (!(probability > 0 && probability < 1)) return undefined;
+  const american = probability >= 0.5
+    ? -(100 * probability) / (1 - probability)
+    : (100 * (1 - probability)) / probability;
+  return Math.round(american);
+}
+
+function marketConsensus(books: BookView[]) {
+  if (!books.length) return {};
+  if (books.length === 1) return { away: books[0].away, home: books[0].home };
+
+  const awayProbability = books.reduce((sum, book) => sum + impliedProbability(book.away), 0) / books.length;
+  const homeProbability = books.reduce((sum, book) => sum + impliedProbability(book.home), 0) / books.length;
+  return {
+    away: americanFromProbability(awayProbability),
+    home: americanFromProbability(homeProbability)
+  };
 }
 
 async function loadGames(date: string): Promise<GameView[]> {
   const compact = date.replaceAll('-', '');
   const payload = rec(await getJson(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${compact}&limit=100`));
-  return list(payload.events).map((raw) => {
+  const games = list(payload.events).map((raw) => {
     const event = rec(raw);
     const competition = rec(list(event.competitions)[0]);
     const competitors = list(competition.competitors).map(rec);
@@ -109,6 +143,7 @@ async function loadGames(date: string): Promise<GameView[]> {
     const homeRaw = competitors.find((item) => str(item.homeAway) === 'home');
     if (!awayRaw || !homeRaw) return null;
     const books = marketView(competition);
+    const consensus = marketConsensus(books);
     const status = statusView(event.status);
     const venue = rec(competition.venue);
     return {
@@ -119,11 +154,17 @@ async function loadGames(date: string): Promise<GameView[]> {
       venue: str(venue.fullName) || undefined,
       away: teamView(awayRaw),
       home: teamView(homeRaw),
-      consensusAway: books[0]?.away,
-      consensusHome: books[0]?.home,
+      consensusAway: consensus.away,
+      consensusHome: consensus.home,
       books
     } satisfies GameView;
   }).filter(Boolean) as GameView[];
+
+  return games.sort((a, b) => {
+    const aTime = new Date(a.startTime).getTime();
+    const bTime = new Date(b.startTime).getTime();
+    return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
+  });
 }
 
 function divisionName(value: string) {
