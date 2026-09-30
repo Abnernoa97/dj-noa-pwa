@@ -1,6 +1,6 @@
 import type { RecognitionCtor, RecognitionEventLike } from './recognitionTypes';
 
-export const WAKE_WORD = /\b(?:dj|deejay|d\s*j|diyei)\s*(?:noa|noah|no\s*a)\b/i;
+export const WAKE_WORD = /\b(?:noa|noah)\b/i;
 
 export function getRecognitionCtor(): RecognitionCtor | null {
   const scope = window as unknown as {
