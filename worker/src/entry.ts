@@ -5,6 +5,7 @@ import { handleMlbRequest } from './mlb';
 import { handleNbaRequest } from './nba';
 import { handleSportsAnalysis } from './sportsAnalysis';
 import { handleSportsContext } from './sportsContext';
+import { handleSportsLive } from './sportsLive';
 
 export { ReminderScheduler };
 
@@ -148,6 +149,10 @@ export default {
 
     if (url.pathname === '/api/sports-context') {
       return handleSportsContext(request);
+    }
+
+    if (url.pathname === '/api/sports-live') {
+      return handleSportsLive(request);
     }
 
     if (url.pathname === '/api/sports-analysis') {
