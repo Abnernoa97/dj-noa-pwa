@@ -20,6 +20,7 @@ import './conversation-dock.css';
 import './data-safety.css';
 import './visual-polish.css';
 import './excel-scroll-fix.css';
+import './scroll-fix.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
