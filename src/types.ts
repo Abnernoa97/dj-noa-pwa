@@ -95,7 +95,7 @@ export interface HistoryItem {
   createdAt: string;
 }
 
-export type AppView = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
+export type AppView = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders' | 'mlb';
 export type AssistantEventRef = 'created_event';
 
 export type AssistantAction =
