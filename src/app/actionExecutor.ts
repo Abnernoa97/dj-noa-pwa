@@ -94,6 +94,17 @@ export function createActionExecutor(context: ActionExecutorContext) {
       return `delete_sheet_row id=${action.rowId} label="${current?.label || ''}"`;
     }
 
+    if (action.type === 'clear_sheet_rows') {
+      const count = await db.sheetRows.count();
+      await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
+        await db.sheetPhotos.clear();
+        await db.sheetRows.clear();
+      });
+      context.setSheetRows([]);
+      context.setSelectedSheetRowId(null);
+      return `clear_sheet_rows count=${count}`;
+    }
+
     if (action.type === 'add_sheet_column') {
       const columns = await db.sheetColumns.orderBy('position').toArray();
       let key = action.key || sheetKey(action.name);
