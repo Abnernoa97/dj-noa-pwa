@@ -19,6 +19,14 @@ type EventHubProps = {
   onToggleReminder: (item: ReminderItem) => Promise<void> | void;
 };
 
+type EventsViewProps = {
+  events: EventItem[];
+  onOpen: (event: EventItem) => void;
+  onCreate: () => void;
+  onEdit: (event: EventItem) => void;
+  onDelete: (events: EventItem[]) => Promise<void>;
+};
+
 type PhotoView = EventPhoto & { url: string };
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
@@ -39,20 +47,66 @@ function longDate(value: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function EventsView({ events, onOpen, onCreate }: { events: EventItem[]; onOpen: (event: EventItem) => void; onCreate: () => void }) {
+export function EventsView({ events, onOpen, onCreate, onEdit, onDelete }: EventsViewProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleting, setDeleting] = useState(false);
   const today = format(new Date(), 'yyyy-MM-dd');
   const sorted = [...events].sort((a, b) => `${a.date}T${showTime(a) || '00:00'}`.localeCompare(`${b.date}T${showTime(b) || '00:00'}`));
   const upcoming = sorted.filter((event) => event.date >= today && event.status !== 'done');
   const history = sorted.filter((event) => event.date < today || event.status === 'done').reverse();
+  const selectedEvents = events.filter((event) => selectedIds.has(event.id));
+  const selectionMode = selectedIds.size > 0;
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const validIds = new Set(events.map((event) => event.id));
+      const next = new Set([...current].filter((id) => validIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [events]);
 
   const toggleExpanded = (id: string) => {
+    if (selectionMode) return;
     setExpandedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const editSelected = () => {
+    if (selectedEvents.length !== 1) return;
+    const event = selectedEvents[0];
+    clearSelection();
+    onEdit(event);
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedEvents.length || deleting) return;
+    const label = selectedEvents.length === 1
+      ? `¿Eliminar “${selectedEvents[0].title}”?`
+      : `¿Eliminar ${selectedEvents.length} eventos seleccionados?`;
+    if (!window.confirm(label)) return;
+    setDeleting(true);
+    try {
+      await onDelete(selectedEvents);
+      clearSelection();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -62,8 +116,17 @@ export function EventsView({ events, onOpen, onCreate }: { events: EventItem[]; 
         <div className="events-hn-line" />
         <h2>Eventos</h2>
         <p className="events-hn-caption">Agenda personal · Fechas de trabajo</p>
-        <button className="round-plus events-hn-add" onClick={onCreate} aria-label="Nuevo evento"><Plus size={21} /></button>
+        {!selectionMode && <button className="round-plus events-hn-add" onClick={onCreate} aria-label="Nuevo evento"><Plus size={21} /></button>}
       </div>
+
+      {selectionMode && <div className="events-selection-bar" role="toolbar" aria-label="Acciones de eventos seleccionados">
+        <button className="events-selection-close" type="button" onClick={clearSelection} aria-label="Cancelar selección"><X size={21} /></button>
+        <strong>{selectedIds.size} {selectedIds.size === 1 ? 'seleccionado' : 'seleccionados'}</strong>
+        <div className="events-selection-actions">
+          <button type="button" onClick={editSelected} disabled={selectedIds.size !== 1} aria-label="Editar evento seleccionado"><Pencil size={19} /><span>Editar</span></button>
+          <button className="danger" type="button" onClick={() => void deleteSelected()} disabled={deleting} aria-label="Eliminar eventos seleccionados"><Trash2 size={19} /><span>{deleting ? 'Borrando' : 'Eliminar'}</span></button>
+        </div>
+      </div>}
 
       <div className="events-section-label">PRÓXIMOS</div>
       <div className="event-list">
@@ -72,7 +135,10 @@ export function EventsView({ events, onOpen, onCreate }: { events: EventItem[]; 
             key={event.id}
             event={event}
             expanded={expandedIds.has(event.id)}
+            selected={selectedIds.has(event.id)}
+            selectionMode={selectionMode}
             onToggle={() => toggleExpanded(event.id)}
+            onSelect={() => toggleSelected(event.id)}
             onOpen={() => onOpen(event)}
           />
         )) : <div className="empty-table">No hay eventos próximos.</div>}
@@ -86,33 +152,100 @@ export function EventsView({ events, onOpen, onCreate }: { events: EventItem[]; 
               key={event.id}
               event={event}
               expanded={expandedIds.has(event.id)}
+              selected={selectedIds.has(event.id)}
+              selectionMode={selectionMode}
               onToggle={() => toggleExpanded(event.id)}
+              onSelect={() => toggleSelected(event.id)}
               onOpen={() => onOpen(event)}
             />
           ))}
         </div>
       </>}
 
-      <button className="full-action" onClick={onCreate}><Plus size={18} /> Nuevo evento</button>
+      {!selectionMode && <button className="full-action" onClick={onCreate}><Plus size={18} /> Nuevo evento</button>}
     </section>
   );
 }
 
-function HavanaEventCard({ event, expanded, onToggle, onOpen }: { event: EventItem; expanded: boolean; onToggle: () => void; onOpen: () => void }) {
+function HavanaEventCard({ event, expanded, selected, selectionMode, onToggle, onSelect, onOpen }: { event: EventItem; expanded: boolean; selected: boolean; selectionMode: boolean; onToggle: () => void; onSelect: () => void; onOpen: () => void }) {
   const mapUrl = eventMapUrl(event);
   const hasTimes = !!(event.callTime || event.soundcheckTime || showTime(event));
   const hasDetails = !!(event.dressCode || event.details || event.contactName || event.contactPhone || event.notes);
+  const holdTimerRef = useRef<number | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressClickRef = useRef(false);
+
+  const clearHold = () => {
+    if (holdTimerRef.current !== null) window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
+    pointerStartRef.current = null;
+  };
+
+  useEffect(() => clearHold, []);
+
+  const startHold = (eventPointer: React.PointerEvent<HTMLElement>) => {
+    if (eventPointer.pointerType === 'mouse' && eventPointer.button !== 0) return;
+    clearHold();
+    pointerStartRef.current = { x: eventPointer.clientX, y: eventPointer.clientY };
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      pointerStartRef.current = null;
+      suppressClickRef.current = true;
+      if ('vibrate' in navigator) navigator.vibrate(28);
+      onSelect();
+      window.setTimeout(() => { suppressClickRef.current = false; }, 450);
+    }, 520);
+  };
+
+  const moveHold = (eventPointer: React.PointerEvent<HTMLElement>) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    if (Math.abs(eventPointer.clientX - start.x) > 9 || Math.abs(eventPointer.clientY - start.y) > 9) clearHold();
+  };
+
+  const handleCardClick = (clickEvent: React.MouseEvent<HTMLElement>) => {
+    if (suppressClickRef.current) {
+      clickEvent.preventDefault();
+      clickEvent.stopPropagation();
+      return;
+    }
+    if (selectionMode) onSelect();
+    else onToggle();
+  };
+
+  const handleChildSelection = (clickEvent: React.MouseEvent<HTMLElement>) => {
+    if (!selectionMode) return false;
+    clickEvent.preventDefault();
+    clickEvent.stopPropagation();
+    onSelect();
+    return true;
+  };
 
   return (
     <article
-      className={`hn-event-card ${expanded ? 'is-expanded' : ''}`}
-      onClick={onToggle}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+      className={`hn-event-card ${expanded ? 'is-expanded' : ''} ${selected ? 'is-selected' : ''} ${selectionMode ? 'selection-mode' : ''}`}
+      onPointerDown={startHold}
+      onPointerMove={moveHold}
+      onPointerUp={clearHold}
+      onPointerCancel={clearHold}
+      onPointerLeave={clearHold}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (selectionMode) onSelect();
+          else onToggle();
+        }
+      }}
       role="button"
       tabIndex={0}
       aria-expanded={expanded}
+      aria-pressed={selectionMode ? selected : undefined}
     >
-      <button className="hn-event-expand" type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} aria-label={expanded ? 'Ocultar información del evento' : 'Ver información del evento'}>{expanded ? '−' : '+'}</button>
+      {selectionMode
+        ? <span className={`hn-event-select-mark ${selected ? 'selected' : ''}`} aria-hidden="true">{selected && <Check size={18} strokeWidth={2.4} />}</span>
+        : <button className="hn-event-expand" type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} aria-label={expanded ? 'Ocultar información del evento' : 'Ver información del evento'}>{expanded ? '−' : '+'}</button>}
       <div className="hn-event-day">{longDate(event.date)}</div>
       <div className="hn-event-title">{event.title}</div>
       {event.venue && <div className="hn-event-venue">{event.venue}</div>}
@@ -130,8 +263,8 @@ function HavanaEventCard({ event, expanded, onToggle, onOpen }: { event: EventIt
         {!hasTimes && !hasDetails && <div className="hn-event-detail hn-event-detail-muted">No hay información adicional todavía.</div>}
       </>}
 
-      {mapUrl && <a className="hn-event-map" href={mapUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}><Navigation size={15} /> Llegar al evento</a>}
-      {expanded && <button className="hn-event-record" type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }}>Abrir ficha completa</button>}
+      {mapUrl && <a className="hn-event-map" href={mapUrl} target="_blank" rel="noreferrer" onClick={(e) => { if (!handleChildSelection(e)) e.stopPropagation(); }}><Navigation size={15} /> Llegar al evento</a>}
+      {expanded && <button className="hn-event-record" type="button" onClick={(e) => { if (!handleChildSelection(e)) { e.stopPropagation(); onOpen(); } }}>Abrir ficha completa</button>}
     </article>
   );
 }
@@ -248,7 +381,7 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
   );
 }
 
-export function EventEditor({ event, initialDate, onClose, onSave, onDelete }: { event: EventItem | null; initialDate?: string | null; onClose: () => void; onSave: (draft: EventDraft) => Promise<void>; onDelete: () => Promise<void> }) {
+export function EventEditor({ event, initialDate, onClose, onSave }: { event: EventItem | null; initialDate?: string | null; onClose: () => void; onSave: (draft: EventDraft) => Promise<void> }) {
   const [draft, setDraft] = useState<EventDraft>(() => ({
     title: event?.title || '',
     date: event?.date || initialDate || format(new Date(), 'yyyy-MM-dd'),
@@ -311,7 +444,6 @@ export function EventEditor({ event, initialDate, onClose, onSave, onDelete }: {
         </div>
         {previewMap ? <a className="editor-map-link" href={previewMap} target="_blank" rel="noreferrer"><Navigation size={16} /> Llegar al evento</a> : null}
         <div className="event-editor-actions">
-          {event && <button className="delete-event-button" onClick={() => { if (window.confirm(`¿Eliminar ${event.title}?`)) void onDelete(); }}><Trash2 size={17} /> Eliminar</button>}
           <button className="save-event-button" onClick={() => void submit()} disabled={!draft.title.trim() || !draft.date}><Save size={17} /> Guardar</button>
         </div>
       </section>
