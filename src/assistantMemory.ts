@@ -1,7 +1,8 @@
 import { askAssistant } from './assistant';
 import { previewAssistantResponse } from './AssistantPlanPreview';
+import { resolvePureTotal } from './assistantTotals';
 import { db } from './db';
-import type { AssistantAction, AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
+import type { AssistantResponse, AppView, EventItem, ReminderItem, SheetRow } from './types';
 
 export type AssistantMemoryItem = {
   command: string;
@@ -105,26 +106,6 @@ function sessionMemory(history: AssistantMemoryItem[], uiContext: AssistantUiCon
     `Interpreta referencias como “eso”, “esa parte”, “los anteriores”, “continúa” o “corrige” dentro de esta misma sesión antes de tratarlas como una orden nueva.`
   ];
   return { role: 'assistant', content: summary.join('\n') };
-}
-
-function resolvePureTotal(response: AssistantResponse, context: Context): AssistantResponse {
-  const queries = response.actions.filter((action): action is Extract<AssistantAction, { type: 'query_total' }> => action.type === 'query_total');
-  if (!queries.length) return response;
-  const hasMutation = response.actions.some((action) => ['create_event', 'update_event', 'delete_event', 'create_reminder', 'update_reminder', 'delete_reminder', 'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column'].includes(action.type));
-  if (hasMutation) return response;
-
-  const query = queries[queries.length - 1];
-  const category = query.category ? normalize(query.category) : '';
-  const rows = context.sheetRows.filter((row) => {
-    if (category && normalize(row.category) !== category) return false;
-    if (query.status && row.status !== query.status) return false;
-    return true;
-  });
-  const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const formatted = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(total);
-  const filters = [query.category, query.status === 'paid' ? 'pagado' : query.status === 'pending' ? 'pendiente' : query.status === 'info' ? 'info' : ''].filter(Boolean).join(' · ');
-  const reply = `${filters ? `${filters}: ` : 'Total: '}${formatted} en ${rows.length} ${rows.length === 1 ? 'movimiento' : 'movimientos'}.`;
-  return { reply, actions: response.actions.filter((action) => action.type !== 'query_total') };
 }
 
 export async function askAssistantWithMemory(
