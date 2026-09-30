@@ -24,6 +24,7 @@ import './scroll-fix.css';
 import './calendar-focus.css';
 import './calendar-week-day.css';
 import './events-focus.css';
+import './sheet-focus.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
