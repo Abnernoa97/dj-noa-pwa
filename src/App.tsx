@@ -46,6 +46,7 @@ function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
 
 export default function App() {
   const [view, setView] = useState<AppView>('home');
+  const [mlbOpen, setMlbOpen] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [sheetRows, setSheetRows] = useState<SheetRow[]>([]);
@@ -408,31 +409,33 @@ export default function App() {
       <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div></header>
 
       <main className="content">
-        {view === 'home' && <HomeView
-          todayEventCount={todayEventCount}
-          upcoming={upcoming}
-          eventCount={events.length}
-          total={total}
-          openReminders={openReminders}
-          focusReminders={focusReminders}
-          onVoice={startListening}
-          onView={setView}
-          onOpenEvent={openEventHub}
-          onCreateEvent={() => openEventEditor()}
-          onToggleReminder={toggleReminder}
-        />}
-        {view === 'mlb' && <MlbWorkspace onBack={() => setView('home')} />}
-        {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
-        {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
-        {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
-        {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
+        {mlbOpen ? <MlbWorkspace onBack={() => setMlbOpen(false)} /> : <>
+          {view === 'home' && <HomeView
+            todayEventCount={todayEventCount}
+            upcoming={upcoming}
+            eventCount={events.length}
+            total={total}
+            openReminders={openReminders}
+            focusReminders={focusReminders}
+            onVoice={startListening}
+            onView={setView}
+            onOpenMlb={() => setMlbOpen(true)}
+            onOpenEvent={openEventHub}
+            onCreateEvent={() => openEventEditor()}
+            onToggleReminder={toggleReminder}
+          />}
+          {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
+          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
+          {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
+          {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} />}
+        </>}
       </main>
 
       {liveAction && <div className={`dj-live-action ${liveAction.status}`} role="status" aria-live="polite"><div className="dj-live-head"><div className="dj-live-kicker"><span className="dj-live-dot" />DJ NOA · {liveAction.status === 'working' ? 'TRABAJANDO' : liveAction.status === 'done' ? 'HECHO' : liveAction.status === 'cancelled' ? 'CANCELADO' : 'DETENIDO'}</div><div className="dj-live-controls"><span className="dj-live-count">{liveAction.current} de {liveAction.total}</span>{liveAction.status === 'working' && <button className="dj-live-cancel" onClick={requestExecutionCancel}>CANCELAR</button>}</div></div><strong>{liveAction.title}</strong><small>{liveAction.detail}</small><div className="dj-live-track"><span style={{ width: `${Math.max(8, (liveAction.current / Math.max(1, liveAction.total)) * 100)}%` }} /></div></div>}
 
       <button className={`voice-orb ${voiceActive ? 'listening' : ''}`} onClick={startListening} disabled={busy && !liveAction} aria-label={busy && liveAction ? 'Decir detener a DJ NOA' : voiceActive ? 'Pausar DJ NOA' : 'Hablar con DJ NOA'}>{voiceActive ? <MicOff size={28} /> : <Mic size={28} />}<span>{listening ? 'ESCUCHANDO' : voiceActive ? 'ACTIVO' : busy && liveAction ? 'DETENER' : 'HABLAR'}</span></button>
 
-      <BottomNav view={view} onView={setView} />
+      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setView(next); }} />
 
       <ConversationDock
         expanded={assistantOpen}
