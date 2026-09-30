@@ -1,4 +1,5 @@
 import { askAssistant } from './assistant';
+import { resolveBulkSheetDelete } from './assistantBulkDelete';
 import { previewAssistantResponse } from './AssistantPlanPreview';
 import { resolvePureTotal } from './assistantTotals';
 import { db } from './db';
@@ -114,6 +115,9 @@ export async function askAssistantWithMemory(
   recentHistory: AssistantMemoryItem[] = [],
   uiContext?: AssistantUiContext
 ): Promise<AssistantResponse> {
+  const bulkDelete = resolveBulkSheetDelete(command, context, recentHistory);
+  if (bulkDelete) return bulkDelete;
+
   if (navigator.onLine) {
     try {
       const sheetColumns = await db.sheetColumns.orderBy('position').toArray();
