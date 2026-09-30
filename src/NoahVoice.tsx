@@ -29,7 +29,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
 
   const activeRef = useRef(false);
   const recognitionRef = useRef<any>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
   const restartTimerRef = useRef<number | null>(null);
   const processingRef = useRef(false);
   const speakingRef = useRef(false);
@@ -43,11 +42,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     restartTimerRef.current = null;
   };
 
-  const stopMicrophone = () => {
-    micStreamRef.current?.getTracks().forEach((track) => track.stop());
-    micStreamRef.current = null;
-  };
-
   const stopSession = () => {
     stoppingRef.current = true;
     activeRef.current = false;
@@ -59,7 +53,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     try { recognitionRef.current?.abort?.(); } catch { /* noop */ }
     recognitionRef.current = null;
     try { window.speechSynthesis?.cancel?.(); } catch { /* noop */ }
-    stopMicrophone();
     window.setTimeout(() => { stoppingRef.current = false; }, 120);
   };
 
@@ -190,7 +183,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     }
   }
 
-  const startSession = async () => {
+  const startSession = () => {
     if (activeRef.current) return;
     if (!recognitionCtor()) {
       setStatus('error');
@@ -203,26 +196,12 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     setActive(true);
     setStatus('starting');
 
+    // SpeechRecognition is now the only microphone owner. No parallel getUserMedia stream.
+    startRecognition();
     speak('Aquí estoy.');
-
-    try {
-      if (navigator.mediaDevices?.getUserMedia) {
-        micStreamRef.current = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
-      }
-      if (!activeRef.current) {
-        stopMicrophone();
-        return;
-      }
-      startRecognition();
-    } catch {
-      setStatus('error');
-      stopSession();
-    }
   };
 
-  useImperativeHandle(ref, () => ({ start: () => void startSession(), stop: stopSession }));
+  useImperativeHandle(ref, () => ({ start: startSession, stop: stopSession }));
 
   useEffect(() => {
     try {
@@ -287,7 +266,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
       return;
     }
     if (activeRef.current) stopSession();
-    else void startSession();
+    else startSession();
   };
 
   return (
