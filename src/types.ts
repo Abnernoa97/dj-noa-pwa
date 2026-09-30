@@ -100,6 +100,7 @@ export type AssistantAction =
   | { type: 'add_sheet_row'; label: string; category: string; amount: number; status?: SheetStatus; financialType?: FinancialType; notes?: string; eventId?: string; eventRef?: AssistantEventRef; calendarDate?: string; values?: Record<string, SheetValue> }
   | { type: 'update_sheet_row'; rowId: string; label?: string; category?: string; amount?: number; status?: SheetStatus; financialType?: FinancialType; notes?: string; eventId?: string; calendarDate?: string; values?: Record<string, SheetValue> }
   | { type: 'delete_sheet_row'; rowId: string }
+  | { type: 'clear_sheet_rows' }
   | { type: 'add_sheet_column'; name: string; key?: string; columnType?: SheetColumn['type']; formula?: string }
   | { type: 'navigate'; view: AppView }
   | { type: 'open_map'; eventId: string }
