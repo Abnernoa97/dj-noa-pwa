@@ -1,0 +1,33 @@
+.app-shell:has(.nba-workspace) .background-shade{
+  background:
+    radial-gradient(circle at 12% 16%,rgba(23,64,139,.42),transparent 30%),
+    radial-gradient(circle at 88% 24%,rgba(201,8,42,.30),transparent 30%),
+    linear-gradient(155deg,#020712 0%,#0b1c3d 49%,#07050c 100%)!important;
+}
+.app-shell:has(.nba-workspace) .mlb-refresh{color:#ff5871}
+.nba-workspace .mlb-brand-lockup img{width:58px;height:46px}
+.nba-workspace .mlb-brand-lockup span{color:#ff5871}
+.nba-workspace .mlb-standings-panel{
+  background:
+    radial-gradient(circle at 8% 0%,rgba(23,64,139,.34),transparent 38%),
+    radial-gradient(circle at 95% 10%,rgba(201,8,42,.18),transparent 28%),
+    linear-gradient(145deg,rgba(7,27,61,.97),rgba(5,12,27,.98));
+}
+.nba-workspace .mlb-standings-panel::after{background:linear-gradient(90deg,#17408b 0 48%,#fff 48% 54%,#c9082a 54% 100%)}
+.nba-workspace .mlb-section-head span,.nba-workspace .mlb-games-title span{color:#ff5871}
+.nba-workspace .mlb-league-tabs button.active:first-child{background:linear-gradient(135deg,#17408b,#315da8)}
+.nba-workspace .mlb-league-tabs button.active:last-child{background:linear-gradient(135deg,#8f071f,#c9082a)}
+.nba-workspace .mlb-game-card::before{background:#17408b;box-shadow:0 0 22px rgba(23,64,139,.55)}
+.nba-workspace .mlb-game-card.red-edge::before{background:#c9082a;box-shadow:0 0 22px rgba(201,8,42,.48)}
+.nba-workspace .mlb-moneyline{background:linear-gradient(90deg,rgba(23,64,139,.22),rgba(255,255,255,.03) 50%,rgba(201,8,42,.18))}
+.nba-workspace .mlb-odd-side.away strong{color:#a9c7ff}
+.nba-workspace .mlb-odd-side.home strong{color:#ff9eaf}
+.nba-workspace .mlb-odd-side.favorite{border-color:rgba(255,255,255,.20);background:rgba(255,255,255,.055)}
+.nba-workspace .mlb-club.market-favorite em{color:#ffd37c}
+.nba-workspace .mlb-books b.is-favorite{color:#ffd37c}
+.app-shell:has(.nba-workspace) .voice-orb{background:linear-gradient(145deg,#17408b,#c9082a)!important}
+.app-shell:has(.nba-workspace) .nav-button.active{border-color:rgba(201,8,42,.50)!important;background:linear-gradient(180deg,rgba(201,8,42,.18),rgba(23,64,139,.16))!important}
+
+@media(max-width:420px){
+  .nba-workspace .mlb-brand-lockup img{width:48px;height:38px}
+}
