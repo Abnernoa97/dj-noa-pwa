@@ -73,8 +73,13 @@ export default function SportsEnhancer() {
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
-      if (selection) return;
       const target = event.target as HTMLElement | null;
+
+      if (selection) {
+        if (target?.closest('.bottom-nav .nav-button')) setSelection(null);
+        return;
+      }
+
       const card = target?.closest('.mlb-game-card') as HTMLElement | null;
       if (!card) return;
       const workspace = card.closest('.mlb-workspace') as HTMLElement | null;
