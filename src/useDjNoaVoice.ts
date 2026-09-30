@@ -1,99 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  analyserRms,
+  MAX_WAKE_UTTERANCE_MS,
+  NO_VOICE_TIMEOUT_MS,
+  preferredSpanishVoice,
+  recorderMimeType,
+  SILENCE_AFTER_VOICE_MS,
+  transcribeAudio,
+  VOICE_THRESHOLD
+} from './voice/audio';
+import type { CaptureMode, RecognitionLike, VoiceMode, VoiceOptions } from './voice/recognitionTypes';
+import { getRecognitionCtor, mergeTranscripts, transcriptFromEvent } from './voice/transcript';
+import { useWakeWord } from './voice/useWakeWord';
 
-type RecognitionResultLike = {
-  0: { transcript: string };
-  isFinal?: boolean;
-};
-
-type RecognitionEventLike = Event & {
-  results: ArrayLike<RecognitionResultLike>;
-};
-
-type RecognitionErrorLike = Event & { error?: string };
-
-type RecognitionLike = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: RecognitionEventLike) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: RecognitionErrorLike) => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-};
-
-type RecognitionCtor = new () => RecognitionLike;
-
-type Options = {
-  onCommand: (text: string) => Promise<string | undefined>;
-  onOpen: () => void;
-  onLiveText: (text: string) => void;
-  onStatus: (text: string) => void;
-};
-
-type CaptureMode = 'manual' | 'wake';
-type VoiceMode = 'idle' | 'manual' | 'wake' | 'processing' | 'speaking';
-
-// Wake-command mode keeps the proven automatic flow: once “DJ NOA” is heard,
-// the command ends after 3 seconds of silence. Manual mode NEVER uses this timer;
-// it records until the user taps the same voice button again.
-const SILENCE_AFTER_VOICE_MS = 3000;
-const NO_VOICE_TIMEOUT_MS = 10000;
-const MAX_WAKE_UTTERANCE_MS = 45000;
-const VOICE_THRESHOLD = 0.018;
-const WAKE_RESTART_MS = 700;
-const WAKE_WORD = /\b(?:dj|deejay|d\s*j|diyei)\s*(?:noa|noah|no\s*a)\b/i;
-
-function getRecognitionCtor(): RecognitionCtor | null {
-  const scope = window as unknown as {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  };
-  return scope.SpeechRecognition || scope.webkitSpeechRecognition || null;
-}
-
-function transcriptFromEvent(event: RecognitionEventLike) {
-  const pieces: string[] = [];
-  for (let index = 0; index < event.results.length; index += 1) {
-    const piece = event.results[index]?.[0]?.transcript?.trim();
-    if (piece) pieces.push(piece);
-  }
-  return pieces.join(' ').trim();
-}
-
-function mergeTranscripts(prefix: string, captured: string) {
-  const left = prefix.trim();
-  const right = captured.trim();
-  if (!left) return right;
-  if (!right) return left;
-
-  const a = left.split(/\s+/);
-  const b = right.split(/\s+/);
-  const max = Math.min(8, a.length, b.length);
-  let overlap = 0;
-  for (let size = max; size >= 1; size -= 1) {
-    const tail = a.slice(-size).join(' ').toLocaleLowerCase('es');
-    const head = b.slice(0, size).join(' ').toLocaleLowerCase('es');
-    if (tail === head) {
-      overlap = size;
-      break;
-    }
-  }
-  return [...a, ...b.slice(overlap)].join(' ').trim();
-}
-
-export function useDjNoaVoice(options: Options) {
+export function useDjNoaVoice(options: VoiceOptions) {
   const [active, setActive] = useState(false);
   const [listening, setListening] = useState(false);
   const [manualRecording, setManualRecording] = useState(false);
-  const [wakeListening, setWakeListening] = useState(false);
   const [mode, setMode] = useState<VoiceMode>('idle');
 
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  const mountedRef = useRef(true);
   const activeRef = useRef(false);
   const listeningRef = useRef(false);
   const processingRef = useRef(false);
@@ -115,17 +43,20 @@ export function useDjNoaVoice(options: Options) {
   const discardRef = useRef(false);
   const wakePrefixRef = useRef('');
 
-  const wakeRecognitionRef = useRef<RecognitionLike | null>(null);
-  const wakeRecognitionRunningRef = useRef(false);
-  const wakeSuspendedRef = useRef(false);
-  const wakeDeniedRef = useRef(false);
-  const wakeRestartTimerRef = useRef<number | null>(null);
-
   const fallbackRecognitionRef = useRef<RecognitionLike | null>(null);
   const fallbackModeRef = useRef<CaptureMode | null>(null);
   const fallbackTextRef = useRef('');
   const fallbackPrefixRef = useRef('');
   const fallbackManualStopRef = useRef(false);
+
+  const {
+    listening: wakeListening,
+    suspend: suspendWakeRecognition,
+    resume: resumeWakeRecognition
+  } = useWakeWord({
+    isBlocked: () => activeRef.current || processingRef.current || speakingRef.current,
+    onWake: (remainder) => void beginWakeCommand(remainder)
+  });
 
   const setVoiceMode = (next: VoiceMode) => {
     modeRef.current = next;
@@ -145,48 +76,6 @@ export function useDjNoaVoice(options: Options) {
     stopMeter();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-  };
-
-  const clearWakeRestart = () => {
-    if (wakeRestartTimerRef.current !== null) window.clearTimeout(wakeRestartTimerRef.current);
-    wakeRestartTimerRef.current = null;
-  };
-
-  const startWakeRecognition = () => {
-    const recognition = wakeRecognitionRef.current;
-    if (!mountedRef.current || !recognition || wakeSuspendedRef.current || wakeDeniedRef.current || wakeRecognitionRunningRef.current) return;
-    if (activeRef.current || processingRef.current || speakingRef.current || document.visibilityState !== 'visible') return;
-    try {
-      recognition.start();
-      wakeRecognitionRunningRef.current = true;
-      setWakeListening(true);
-    } catch {
-      // Chromium can briefly reject a restart while the previous session is closing.
-    }
-  };
-
-  const scheduleWakeRecognition = (delay = WAKE_RESTART_MS) => {
-    clearWakeRestart();
-    if (!mountedRef.current || wakeSuspendedRef.current || wakeDeniedRef.current) return;
-    wakeRestartTimerRef.current = window.setTimeout(() => {
-      wakeRestartTimerRef.current = null;
-      startWakeRecognition();
-    }, delay);
-  };
-
-  const suspendWakeRecognition = () => {
-    wakeSuspendedRef.current = true;
-    clearWakeRestart();
-    setWakeListening(false);
-    if (wakeRecognitionRunningRef.current) {
-      try { wakeRecognitionRef.current?.abort(); } catch { /* noop */ }
-    }
-    wakeRecognitionRunningRef.current = false;
-  };
-
-  const resumeWakeRecognition = () => {
-    wakeSuspendedRef.current = false;
-    scheduleWakeRecognition();
   };
 
   const finishSession = () => {
@@ -235,25 +124,11 @@ export function useDjNoaVoice(options: Options) {
     utterance.lang = 'es-MX';
     utterance.rate = 1.06;
     utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find((voice) => voice.lang.toLowerCase() === 'es-mx')
-      || voices.find((voice) => voice.lang.toLowerCase().startsWith('es'));
+    const preferred = preferredSpanishVoice();
     if (preferred) utterance.voice = preferred;
-
     utterance.onend = finishSession;
     utterance.onerror = finishSession;
     window.speechSynthesis.speak(utterance);
-  };
-
-  const transcribe = async (blob: Blob) => {
-    const response = await fetch('/api/transcribe', {
-      method: 'POST',
-      headers: { 'content-type': blob.type || 'audio/webm' },
-      body: blob
-    });
-    if (!response.ok) throw new Error('transcription_unavailable');
-    const payload = await response.json() as { text?: string };
-    return String(payload.text || '').trim();
   };
 
   const processText = async (text: string) => {
@@ -285,7 +160,7 @@ export function useDjNoaVoice(options: Options) {
     setManualRecording(false);
     optionsRef.current.onStatus('Entendiendo…');
     try {
-      const captured = shouldTranscribe && blob.size ? await transcribe(blob) : '';
+      const captured = shouldTranscribe && blob.size ? await transcribeAudio(blob) : '';
       processingRef.current = false;
       await processText(mergeTranscripts(prefix, captured));
     } catch {
@@ -306,14 +181,7 @@ export function useDjNoaVoice(options: Options) {
     const recorder = recorderRef.current;
     if (!analyser || !recorder || recorder.state === 'inactive' || captureModeRef.current !== 'wake') return;
 
-    const samples = new Uint8Array(analyser.fftSize);
-    analyser.getByteTimeDomainData(samples);
-    let sum = 0;
-    for (const sample of samples) {
-      const value = (sample - 128) / 128;
-      sum += value * value;
-    }
-    const rms = Math.sqrt(sum / samples.length);
+    const rms = analyserRms(analyser);
     const now = performance.now();
 
     if (rms >= VOICE_THRESHOLD) {
@@ -349,7 +217,6 @@ export function useDjNoaVoice(options: Options) {
         autoGainControl: true
       }
     });
-    wakeDeniedRef.current = false;
     streamRef.current = stream;
     return stream;
   }
@@ -366,9 +233,7 @@ export function useDjNoaVoice(options: Options) {
       const stream = await getStream();
       if (!stream || !activeRef.current) return;
 
-      const preferredMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+      const preferredMime = recorderMimeType();
       const recorder = preferredMime ? new MediaRecorder(stream, { mimeType: preferredMime }) : new MediaRecorder(stream);
       recorderRef.current = recorder;
       captureModeRef.current = captureMode;
@@ -544,42 +409,8 @@ export function useDjNoaVoice(options: Options) {
   };
 
   useEffect(() => {
-    mountedRef.current = true;
     const Ctor = getRecognitionCtor();
     if (Ctor) {
-      const wakeRecognition = new Ctor();
-      wakeRecognition.lang = 'es-MX';
-      wakeRecognition.continuous = true;
-      wakeRecognition.interimResults = true;
-      wakeRecognition.onresult = (event) => {
-        const transcript = transcriptFromEvent(event);
-        const match = transcript.match(WAKE_WORD);
-        if (!match) return;
-        const end = (match.index || 0) + match[0].length;
-        const remainder = transcript.slice(end).replace(/^[\s,.:;!?-]+/, '').trim();
-        wakeSuspendedRef.current = true;
-        setWakeListening(false);
-        try { wakeRecognition.abort(); } catch { /* noop */ }
-        wakeRecognitionRunningRef.current = false;
-        void beginWakeCommand(remainder);
-      };
-      wakeRecognition.onend = () => {
-        wakeRecognitionRunningRef.current = false;
-        setWakeListening(false);
-        if (!wakeSuspendedRef.current) scheduleWakeRecognition();
-      };
-      wakeRecognition.onerror = (event) => {
-        wakeRecognitionRunningRef.current = false;
-        setWakeListening(false);
-        const error = String(event.error || '');
-        if (error === 'not-allowed' || error === 'service-not-allowed') {
-          wakeDeniedRef.current = true;
-          return;
-        }
-        if (!wakeSuspendedRef.current) scheduleWakeRecognition(1200);
-      };
-      wakeRecognitionRef.current = wakeRecognition;
-
       const fallbackRecognition = new Ctor();
       fallbackRecognition.lang = 'es-MX';
       fallbackRecognition.continuous = false;
@@ -604,8 +435,6 @@ export function useDjNoaVoice(options: Options) {
 
         if (!activeRef.current || !finishedMode) return;
         if (finishedMode === 'manual' && !fallbackManualStopRef.current) {
-          // Some browsers end continuous recognition after a pause. Keep manual mode
-          // open and restart it until the user explicitly presses STOP/ENVIAR.
           window.setTimeout(() => {
             if (activeRef.current && modeRef.current === 'manual' && !fallbackManualStopRef.current) {
               try {
@@ -634,31 +463,14 @@ export function useDjNoaVoice(options: Options) {
         finishSession();
       };
       fallbackRecognitionRef.current = fallbackRecognition;
-
-      scheduleWakeRecognition(900);
     }
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') scheduleWakeRecognition(350);
-      else {
-        setWakeListening(false);
-        try { wakeRecognitionRef.current?.abort(); } catch { /* noop */ }
-        wakeRecognitionRunningRef.current = false;
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
     return () => {
-      mountedRef.current = false;
-      clearWakeRestart();
-      wakeSuspendedRef.current = true;
       discardRef.current = true;
       try { recorderRef.current?.stop(); } catch { /* noop */ }
-      try { wakeRecognitionRef.current?.abort(); } catch { /* noop */ }
       try { fallbackRecognitionRef.current?.abort(); } catch { /* noop */ }
       window.speechSynthesis?.cancel();
       releaseMicrophone();
-      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 
