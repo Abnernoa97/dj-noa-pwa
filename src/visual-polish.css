@@ -35,6 +35,45 @@
 .day-event-copy strong{font-size:10.5px!important}
 .day-event-copy span{font-size:8px!important}
 
+/* Calendar v2: bigger, clearer, direct month/year navigation */
+.calendar-page{gap:13px!important}
+.calendar-topline{align-items:center!important;position:relative;z-index:6!important}
+.calendar-title-wrap{min-width:0;position:relative;z-index:8!important}
+.calendar-title-wrap .eyebrow{font-size:9px!important;letter-spacing:.18em!important;margin-bottom:5px!important}
+.calendar-date-selector{display:flex;align-items:center;gap:7px;position:relative}
+.calendar-date-trigger{border:0;background:transparent;color:#eadbb4;padding:0;display:flex;align-items:center;gap:5px;font-family:Georgia,"Times New Roman",serif;font-weight:400;line-height:1;cursor:pointer;text-transform:capitalize}
+.calendar-date-trigger svg{opacity:.68;flex:0 0 auto}
+.calendar-month-trigger{font-size:31px!important}
+.calendar-year-trigger{font-size:27px!important;color:rgba(234,219,180,.83)}
+.calendar-date-dropdown{position:absolute;left:0;top:calc(100% + 10px);z-index:40;width:min(260px,78vw);border:1px solid rgba(217,190,123,.22);border-radius:16px;background:linear-gradient(180deg,#07150f,#030a07);box-shadow:0 22px 60px rgba(0,0,0,.58);overflow:hidden;backdrop-filter:blur(18px)}
+.calendar-date-dropdown-head{height:42px;padding:0 10px 0 13px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(217,190,123,.11)}
+.calendar-date-dropdown-head span{font-size:8px;letter-spacing:.16em;font-weight:800;color:rgba(232,216,173,.55)}
+.calendar-date-dropdown-head button{width:30px;height:30px;border:0;border-radius:50%;background:rgba(214,180,96,.05);color:#eadbb4;display:grid;place-items:center}
+.calendar-date-options{max-height:300px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:5px}
+.calendar-date-options::-webkit-scrollbar{display:none}
+.calendar-date-options button{width:100%;min-height:43px;border:0;border-bottom:1px solid rgba(217,190,123,.06);border-radius:9px;background:transparent;color:rgba(255,255,255,.72);text-align:left;padding:0 12px;font-family:Georgia,"Times New Roman",serif;font-size:17px;text-transform:capitalize}
+.calendar-date-options button:last-child{border-bottom:0}
+.calendar-date-options button.active{background:rgba(214,180,96,.12);color:#f0dfb5;box-shadow:inset 0 0 0 1px rgba(217,190,123,.18)}
+.calendar-actions{gap:7px!important}
+.calendar-nav-button{width:40px!important;height:40px!important}
+.calendar-today-button{height:40px!important;padding:0 13px!important;font-size:9px!important}
+.calendar-overview>div{padding:11px 12px!important}
+.calendar-overview span{font-size:8.5px!important;letter-spacing:.12em!important}
+.calendar-overview strong{font-size:20px!important;margin-top:5px!important}
+.calendar-legend{font-size:9.5px!important;gap:17px!important}
+.calendar-legend i,.rich-day-dots i{width:8px!important;height:8px!important}
+.calendar-view-switch{width:100%!important;padding:4px!important}
+.calendar-view-switch button{font-size:9.5px!important;padding:9px 7px!important}
+.weekday-row-full{font-size:9px!important;letter-spacing:.04em!important;padding:2px 0 8px!important}
+.calendar-grid-rich .calendar-day{min-height:74px!important;padding:8px!important}
+.rich-day-number{font-size:14px!important;line-height:28px!important}
+.calendar-grid-rich .calendar-day.today .rich-day-number{width:29px!important;height:29px!important}
+.rich-day small{font-size:8px!important;right:7px!important;bottom:6px!important}
+.rich-day-dots{gap:5px!important;min-height:9px!important}
+.calendar-selected-preview{min-height:52px!important;padding:0 14px!important}
+.calendar-selected-preview>span{font-size:10px!important}
+.calendar-selected-preview>strong{font-size:11.5px!important}
+
 /* Excel */
 .sheet-mini-summary span{font-size:8px!important}
 .sheet-mini-summary b{font-size:9.5px!important}
@@ -76,6 +115,15 @@
   .topbar-date{font-size:8.5px!important}
   .home-view::before{font-size:7.5px!important}
   .nav-button{font-size:8px!important;min-height:40px!important}
+  .calendar-month-trigger{font-size:29px!important}
+  .calendar-year-trigger{font-size:25px!important}
+  .calendar-date-dropdown{width:min(250px,82vw)}
+  .calendar-date-options{max-height:270px}
+  .calendar-date-options button{min-height:42px;font-size:16px}
+  .calendar-overview strong{font-size:18px!important}
+  .weekday-row-full{font-size:8px!important}
+  .calendar-grid-rich .calendar-day{min-height:70px!important;padding:7px!important}
+  .rich-day-number{font-size:13px!important}
   .dj-thread-turn p{font-size:10px!important}
   .dj-thread-compose input{font-size:10px!important}
   .dj-live-kicker{font-size:7.5px!important}
