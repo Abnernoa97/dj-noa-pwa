@@ -6,6 +6,7 @@ import { askAssistantWithMemory } from './assistantMemory';
 import CalendarWorkspace from './CalendarWorkspace';
 import ConversationDock, { type ConversationTurn } from './ConversationDock';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
+import MlbWorkspace from './MlbWorkspace';
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
@@ -420,6 +421,7 @@ export default function App() {
           onCreateEvent={() => openEventEditor()}
           onToggleReminder={toggleReminder}
         />}
+        {view === 'mlb' && <MlbWorkspace onBack={() => setView('home')} />}
         {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
         {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
         {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
