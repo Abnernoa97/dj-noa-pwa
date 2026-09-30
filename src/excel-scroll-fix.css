@@ -1,0 +1,28 @@
+/* Excel must scroll as one continuous workspace on touch devices.
+   The fixed app shell remains in place; only the Excel card scrolls. */
+.sheet-classic{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  scrollbar-width:none!important;
+}
+.sheet-classic::-webkit-scrollbar{display:none!important}
+
+/* Avoid nested vertical scrollers inside Excel. The whole Excel card owns Y scrolling. */
+.sheet-classic .excel-body{
+  max-height:none!important;
+  overflow:visible!important;
+  overscroll-behavior:auto!important;
+  touch-action:pan-y!important;
+}
+.sheet-classic .excel-row,
+.sheet-classic .excel-frame{
+  touch-action:pan-y!important;
+}
+
+/* Keep enough space below the last row so it never hides behind the nav / assistant dock. */
+.sheet-classic .sheet-table-hint{
+  margin-bottom:72px!important;
+}
