@@ -1,0 +1,71 @@
+/* Global vertical-scroll model.
+   The app shell stays viewport-sized so the bottom navigation remains fixed,
+   while .content is the single touch-scroll surface for every main section. */
+
+.content{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y!important;
+  scrollbar-width:none;
+  padding-bottom:14px;
+}
+.content::-webkit-scrollbar{display:none}
+
+/* Main screens must be allowed to grow beyond the viewport so .content can scroll. */
+.page-card,
+.calendar-page,
+.events-page,
+.reminders-workspace,
+.sheet-classic{
+  height:auto!important;
+  min-height:100%!important;
+  max-height:none!important;
+  overflow:visible!important;
+  touch-action:pan-y!important;
+}
+
+/* Lists use the parent screen scroll; avoid nested vertical scroll traps on Android/PWA. */
+.event-list,
+.history-list,
+.reminder-list,
+.reminder-list-editorial,
+.calendar-agenda,
+.calendar-agenda-list,
+.excel-frame,
+.excel-body{
+  max-height:none!important;
+  overflow-y:visible!important;
+  overscroll-behavior:auto!important;
+  touch-action:pan-y!important;
+}
+
+/* Keep horizontal spreadsheet clipping without blocking vertical gestures. */
+.excel-frame{
+  overflow-x:hidden!important;
+}
+
+/* Full-screen editors/detail views remain their own scroll surfaces. */
+.sheet-detail-page,
+.event-editor,
+.reminder-editor,
+.calendar-day-summary{
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain!important;
+  touch-action:pan-y!important;
+}
+
+/* Prevent the fixed bottom navigation from covering the last row/card. */
+.events-page,
+.reminders-workspace,
+.calendar-page,
+.sheet-classic{
+  padding-bottom:72px!important;
+}
+
+/* Home keeps its designed one-screen composition; the other sections scroll naturally. */
+.home-view{
+  overflow:hidden!important;
+}
