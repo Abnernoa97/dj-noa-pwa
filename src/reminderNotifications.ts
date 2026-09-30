@@ -8,10 +8,6 @@ const DEVICE_TOKEN_KEY = 'djnoa.pushDeviceToken';
 let scheduleGeneration = 0;
 const activeTimers = new Set<number>();
 
-function apiUrl(path: string) {
-  return `${window.location.origin}${path}`;
-}
-
 function base64urlToUint8Array(base64url: string) {
   const padded = base64url + '='.repeat((4 - (base64url.length % 4)) % 4);
   const binary = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
@@ -74,7 +70,7 @@ export function notificationSupport() {
 export async function ensurePushSubscription(): Promise<string | null> {
   if (!notificationSupport() || Notification.permission !== 'granted' || !navigator.onLine) return null;
   try {
-    const keyResponse = await fetch(apiUrl('/api/push/key'), { cache: 'no-store' });
+    const keyResponse = await fetch('/api/push/key', { cache: 'no-store' });
     if (!keyResponse.ok) return null;
     const { publicKey } = await keyResponse.json() as { publicKey?: string };
     if (!publicKey) return null;
@@ -89,7 +85,7 @@ export async function ensurePushSubscription(): Promise<string | null> {
     }
 
     const existingToken = localStorage.getItem(DEVICE_TOKEN_KEY) || undefined;
-    const response = await fetch(apiUrl('/api/push/subscribe'), {
+    const response = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ subscription: subscription.toJSON(), deviceToken: existingToken })
@@ -131,7 +127,7 @@ export async function syncRemoteReminders(items: ReminderItem[]): Promise<boolea
         updatedAt: item.updatedAt || item.createdAt
       }));
 
-    const response = await fetch(apiUrl('/api/reminders/sync'), {
+    const response = await fetch('/api/reminders/sync', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-dj-noa-device': deviceToken },
       body: JSON.stringify({ reminders })
@@ -146,7 +142,7 @@ export async function testRemoteNotification(): Promise<boolean> {
   const deviceToken = await ensurePushSubscription();
   if (!deviceToken) return false;
   try {
-    const response = await fetch(apiUrl('/api/push/test'), {
+    const response = await fetch('/api/push/test', {
       method: 'POST',
       headers: { 'x-dj-noa-device': deviceToken }
     });
