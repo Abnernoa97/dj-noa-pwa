@@ -5,8 +5,16 @@ export interface EventItem {
   title: string;
   date: string;
   time?: string;
+  callTime?: string;
+  soundcheckTime?: string;
+  showTime?: string;
   venue?: string;
   address?: string;
+  details?: string;
+  dressCode?: string;
+  contactName?: string;
+  contactPhone?: string;
+  mapUrl?: string;
   notes?: string;
   status: EventStatus;
   createdAt: string;

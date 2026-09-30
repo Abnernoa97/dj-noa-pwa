@@ -1,256 +1,75 @@
-/* Dedicated Events workspace.
-   This is the canonical full-screen Events layout, aligned with the approved
-   Calendar workspace: dark native surface, large editorial hierarchy and one
-   intentional vertical scroll surface. */
+/* Events workspace — HAVANA NICE calendar logic adapted to DJ NOA.
+   The reference app remains untouched. This layer only changes DJ NOA. */
 
-.app-shell:has(.events-page){
-  background:#050b08!important;
-  padding:0 0 calc(58px + env(safe-area-inset-bottom))!important;
-}
+.app-shell:has(.events-page){background:#050b08!important;padding:0 0 calc(58px + env(safe-area-inset-bottom))!important}
 .app-shell:has(.events-page) .background-photo{display:none!important}
-.app-shell:has(.events-page) .background-shade{
-  background:radial-gradient(circle at 50% 18%,rgba(19,42,30,.18),transparent 44%),linear-gradient(180deg,#07110d 0%,#030806 100%)!important;
-}
+.app-shell:has(.events-page) .background-shade{background:radial-gradient(circle at 50% 18%,rgba(19,42,30,.18),transparent 44%),linear-gradient(180deg,#07110d 0%,#030806 100%)!important}
 .app-shell:has(.events-page) .topbar{display:none!important}
-.app-shell:has(.events-page) .content{
-  position:absolute!important;
-  inset:max(14px,env(safe-area-inset-top)) 0 calc(58px + env(safe-area-inset-bottom)) 0!important;
-  width:100%!important;
-  height:auto!important;
-  margin:0!important;
-  padding:0!important;
-  overflow:hidden!important;
-}
+.app-shell:has(.events-page) .content{position:absolute!important;inset:max(14px,env(safe-area-inset-top)) 0 calc(58px + env(safe-area-inset-bottom)) 0!important;width:100%!important;height:auto!important;margin:0!important;padding:0!important;overflow:hidden!important}
 .app-shell:has(.events-page) .voice-orb{display:none!important}
 .app-shell:has(.events-page) .dj-thread-collapsed{display:none!important}
 
-.events-page{
-  width:100%!important;
-  height:100%!important;
-  min-height:0!important;
-  max-height:none!important;
-  margin:0!important;
-  padding:18px 18px 20px!important;
-  border:0!important;
-  border-radius:0!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  backdrop-filter:none!important;
-  overflow-y:auto!important;
-  overflow-x:hidden!important;
-  overscroll-behavior-y:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-  touch-action:pan-y!important;
-  scrollbar-width:none!important;
-}
+.events-page{width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;margin:0!important;padding:18px 18px 22px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior-y:contain!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important;scrollbar-width:none!important}
 .events-page::-webkit-scrollbar{display:none!important}
 
-.events-page .page-title-row{
-  min-height:72px!important;
-  margin:0 0 18px!important;
-  display:grid!important;
-  grid-template-columns:48px minmax(0,1fr) 48px!important;
-  align-items:center!important;
-  gap:8px!important;
-}
-.events-page .page-title-row>div{
-  grid-column:2!important;
-  min-width:0!important;
-  text-align:center!important;
-}
-.events-page .page-title-row .eyebrow{
-  margin:0 0 5px!important;
-  font-size:9px!important;
-  line-height:1!important;
-  letter-spacing:.18em!important;
-  color:rgba(232,216,173,.48)!important;
-}
-.events-page .page-title-row h2{
-  margin:0!important;
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-size:clamp(34px,9vw,42px)!important;
-  line-height:1!important;
-  font-weight:400!important;
-  letter-spacing:-.02em!important;
-  color:#eadbb4!important;
-}
-.events-page .round-plus{
-  grid-column:3!important;
-  justify-self:end!important;
-  width:44px!important;
-  height:44px!important;
-  border-radius:50%!important;
-  border:1px solid rgba(217,190,123,.2)!important;
-  background:rgba(214,180,96,.045)!important;
-  color:#eadbb4!important;
-}
+.events-hn-header{position:relative;text-align:center;margin:0 auto 24px;padding:4px 54px 0;max-width:720px}
+.events-hn-brand{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:15px;letter-spacing:.24em;text-indent:.24em;text-transform:uppercase;color:#eadbb4}
+.events-hn-line{width:45px;height:1px;margin:12px auto 0;background:linear-gradient(90deg,rgba(140,100,36,.45),#eadb99,rgba(140,100,36,.45))}
+.events-hn-header h2{margin:17px 0 0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(42px,11vw,58px);font-weight:400;line-height:.9;letter-spacing:-.035em;text-transform:uppercase;color:#eadbb4}
+.events-hn-caption{margin:11px 0 0;font-size:8px;letter-spacing:.27em;text-transform:uppercase;color:rgba(244,241,232,.52)}
+.events-hn-add{position:absolute!important;right:0!important;top:3px!important;width:44px!important;height:44px!important;border-radius:50%!important;border:1px solid rgba(217,190,123,.22)!important;background:rgba(214,180,96,.04)!important;color:#eadbb4!important}
 
-.events-page .events-section-label{
-  margin:0 0 11px!important;
-  padding-left:2px!important;
-  font-size:9px!important;
-  line-height:1!important;
-  letter-spacing:.18em!important;
-  font-weight:800!important;
-  color:rgba(232,216,173,.46)!important;
-}
-.events-page .history-label{
-  margin-top:28px!important;
-}
-.events-page .event-list{
-  display:flex!important;
-  flex-direction:column!important;
-  gap:11px!important;
-  max-height:none!important;
-  overflow:visible!important;
-}
-.events-page .history-list{opacity:.68!important}
+.events-page .events-section-label{margin:0 0 10px!important;padding-left:2px!important;font-size:8px!important;line-height:1!important;letter-spacing:.22em!important;font-weight:800!important;color:rgba(232,216,173,.44)!important}
+.events-page .history-label{margin-top:28px!important}
+.events-page .event-list{display:flex!important;flex-direction:column!important;gap:9px!important;max-height:none!important;overflow:visible!important}
+.events-page .history-list{opacity:.72!important}
 
-.events-page .event-row{
-  width:100%!important;
-  min-height:94px!important;
-  padding:11px 16px!important;
-  display:grid!important;
-  grid-template-columns:76px minmax(0,1fr) 14px!important;
-  align-items:center!important;
-  gap:16px!important;
-  border:1px solid rgba(217,190,123,.115)!important;
-  border-radius:20px!important;
-  background:linear-gradient(145deg,rgba(214,180,96,.055),rgba(2,12,8,.25))!important;
-  color:#f6f0df!important;
-  text-align:left!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.012)!important;
-}
-.events-page .event-row:active{
-  background:linear-gradient(145deg,rgba(214,180,96,.095),rgba(2,12,8,.34))!important;
-  border-color:rgba(217,190,123,.22)!important;
-}
-.events-page .event-row-date{
-  width:76px!important;
-  height:72px!important;
-  border-radius:17px!important;
-  border:1px solid rgba(217,190,123,.2)!important;
-  background:rgba(214,180,96,.055)!important;
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:center!important;
-  justify-content:center!important;
-  color:#eadbb4!important;
-}
-.events-page .event-row-date strong{
-  font-family:Georgia,"Times New Roman",serif!important;
-  font-size:32px!important;
-  line-height:.95!important;
-  font-weight:400!important;
-}
-.events-page .event-row-date span{
-  margin-top:5px!important;
-  font-size:9px!important;
-  line-height:1!important;
-  letter-spacing:.17em!important;
-  font-weight:800!important;
-  color:rgba(234,219,180,.66)!important;
-}
-.events-page .event-row-copy{
-  min-width:0!important;
-  align-self:center!important;
-}
-.events-page .event-row-copy strong{
-  display:block!important;
-  max-width:100%!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  font-size:17px!important;
-  line-height:1.2!important;
-  font-weight:600!important;
-  letter-spacing:.005em!important;
-  color:#f6f0df!important;
-}
-.events-page .event-row-copy span{
-  display:block!important;
-  margin-top:7px!important;
-  max-width:100%!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  font-size:10px!important;
-  line-height:1.25!important;
-  color:rgba(255,255,255,.46)!important;
-}
-.events-page .event-status-dot{
-  width:10px!important;
-  height:10px!important;
-  justify-self:end!important;
-  border-radius:50%!important;
-  background:#d9bd77!important;
-  box-shadow:0 0 0 4px rgba(217,189,119,.035)!important;
-}
-.events-page .event-status-dot.tentative{background:#a99562!important}
-.events-page .event-status-dot.done{background:#78927f!important}
+.hn-event-card{position:relative;width:100%;padding:16px 54px 16px 16px;border:1px solid rgba(229,189,98,.40);border-radius:0;background:linear-gradient(105deg,rgba(0,0,0,.54),rgba(28,20,8,.25),rgba(0,0,0,.42));color:#f4f1e8;backdrop-filter:blur(7px);cursor:pointer;transition:border-color .16s ease,background .16s ease;outline:none}
+.hn-event-card:focus-visible{border-color:rgba(229,189,98,.85)}
+.hn-event-card.is-expanded{border-color:rgba(229,189,98,.72);background:linear-gradient(105deg,rgba(26,18,7,.56),rgba(4,11,8,.55),rgba(24,17,7,.44))}
+.hn-event-expand{position:absolute;top:8px;right:8px;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:transparent;color:#d9bd77;font:400 25px/1 Georgia,"Times New Roman",serif;touch-action:manipulation;z-index:2}
+.hn-event-expand:active{background:rgba(229,189,98,.10)}
+.hn-event-day{color:#d9bd77;font-size:9px;letter-spacing:.20em;text-transform:uppercase}
+.hn-event-title{margin-top:7px;color:#f6f0df;font-family:Georgia,"Times New Roman",serif;font-size:26px;line-height:1.05;font-weight:400}
+.hn-event-venue{margin-top:8px;color:rgba(244,241,232,.82);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.hn-event-time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}
+.hn-event-time-box{border:1px solid rgba(229,189,98,.24);padding:10px 9px;background:rgba(0,0,0,.22)}
+.hn-event-time-box span{display:block;color:rgba(244,241,232,.42);font-size:7px;letter-spacing:.12em;text-transform:uppercase}
+.hn-event-time-box strong{display:block;margin-top:4px;color:#eadbb4;font-family:Georgia,"Times New Roman",serif;font-size:16px;font-weight:400}
+.hn-event-detail{margin-top:10px;color:rgba(244,241,232,.70);font-size:10px;line-height:1.55;white-space:pre-wrap}
+.hn-event-detail strong{color:rgba(244,241,232,.88);font-weight:600}
+.hn-event-detail-muted{color:rgba(244,241,232,.42)}
+.hn-event-map{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:13px;padding:12px 13px;border:1px solid rgba(229,189,98,.62);color:#eadbb4;text-decoration:none;text-align:center;font-size:9px;letter-spacing:.16em;text-transform:uppercase;background:rgba(0,0,0,.24);font-weight:600}
+.hn-event-record{width:100%;min-height:42px;margin-top:8px;border:1px solid rgba(229,189,98,.28);border-radius:0;background:rgba(229,189,98,.055);color:rgba(244,241,232,.74);font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
 
-.events-page .empty-table{
-  min-height:120px!important;
-  display:grid!important;
-  place-items:center!important;
-  padding:22px!important;
-  border:1px dashed rgba(217,190,123,.12)!important;
-  border-radius:18px!important;
-  color:rgba(255,255,255,.4)!important;
-  font-size:11px!important;
-  text-align:center!important;
-}
-.events-page .full-action{
-  width:100%!important;
-  min-height:54px!important;
-  margin-top:18px!important;
-  border:1px solid rgba(217,190,123,.18)!important;
-  border-radius:18px!important;
-  background:rgba(214,180,96,.055)!important;
-  color:#eadbb4!important;
-  padding:0 16px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:8px!important;
-  font-size:11px!important;
-  letter-spacing:.02em!important;
-  font-weight:700!important;
-}
+.events-page .empty-table{min-height:120px!important;display:grid!important;place-items:center!important;padding:22px!important;border:1px dashed rgba(217,190,123,.12)!important;border-radius:0!important;color:rgba(255,255,255,.4)!important;font-size:10px!important;text-align:center!important;letter-spacing:.08em!important;text-transform:uppercase!important}
+.events-page .full-action{width:100%!important;min-height:50px!important;margin-top:18px!important;border:1px solid rgba(229,189,98,.34)!important;border-radius:0!important;background:rgba(214,180,96,.04)!important;color:#eadbb4!important;padding:0 16px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;font-size:9px!important;letter-spacing:.16em!important;text-transform:uppercase!important;font-weight:700!important}
 
-@media(max-width:390px){
-  .events-page{padding:16px 12px 18px!important}
-  .events-page .page-title-row{
-    min-height:66px!important;
-    margin-bottom:14px!important;
-    grid-template-columns:42px minmax(0,1fr) 42px!important;
-  }
-  .events-page .page-title-row h2{font-size:33px!important}
-  .events-page .round-plus{width:40px!important;height:40px!important}
-  .events-page .event-list{gap:9px!important}
-  .events-page .event-row{
-    min-height:86px!important;
-    padding:9px 12px!important;
-    grid-template-columns:68px minmax(0,1fr) 12px!important;
-    gap:12px!important;
-    border-radius:18px!important;
-  }
-  .events-page .event-row-date{width:68px!important;height:66px!important;border-radius:15px!important}
-  .events-page .event-row-date strong{font-size:29px!important}
-  .events-page .event-row-date span{font-size:8px!important}
-  .events-page .event-row-copy strong{font-size:15px!important}
-  .events-page .event-row-copy span{font-size:9px!important;margin-top:6px!important}
-  .events-page .history-label{margin-top:24px!important}
-  .events-page .full-action{min-height:50px!important}
+/* Editor mirrors the HAVANA NICE admin event form while preserving DJ NOA local-first storage. */
+.event-editor{border-radius:22px 22px 0 0!important}
+.event-editor .event-form{gap:10px!important}
+.event-editor .event-form>label,.event-editor .event-form-grid>label,.event-editor .event-time-grid>label{display:flex!important;flex-direction:column!important;gap:6px!important}
+.event-editor .event-time-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+.event-editor .event-form label>span{font-size:7px!important;letter-spacing:.16em!important;color:rgba(232,216,173,.48)!important;font-weight:800!important}
+.event-editor .event-form input,.event-editor .event-form select,.event-editor .event-form textarea{font-size:11px!important}
+.event-editor .editor-map-link{min-height:42px!important;padding:0 12px!important;border:1px solid rgba(217,190,123,.14)!important;border-radius:11px!important;background:rgba(214,180,96,.035)!important}
+
+@media(max-width:520px){
+  .events-page{padding:16px 12px 20px!important}
+  .events-hn-header{padding-left:46px;padding-right:46px;margin-bottom:20px}
+  .events-hn-brand{font-size:13px}.events-hn-header h2{font-size:42px}.events-hn-caption{font-size:7px;letter-spacing:.22em}
+  .events-hn-add{width:40px!important;height:40px!important}
+  .hn-event-card{padding:15px 50px 15px 14px}
+  .hn-event-title{font-size:24px}
+  .hn-event-time-grid{grid-template-columns:1fr 1fr}
+  .hn-event-time-box:last-child:nth-child(3){grid-column:1/-1}
+  .event-editor .event-time-grid{grid-template-columns:1fr 1fr!important}
+  .event-editor .event-time-grid>label:last-child:nth-child(3){grid-column:1/-1!important}
 }
 
 @media(min-width:700px){
-  .events-page{padding:22px 30px 24px!important}
-  .events-page .page-title-row{min-height:82px!important}
-  .events-page .page-title-row h2{font-size:44px!important}
-  .events-page .event-row{min-height:104px!important;grid-template-columns:82px minmax(0,1fr) 16px!important;padding:13px 19px!important;gap:19px!important}
-  .events-page .event-row-date{width:82px!important;height:78px!important}
-  .events-page .event-row-date strong{font-size:35px!important}
-  .events-page .event-row-copy strong{font-size:19px!important}
-  .events-page .event-row-copy span{font-size:11px!important}
+  .events-page{padding:22px 30px 26px!important}
+  .events-hn-header{margin-bottom:28px}.events-hn-header h2{font-size:62px}.events-hn-brand{font-size:16px}
+  .hn-event-card{padding:19px 60px 19px 19px}.hn-event-title{font-size:30px}.hn-event-venue{font-size:11px}.hn-event-day{font-size:10px}
+  .hn-event-time-box{padding:11px}.hn-event-time-box strong{font-size:18px}.hn-event-detail{font-size:11px}
 }
