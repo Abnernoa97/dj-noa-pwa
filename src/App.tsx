@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bell, CalendarDays, FileSpreadsheet, Home, MapPin, Mic, MicOff, Navigation, Plus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Mic, MicOff } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { askAssistantWithMemory, type AssistantMemoryItem } from './assistantMemory';
+import { askAssistantWithMemory } from './assistantMemory';
 import CalendarWorkspace from './CalendarWorkspace';
 import ConversationDock, { type ConversationTurn } from './ConversationDock';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
@@ -11,99 +11,36 @@ import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
 import { scheduleReminderNotifications } from './reminderNotifications';
 import { useDjNoaVoice } from './useDjNoaVoice';
-import type { AppView, AssistantAction, EventItem, ReminderItem, SheetColumn, SheetRow } from './types';
-
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-
-type LiveActionState = {
-  current: number;
-  total: number;
-  title: string;
-  detail: string;
-  status: 'working' | 'done' | 'error' | 'cancelled';
-};
-
-type UndoSnapshot = {
-  events: EventItem[];
-  reminders: ReminderItem[];
-  sheetRows: SheetRow[];
-  sheetColumns: SheetColumn[];
-};
-
-type StoredHistoryItem = AssistantMemoryItem & {
-  id: string;
-  createdAt: string;
-  undoSnapshot?: UndoSnapshot;
-};
-
-type CommandCreatedEvent = {
-  id: string;
-  date: string;
-};
-
-const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+import type { AppView, AssistantAction, EventItem, ReminderItem, SheetRow } from './types';
+import BottomNav from './app/BottomNav';
+import HomeView from './app/HomeView';
+import { createActionExecutor } from './app/actionExecutor';
+import {
+  actionMeta,
+  bindActionToCreatedEvent,
+  createdEventIdFromSummary,
+  isCancelCommand,
+  isMutatingAction,
+  isUndoCommand,
+  sleep,
+  type CommandCreatedEvent,
+  type LiveActionState
+} from './app/assistantActions';
+import {
+  captureUndoSnapshot,
+  restoreUndoSnapshot,
+  type StoredHistoryItem
+} from './app/undoHistory';
 
 function safeDate(value?: string) {
   if (!value) return null;
   try { return parseISO(value); } catch { return null; }
 }
 
-function sheetKey(name: string) {
-  const clean = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  return `custom_${clean || Date.now()}`;
-}
-
 function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
   const current = parseISO(dueAt);
   const next = repeat === 'daily' ? addDays(current, 1) : repeat === 'weekly' ? addWeeks(current, 1) : repeat === 'monthly' ? addMonths(current, 1) : current;
   return next.toISOString();
-}
-
-function isUndoCommand(value: string) {
-  return /^\s*(deshaz|deshacer|revierte|revertir|undo)(?:\s+(?:lo|la)?\s*[uú]ltim[oa])?[.!]?\s*$/i.test(value);
-}
-
-function isCancelCommand(value: string) {
-  return /^\s*(cancela|cancelar|detente|deténte|para|párate|alto|espera|stop)(?:\s+(?:ya|ah[ií]|dj\s*noa))?[.!]?\s*$/i.test(value);
-}
-
-function isMutatingAction(action: AssistantAction) {
-  return [
-    'create_event', 'update_event', 'delete_event',
-    'create_reminder', 'update_reminder', 'delete_reminder',
-    'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column'
-  ].includes(action.type);
-}
-
-function bindActionToCreatedEvent(action: AssistantAction, createdEvent: CommandCreatedEvent | null): AssistantAction {
-  if (!createdEvent) return action;
-  if (action.type === 'create_reminder' && action.eventRef === 'created_event') {
-    return { ...action, eventId: createdEvent.id };
-  }
-  if (action.type === 'add_sheet_row' && action.eventRef === 'created_event') {
-    return { ...action, eventId: createdEvent.id, calendarDate: action.calendarDate || createdEvent.date };
-  }
-  return action;
-}
-
-function createdEventIdFromSummary(summary?: string) {
-  return summary?.match(/^create_event id=([^\s]+)/)?.[1] || null;
-}
-
-function actionMeta(action: AssistantAction): { visible: boolean; view?: AppView; title: string; detail: string } {
-  if (action.type === 'create_event') return { visible: true, view: 'calendar', title: 'Agregando al calendario', detail: action.title };
-  if (action.type === 'update_event') return { visible: true, view: 'events', title: 'Actualizando evento', detail: action.title || 'Aplicando cambios' };
-  if (action.type === 'delete_event') return { visible: true, view: 'events', title: 'Eliminando evento', detail: 'Conservando y desvinculando su información relacionada' };
-  if (action.type === 'create_reminder') return { visible: true, view: 'reminders', title: 'Creando tarea', detail: action.title };
-  if (action.type === 'update_reminder') return { visible: true, view: 'reminders', title: 'Actualizando tarea', detail: action.title || 'Aplicando cambios' };
-  if (action.type === 'delete_reminder') return { visible: true, view: 'reminders', title: 'Eliminando tarea', detail: 'Actualizando recordatorios' };
-  if (action.type === 'add_sheet_row') return { visible: true, view: 'sheet', title: 'Añadiendo a Excel', detail: `${action.label} · ${money.format(action.amount)}` };
-  if (action.type === 'update_sheet_row') return { visible: true, view: 'sheet', title: 'Actualizando Excel', detail: action.label || 'Aplicando cambios a la fila' };
-  if (action.type === 'delete_sheet_row') return { visible: true, view: 'sheet', title: 'Eliminando fila', detail: 'Eliminando también sus fotos vinculadas' };
-  if (action.type === 'add_sheet_column') return { visible: true, view: 'sheet', title: 'Creando columna', detail: action.name };
-  if (action.type === 'navigate') return { visible: true, view: action.view, title: 'Abriendo sección', detail: action.view === 'sheet' ? 'Excel' : action.view === 'reminders' ? 'Tareas' : action.view === 'calendar' ? 'Calendario' : action.view === 'events' ? 'Eventos' : 'Inicio' };
-  if (action.type === 'open_map') return { visible: true, view: 'events', title: 'Preparando ruta', detail: 'Abriendo ubicación del evento' };
-  return { visible: false, title: '', detail: '' };
 }
 
 export default function App() {
@@ -146,26 +83,6 @@ export default function App() {
       result: item.result,
       createdAt: item.createdAt
     })));
-  };
-
-  const captureUndoSnapshot = async (): Promise<UndoSnapshot> => {
-    const [eventData, reminderData, sheetData, columnData] = await Promise.all([
-      db.events.toArray(),
-      db.reminders.toArray(),
-      db.sheetRows.toArray(),
-      db.sheetColumns.toArray()
-    ]);
-    return { events: eventData, reminders: reminderData, sheetRows: sheetData, sheetColumns: columnData };
-  };
-
-  const restoreUndoSnapshot = async (snapshot: UndoSnapshot) => {
-    await db.transaction('rw', [db.events, db.reminders, db.sheetRows, db.sheetColumns], async () => {
-      await Promise.all([db.events.clear(), db.reminders.clear(), db.sheetRows.clear(), db.sheetColumns.clear()]);
-      if (snapshot.events.length) await db.events.bulkPut(snapshot.events);
-      if (snapshot.reminders.length) await db.reminders.bulkPut(snapshot.reminders);
-      if (snapshot.sheetRows.length) await db.sheetRows.bulkPut(snapshot.sheetRows);
-      if (snapshot.sheetColumns.length) await db.sheetColumns.bulkPut(snapshot.sheetColumns);
-    });
   };
 
   useEffect(() => { void refresh(); void refreshConversation(); }, []);
@@ -275,100 +192,16 @@ export default function App() {
     } : current);
   };
 
-  const executeAction = async (action: AssistantAction): Promise<string | undefined> => {
-    const now = new Date().toISOString();
-
-    if (action.type === 'create_event') {
-      const id = uid();
-      const item: EventItem = { id, title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status || 'confirmed', createdAt: now, updatedAt: now };
-      await db.events.add(item);
-      setEvents((current) => [...current, item].sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)));
-      return `create_event id=${id} title="${action.title}" date=${action.date}${action.time ? ` time=${action.time}` : ''}`;
-    }
-    if (action.type === 'update_event') {
-      const current = await db.events.get(action.eventId);
-      const patch = { title: action.title, date: action.date, time: action.time, venue: action.venue, address: action.address, notes: action.notes, status: action.status, updatedAt: now };
-      const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
-      await db.events.update(action.eventId, cleanPatch);
-      setEvents((items) => items.map((item) => item.id === action.eventId ? { ...item, ...cleanPatch } as EventItem : item).sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)));
-      return `update_event id=${action.eventId} title="${action.title || current?.title || ''}"`;
-    }
-    if (action.type === 'delete_event') {
-      const current = await deleteEventWithRelations(action.eventId);
-      return `delete_event id=${action.eventId} title="${current?.title || ''}"`;
-    }
-    if (action.type === 'create_reminder') {
-      const id = uid();
-      const item: ReminderItem = { id, title: action.title, dueAt: action.dueAt, done: false, eventId: action.eventId, notes: action.notes, priority: action.priority || 'normal', repeat: action.repeat || 'none', notificationEnabled: action.notificationEnabled ?? true, createdAt: now, updatedAt: now };
-      await db.reminders.add(item);
-      setReminders((current) => [item, ...current]);
-      return `create_reminder id=${id} title="${action.title}"${action.dueAt ? ` dueAt=${action.dueAt}` : ''}${action.eventId ? ` eventId=${action.eventId}` : ''}`;
-    }
-    if (action.type === 'update_reminder') {
-      const current = await db.reminders.get(action.reminderId);
-      const patch = { title: action.title, dueAt: action.dueAt, eventId: action.eventId, notes: action.notes, priority: action.priority, repeat: action.repeat, notificationEnabled: action.notificationEnabled, done: action.done, updatedAt: now };
-      const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
-      await db.reminders.update(action.reminderId, cleanPatch);
-      setReminders((items) => items.map((item) => item.id === action.reminderId ? { ...item, ...cleanPatch } as ReminderItem : item));
-      return `update_reminder id=${action.reminderId} title="${action.title || current?.title || ''}"`;
-    }
-    if (action.type === 'delete_reminder') {
-      const current = await db.reminders.get(action.reminderId);
-      await db.reminders.delete(action.reminderId);
-      setReminders((items) => items.filter((item) => item.id !== action.reminderId));
-      return `delete_reminder id=${action.reminderId} title="${current?.title || ''}"`;
-    }
-    if (action.type === 'add_sheet_row') {
-      const id = uid();
-      const item: SheetRow = { id, label: action.label, category: action.category, amount: action.amount, status: action.status || 'pending', notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values || {}, createdAt: now, updatedAt: now };
-      await db.sheetRows.add(item);
-      setSheetRows((current) => [item, ...current]);
-      return `add_sheet_row id=${id} label="${action.label}" amount=${action.amount}${action.eventId ? ` eventId=${action.eventId}` : ''}${action.calendarDate ? ` calendarDate=${action.calendarDate}` : ''}`;
-    }
-    if (action.type === 'update_sheet_row') {
-      const current = await db.sheetRows.get(action.rowId);
-      if (current) {
-        const patch = { label: action.label, category: action.category, amount: action.amount, status: action.status, notes: action.notes, eventId: action.eventId, calendarDate: action.calendarDate, values: action.values ? { ...(current.values || {}), ...action.values } : undefined, updatedAt: now };
-        const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
-        await db.sheetRows.update(action.rowId, cleanPatch);
-        setSheetRows((items) => items.map((item) => item.id === action.rowId ? { ...item, ...cleanPatch } as SheetRow : item));
-      }
-      return `update_sheet_row id=${action.rowId} label="${action.label || current?.label || ''}"`;
-    }
-    if (action.type === 'delete_sheet_row') {
-      const current = await db.sheetRows.get(action.rowId);
-      await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
-        await db.sheetPhotos.where('rowId').equals(action.rowId).delete();
-        await db.sheetRows.delete(action.rowId);
-      });
-      setSheetRows((items) => items.filter((item) => item.id !== action.rowId));
-      if (selectedSheetRowId === action.rowId) setSelectedSheetRowId(null);
-      return `delete_sheet_row id=${action.rowId} label="${current?.label || ''}"`;
-    }
-    if (action.type === 'add_sheet_column') {
-      const columns = await db.sheetColumns.orderBy('position').toArray();
-      let key = action.key || sheetKey(action.name);
-      const used = new Set(columns.map((column) => column.key));
-      let suffix = 2;
-      while (used.has(key)) key = `${sheetKey(action.name)}_${suffix++}`;
-      const id = uid();
-      const column: SheetColumn = { id, name: action.name, key, type: action.columnType || 'text', formula: action.formula, position: columns.length, createdAt: now };
-      await db.sheetColumns.add(column);
-      window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
-      return `add_sheet_column id=${id} name="${action.name}" key=${key}`;
-    }
-    if (action.type === 'navigate') {
-      setView(action.view);
-      return `navigate view=${action.view}`;
-    }
-    if (action.type === 'open_map') {
-      const event = events.find((item) => item.id === action.eventId);
-      const destination = event?.address || event?.venue;
-      if (destination) window.location.assign(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`);
-      return `open_map eventId=${action.eventId}`;
-    }
-    return undefined;
-  };
+  const executeAction = createActionExecutor({
+    events,
+    selectedSheetRowId,
+    setEvents,
+    setReminders,
+    setSheetRows,
+    setSelectedSheetRowId,
+    setView,
+    deleteEventWithRelations
+  });
 
   const undoLastCommand = async (): Promise<string> => {
     const history = await db.history.orderBy('createdAt').reverse().toArray() as unknown as StoredHistoryItem[];
@@ -577,19 +410,19 @@ export default function App() {
       <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div></header>
 
       <main className="content">
-        {view === 'home' && (
-          <section className="home-view">
-            <div className="home-summary"><div><span>HOY</span><strong>{todayEventCount ? `${todayEventCount} evento${todayEventCount > 1 ? 's' : ''}` : 'Sin eventos hoy'}</strong></div><button onClick={startListening}><Mic size={18} /> Hablar con DJ NOA</button></div>
-            <article className="glass-card next-event-card">
-              <div className="card-heading"><span>PRÓXIMO EVENTO</span><CalendarDays size={19} /></div>
-              {upcoming ? <><div className="event-date-block"><strong>{format(parseISO(upcoming.date), 'dd')}</strong><span>{format(parseISO(upcoming.date), 'MMM', { locale: es }).toUpperCase()}</span></div><div className="event-main-copy"><h3>{upcoming.title}</h3><p>{upcoming.time || 'Horario pendiente'}{upcoming.venue ? ` · ${upcoming.venue}` : ''}</p><div className="event-home-actions">{(upcoming.address || upcoming.venue) && <a className="direction-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(upcoming.address || upcoming.venue || '')}`} target="_blank" rel="noreferrer"><Navigation size={16} /> Cómo llegar</a>}<button className="event-detail-link" onClick={() => openEventHub(upcoming)}>Detalles</button></div></div></> : <div className="empty-state"><p>No hay eventos próximos.</p><button onClick={() => openEventEditor()}><Plus size={16} /> Crear evento</button></div>}
-            </article>
-            <div className="section-label-row"><span>ACCESOS RÁPIDOS</span></div>
-            <div className="quick-grid"><button className="glass-card quick-card" onClick={() => setView('events')}><div className="quick-icon"><MapPin size={21} /></div><div><span>Eventos</span><strong>{events.length} registrados</strong></div></button><button className="glass-card quick-card" onClick={() => setView('calendar')}><div className="quick-icon"><CalendarDays size={21} /></div><div><span>Calendario</span><strong>{events.length} eventos</strong></div></button><button className="glass-card quick-card" onClick={() => setView('sheet')}><div className="quick-icon"><FileSpreadsheet size={21} /></div><div><span>Excel</span><strong>{money.format(total)}</strong></div></button><button className="glass-card quick-card" onClick={() => setView('reminders')}><div className="quick-icon"><Bell size={21} /></div><div><span>Recordatorios</span><strong>{openReminders} pendientes</strong></div></button></div>
-            <div className="section-label-row"><span>LO SIGUIENTE</span><button onClick={() => setView('reminders')}>Ver todo</button></div>
-            <div className="focus-list">{focusReminders.length ? focusReminders.map((item) => <button key={item.id} className="focus-row" onClick={() => void toggleReminder(item)}><span className="focus-check" /><div><strong>{item.title}</strong><small>{item.dueAt ? format(parseISO(item.dueAt), "d MMM · HH:mm", { locale: es }) : 'Sin fecha'}</small></div></button>) : <div className="focus-empty">Nada pendiente por ahora.</div>}</div>
-          </section>
-        )}
+        {view === 'home' && <HomeView
+          todayEventCount={todayEventCount}
+          upcoming={upcoming}
+          eventCount={events.length}
+          total={total}
+          openReminders={openReminders}
+          focusReminders={focusReminders}
+          onVoice={startListening}
+          onView={setView}
+          onOpenEvent={openEventHub}
+          onCreateEvent={() => openEventEditor()}
+          onToggleReminder={toggleReminder}
+        />}
         {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} />}
         {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
         {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={() => setAssistantOpen(true)} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
@@ -600,7 +433,7 @@ export default function App() {
 
       <button className={`voice-orb ${voiceActive ? 'listening' : ''}`} onClick={startListening} disabled={busy && !liveAction} aria-label={busy && liveAction ? 'Decir detener a DJ NOA' : voiceActive ? 'Pausar DJ NOA' : 'Hablar con DJ NOA'}>{voiceActive ? <MicOff size={28} /> : <Mic size={28} />}<span>{listening ? 'ESCUCHANDO' : voiceActive ? 'ACTIVO' : busy && liveAction ? 'DETENER' : 'HABLAR'}</span></button>
 
-      <nav className="bottom-nav"><NavButton active={view === 'home'} icon={<Home size={20} />} label="Inicio" onClick={() => setView('home')} /><NavButton active={view === 'events'} icon={<MapPin size={20} />} label="Eventos" onClick={() => setView('events')} /><NavButton active={view === 'calendar'} icon={<CalendarDays size={20} />} label="Calendario" onClick={() => setView('calendar')} /><NavButton active={view === 'sheet'} icon={<FileSpreadsheet size={20} />} label="Excel" onClick={() => setView('sheet')} /><NavButton active={view === 'reminders'} icon={<Bell size={20} />} label="Tareas" onClick={() => setView('reminders')} /></nav>
+      <BottomNav view={view} onView={setView} />
 
       <ConversationDock
         expanded={assistantOpen}
@@ -625,8 +458,4 @@ export default function App() {
       {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); setEventCreateDate(null); }} onSave={saveEvent} onDelete={deleteEvent} />}
     </div>
   );
-}
-
-function NavButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
-  return <button className={`nav-button ${active ? 'active' : ''}`} onClick={onClick}>{icon}<span>{label}</span></button>;
 }
