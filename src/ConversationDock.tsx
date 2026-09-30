@@ -39,7 +39,7 @@ function clamp(value: number, min: number, max: number) {
 
 function readableReply(value: string) {
   const text = value.trim();
-  if (!text || text === '…' || /^(preparando|grabando|entendiendo|enviando|trabajando)/i.test(text)) return '';
+  if (!text || text === '…' || /^(preparando|grabando|entendiendo|enviando|trabajando|pensando)/i.test(text)) return '';
   if (text === 'Dime qué necesitas y lo hago.') return '';
   return text;
 }
@@ -73,6 +73,9 @@ export default function ConversationDock({
     moved: boolean;
   } | null>(null);
 
+  const voiceOnly = voiceMode === 'wake' || voiceMode === 'processing' || voiceMode === 'speaking';
+  const showTextUi = expanded && !voiceOnly;
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(POSITION_KEY);
@@ -102,6 +105,10 @@ export default function ConversationDock({
   useEffect(() => {
     if (!expanded) setHistoryOpen(false);
   }, [expanded]);
+
+  useEffect(() => {
+    if (voiceOnly && expanded) onCollapse();
+  }, [voiceOnly, expanded, onCollapse]);
 
   const saveOrbPosition = (position: OrbPosition) => {
     try { localStorage.setItem(POSITION_KEY, JSON.stringify(position)); } catch { /* localStorage may be unavailable */ }
@@ -145,6 +152,10 @@ export default function ConversationDock({
       if (orbPosition) saveOrbPosition(orbPosition);
       return;
     }
+    if (voiceOnly) {
+      onVoice();
+      return;
+    }
     if (expanded) onCollapse();
     else onExpand();
   };
@@ -154,17 +165,15 @@ export default function ConversationDock({
   const orbState = listening ? 'listening' : busy || voiceMode === 'processing' ? 'thinking' : voiceMode === 'speaking' ? 'speaking' : wakeListening ? 'ready' : 'idle';
   const statusText = manualRecording
     ? 'DICTANDO · TOCA ■ PARA TERMINAR'
-    : voiceMode === 'wake' && listening
-      ? 'NOAH · TE ESCUCHO'
-      : busy
-        ? 'NOAH · PENSANDO'
-        : aiOnline === false
-          ? 'NOAH · LOCAL'
-          : 'NOAH';
+    : busy
+      ? 'NOAH · PENSANDO'
+      : aiOnline === false
+        ? 'NOAH · LOCAL'
+        : 'NOAH';
 
   return (
     <>
-      {expanded && historyOpen && (
+      {showTextUi && historyOpen && (
         <section className="noah-history" aria-label="Conversación con Noah">
           <div className="noah-history-head">
             <div><span>CONVERSACIÓN</span><strong>Noah</strong></div>
@@ -188,8 +197,8 @@ export default function ConversationDock({
         </section>
       )}
 
-      {expanded && (
-        <section className="noah-composer-shell" aria-label="Hablar o escribir a Noah">
+      {showTextUi && (
+        <section className="noah-composer-shell" aria-label="Escribir a Noah">
           {!historyOpen && latestReply && (
             <button className="noah-reply-peek" onClick={() => setHistoryOpen(true)}>
               <Sparkles size={13} />
@@ -214,7 +223,7 @@ export default function ConversationDock({
                     if (command.trim() && !busy) onSend();
                   }
                 }}
-                placeholder={manualRecording ? 'Te estoy escuchando…' : 'Escribe o habla con Noah'}
+                placeholder={manualRecording ? 'Te estoy escuchando…' : 'Escribe o dicta a Noah'}
                 aria-label="Mensaje para Noah"
               />
               <small>{statusText}</small>
@@ -232,7 +241,7 @@ export default function ConversationDock({
       )}
 
       <button
-        className={`noah-orb ${orbState} ${expanded ? 'open' : ''}`}
+        className={`noah-orb ${orbState} ${showTextUi ? 'open' : ''} ${voiceOnly ? 'voice-session' : ''}`}
         style={orbPosition ? { left: orbPosition.x, top: orbPosition.y, right: 'auto', bottom: 'auto' } : undefined}
         onPointerDown={onOrbPointerDown}
         onPointerMove={onOrbPointerMove}
@@ -241,10 +250,12 @@ export default function ConversationDock({
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            if (expanded) onCollapse(); else onExpand();
+            if (voiceOnly) onVoice();
+            else if (expanded) onCollapse();
+            else onExpand();
           }
         }}
-        aria-label={expanded ? 'Cerrar Noah' : 'Abrir Noah'}
+        aria-label={voiceOnly ? 'Detener conversación con Noah' : showTextUi ? 'Cerrar Noah' : 'Abrir Noah'}
       >
         <span className="noah-orb-ring ring-a" />
         <span className="noah-orb-ring ring-b" />
