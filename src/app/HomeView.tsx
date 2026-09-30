@@ -13,6 +13,7 @@ type Props = {
   focusReminders: ReminderItem[];
   onVoice: () => void;
   onView: (view: AppView) => void;
+  onOpenMlb: () => void;
   onOpenEvent: (event: EventItem) => void;
   onCreateEvent: () => void;
   onToggleReminder: (item: ReminderItem) => Promise<void> | void;
@@ -26,6 +27,7 @@ export default function HomeView({
   focusReminders,
   onVoice,
   onView,
+  onOpenMlb,
   onToggleReminder
 }: Props) {
   return (
@@ -35,7 +37,7 @@ export default function HomeView({
         <button onClick={onVoice}><Mic size={18} /> Hablar con DJ NOA</button>
       </div>
 
-      <button type="button" className="mlb-corner-badge" aria-label="Abrir sección MLB" onClick={() => onView('mlb')}>
+      <button type="button" className="mlb-corner-badge" aria-label="Abrir sección MLB" onClick={onOpenMlb}>
         <img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" alt="MLB" />
         <span>MLB</span>
       </button>
