@@ -3,6 +3,7 @@ import { handleDjNoaAssistant } from './djNoaAssistant';
 import { expandDeterministicRecurrence } from './deterministicRecurrence';
 import { handleMlbRequest } from './mlb';
 import { handleNbaRequest } from './nba';
+import { handleSportsAnalysis } from './sportsAnalysis';
 
 export { ReminderScheduler };
 
@@ -142,6 +143,13 @@ export default {
 
     if (url.pathname === '/api/nba') {
       return handleNbaRequest(request);
+    }
+
+    if (url.pathname === '/api/sports-analysis') {
+      if (declaredBodyTooLarge(request, MAX_ASSISTANT_BYTES)) return json({ error: 'request_too_large' }, 413);
+      const limited = await enforceRateLimit(request, env, 'assistant');
+      if (limited) return limited;
+      return handleSportsAnalysis(request, env);
     }
 
     if (url.pathname === '/api/assistant') {
