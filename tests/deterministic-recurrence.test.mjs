@@ -45,3 +45,14 @@ test('weekend phrase maps to Friday and Saturday for DJ NOA planning', () => {
   assert.equal(dates.length, 10);
   assert.deepEqual(dates.slice(0, 4), ['2027-01-01', '2027-01-02', '2027-01-08', '2027-01-09']);
 });
+
+test('can deterministically expand a long 31-action monthly plan', () => {
+  const command = 'Crea Evento concretado todos los lunes, martes, miércoles, jueves, viernes, sábados y domingos de enero de 2027';
+  const result = expandDeterministicRecurrence(command, basePayload('2027-01-01'));
+  const dates = result.actions.filter((action) => action.type === 'create_event').map((action) => action.date);
+
+  assert.equal(dates.length, 31);
+  assert.equal(dates[0], '2027-01-01');
+  assert.equal(dates.at(-1), '2027-01-31');
+  assert.equal(new Set(dates).size, 31);
+});
