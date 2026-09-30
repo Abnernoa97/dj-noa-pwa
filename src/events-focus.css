@@ -45,14 +45,74 @@
 .events-page .empty-table{min-height:120px!important;display:grid!important;place-items:center!important;padding:22px!important;border:1px dashed rgba(217,190,123,.12)!important;border-radius:0!important;color:rgba(255,255,255,.4)!important;font-size:10px!important;text-align:center!important;letter-spacing:.08em!important;text-transform:uppercase!important}
 .events-page .full-action{width:100%!important;min-height:50px!important;margin-top:18px!important;border:1px solid rgba(229,189,98,.34)!important;border-radius:0!important;background:rgba(214,180,96,.04)!important;color:#eadbb4!important;padding:0 16px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;font-size:9px!important;letter-spacing:.16em!important;text-transform:uppercase!important;font-weight:700!important}
 
-/* Editor mirrors the HAVANA NICE admin event form while preserving DJ NOA local-first storage. */
-.event-editor{border-radius:22px 22px 0 0!important}
-.event-editor .event-form{gap:10px!important}
-.event-editor .event-form>label,.event-editor .event-form-grid>label,.event-editor .event-time-grid>label{display:flex!important;flex-direction:column!important;gap:6px!important}
-.event-editor .event-time-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
-.event-editor .event-form label>span{font-size:7px!important;letter-spacing:.16em!important;color:rgba(232,216,173,.48)!important;font-weight:800!important}
-.event-editor .event-form input,.event-editor .event-form select,.event-editor .event-form textarea{font-size:11px!important}
-.event-editor .editor-map-link{min-height:42px!important;padding:0 12px!important;border:1px solid rgba(217,190,123,.14)!important;border-radius:11px!important;background:rgba(214,180,96,.035)!important}
+/* Event editor: large, readable and touch-friendly while preserving the HAVANA NICE field structure. */
+.event-editor{
+  width:min(100%,760px)!important;
+  border-radius:26px 26px 0 0!important;
+  padding:16px 20px 30px!important;
+  scrollbar-width:none!important;
+}
+.event-editor::-webkit-scrollbar{display:none!important}
+.event-editor .assistant-handle{width:54px!important;height:4px!important;margin-bottom:20px!important}
+.event-editor-head{margin-bottom:24px!important;gap:18px!important;align-items:center!important}
+.event-editor-head .eyebrow{font-size:10px!important;letter-spacing:.20em!important;margin-bottom:8px!important}
+.event-editor-head h3{
+  margin:0!important;
+  font-size:clamp(34px,8vw,46px)!important;
+  line-height:1.02!important;
+  letter-spacing:-.02em!important;
+}
+.event-editor-head .icon-button{
+  width:48px!important;
+  height:48px!important;
+  flex:0 0 48px!important;
+  border-color:rgba(217,190,123,.22)!important;
+}
+.event-editor-head .icon-button svg{width:24px!important;height:24px!important}
+.event-editor .event-form{gap:16px!important}
+.event-editor .event-form>label,.event-editor .event-form-grid>label,.event-editor .event-time-grid>label{display:flex!important;flex-direction:column!important;gap:8px!important}
+.event-editor .event-form-grid{gap:12px!important}
+.event-editor .event-time-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important}
+.event-editor .event-form label>span{
+  font-size:9px!important;
+  line-height:1.15!important;
+  letter-spacing:.17em!important;
+  color:rgba(232,216,173,.58)!important;
+  font-weight:800!important;
+}
+.event-editor .event-form input,.event-editor .event-form select,.event-editor .event-form textarea{
+  min-height:58px!important;
+  border-radius:16px!important;
+  padding:15px 16px!important;
+  font-size:15px!important;
+  line-height:1.35!important;
+  border-color:rgba(217,190,123,.16)!important;
+  background:rgba(214,180,96,.045)!important;
+}
+.event-editor .event-form input::placeholder,.event-editor .event-form textarea::placeholder{font-size:14px!important;color:rgba(255,255,255,.30)!important}
+.event-editor .event-form textarea{min-height:118px!important;resize:vertical!important}
+.event-editor .event-form select{padding-right:42px!important}
+.event-editor .editor-map-link{
+  min-height:54px!important;
+  margin-top:16px!important;
+  padding:0 16px!important;
+  border:1px solid rgba(217,190,123,.18)!important;
+  border-radius:15px!important;
+  background:rgba(214,180,96,.045)!important;
+  font-size:11px!important;
+  letter-spacing:.10em!important;
+}
+.event-editor .event-editor-actions{
+  gap:12px!important;
+  margin-top:20px!important;
+}
+.event-editor .delete-event-button,.event-editor .save-event-button{
+  min-height:58px!important;
+  border-radius:16px!important;
+  font-size:13px!important;
+  gap:9px!important;
+}
+.event-editor .delete-event-button svg,.event-editor .save-event-button svg{width:20px!important;height:20px!important}
 
 @media(max-width:520px){
   .events-page{padding:16px 12px 20px!important}
@@ -63,8 +123,21 @@
   .hn-event-title{font-size:24px}
   .hn-event-time-grid{grid-template-columns:1fr 1fr}
   .hn-event-time-box:last-child:nth-child(3){grid-column:1/-1}
+  .event-editor{padding:14px 16px 28px!important}
+  .event-editor-head{margin-bottom:20px!important}
+  .event-editor-head h3{font-size:34px!important}
   .event-editor .event-time-grid{grid-template-columns:1fr 1fr!important}
   .event-editor .event-time-grid>label:last-child:nth-child(3){grid-column:1/-1!important}
+  .event-editor .event-form-grid{grid-template-columns:1fr 1fr!important}
+  .event-editor .event-form input,.event-editor .event-form select,.event-editor .event-form textarea{font-size:14px!important;min-height:56px!important}
+  .event-editor .event-form textarea{min-height:112px!important}
+  .event-editor .delete-event-button,.event-editor .save-event-button{min-height:56px!important;font-size:12px!important}
+}
+
+@media(max-width:370px){
+  .event-editor .event-form-grid{grid-template-columns:1fr!important}
+  .event-editor .event-time-grid{grid-template-columns:1fr!important}
+  .event-editor .event-time-grid>label:last-child:nth-child(3){grid-column:auto!important}
 }
 
 @media(min-width:700px){
@@ -72,4 +145,7 @@
   .events-hn-header{margin-bottom:28px}.events-hn-header h2{font-size:62px}.events-hn-brand{font-size:16px}
   .hn-event-card{padding:19px 60px 19px 19px}.hn-event-title{font-size:30px}.hn-event-venue{font-size:11px}.hn-event-day{font-size:10px}
   .hn-event-time-box{padding:11px}.hn-event-time-box strong{font-size:18px}.hn-event-detail{font-size:11px}
+  .event-editor{padding:18px 24px 32px!important}
+  .event-editor-head h3{font-size:46px!important}
+  .event-editor .event-form input,.event-editor .event-form select,.event-editor .event-form textarea{font-size:16px!important;min-height:60px!important}
 }
