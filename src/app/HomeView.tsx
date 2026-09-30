@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Bell, CalendarDays, FileSpreadsheet, MapPin, Mic } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import NbaWorkspace from '../NbaWorkspace';
 import type { AppView, EventItem, ReminderItem } from '../types';
 import { money } from './assistantActions';
 
@@ -30,6 +32,10 @@ export default function HomeView({
   onOpenMlb,
   onToggleReminder
 }: Props) {
+  const [nbaOpen, setNbaOpen] = useState(false);
+
+  if (nbaOpen) return <NbaWorkspace onBack={() => setNbaOpen(false)} />;
+
   return (
     <section className="home-view">
       <div className="home-summary">
@@ -37,10 +43,16 @@ export default function HomeView({
         <button onClick={onVoice}><Mic size={18} /> Hablar con DJ NOA</button>
       </div>
 
-      <button type="button" className="mlb-corner-badge" aria-label="Abrir sección MLB" onClick={onOpenMlb}>
-        <img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" alt="MLB" />
-        <span>MLB</span>
-      </button>
+      <div className="sports-corner-stack" aria-label="Deportes">
+        <button type="button" className="sports-corner-badge mlb-corner-badge" aria-label="Abrir sección MLB" onClick={onOpenMlb}>
+          <img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" alt="MLB" />
+          <span>MLB</span>
+        </button>
+        <button type="button" className="sports-corner-badge nba-corner-badge" aria-label="Abrir sección NBA" onClick={() => setNbaOpen(true)}>
+          <img src="https://cdn.nba.com/logos/leagues/logo-nba.svg" alt="NBA" />
+          <span>NBA</span>
+        </button>
+      </div>
 
       <div className="section-label-row"><span>ACCESOS RÁPIDOS</span></div>
       <div className="quick-grid">
