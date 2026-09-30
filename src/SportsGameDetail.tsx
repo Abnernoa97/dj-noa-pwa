@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Brain, TrendingDown, TrendingUp } from 'lucide-react';
 
 type BookOdds = { provider: string; away: number; home: number };
@@ -78,11 +78,10 @@ export default function SportsGameDetail({ sport, game, standings, onBack }: Pro
     } catch { return null; }
   }, [storageKey]);
 
-  useMemo(() => {
+  useEffect(() => {
     try {
       localStorage.setItem(storageKey, JSON.stringify({ away: game.consensusAway, home: game.consensusHome, at: new Date().toISOString() } satisfies StoredOdds));
     } catch { /* best effort */ }
-    return null;
   }, [storageKey, game.consensusAway, game.consensusHome]);
 
   const awayStanding = standings.find((row) => row.abbreviation === game.away.abbreviation);
@@ -138,8 +137,8 @@ export default function SportsGameDetail({ sport, game, standings, onBack }: Pro
         <section className="sports-card">
           <div className="sports-card-title"><span>MERCADO</span><h3>Momios y movimiento</h3></div>
           <div className="sports-consensus-grid">
-            <div><small>{game.away.abbreviation}</small><strong>{odd(game.consensusAway)}</strong>{awayMove ? <span className={awayMove}><>{awayMove === 'up' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}</>{awayMove === 'up' ? 'sube' : 'baja'}</span> : <span>sin cambio</span>}</div>
-            <div><small>{game.home.abbreviation}</small><strong>{odd(game.consensusHome)}</strong>{homeMove ? <span className={homeMove}><>{homeMove === 'up' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}</>{homeMove === 'up' ? 'sube' : 'baja'}</span> : <span>sin cambio</span>}</div>
+            <div><small>{game.away.abbreviation}</small><strong>{odd(game.consensusAway)}</strong>{awayMove ? <span className={awayMove}>{awayMove === 'up' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}{awayMove === 'up' ? 'sube' : 'baja'}</span> : <span>sin cambio</span>}</div>
+            <div><small>{game.home.abbreviation}</small><strong>{odd(game.consensusHome)}</strong>{homeMove ? <span className={homeMove}>{homeMove === 'up' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}{homeMove === 'up' ? 'sube' : 'baja'}</span> : <span>sin cambio</span>}</div>
           </div>
           {game.books.length ? <div className="sports-books">
             <div className="sports-books-head"><span>CASA</span><b>{game.away.abbreviation}</b><b>{game.home.abbreviation}</b></div>
