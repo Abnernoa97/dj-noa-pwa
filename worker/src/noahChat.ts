@@ -8,6 +8,8 @@ type EventSnapshot = Record<string, unknown>;
 type EventAction = Record<string, unknown>;
 type NavigableSection = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
 
+type ActionSurface = 'events' | 'calendar';
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -67,6 +69,10 @@ function cleanStatus(value: unknown) {
   return value === 'confirmed' || value === 'tentative' || value === 'done' ? value : undefined;
 }
 
+function cleanSurface(value: unknown): ActionSurface | undefined {
+  return value === 'events' || value === 'calendar' ? value : undefined;
+}
+
 function sanitizePatch(raw: unknown) {
   if (!raw || typeof raw !== 'object') return {};
   const value = raw as Record<string, unknown>;
@@ -93,10 +99,22 @@ function cleanSection(value: unknown): NavigableSection | undefined {
   return value === 'home' || value === 'events' || value === 'calendar' || value === 'sheet' || value === 'reminders' ? value : undefined;
 }
 
+function cleanWeekdays(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 0 && item <= 6))].sort((a, b) => a - b);
+}
+
+function validSeriesRange(startDate: string, endDate: string) {
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return false;
+  return end - start <= 732 * 24 * 60 * 60 * 1000;
+}
+
 function sanitizeActions(raw: unknown, eventIds: Set<string>) {
   if (!Array.isArray(raw)) return [];
   const actions: EventAction[] = [];
-  for (const item of raw.slice(0, 12)) {
+  for (const item of raw.slice(0, 16)) {
     if (!item || typeof item !== 'object') continue;
     const action = item as Record<string, unknown>;
     const type = String(action.type || '');
@@ -121,7 +139,23 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
       cleanEvent.title = title;
       cleanEvent.date = date;
       if (!cleanEvent.status) cleanEvent.status = 'confirmed';
-      actions.push({ type, event: cleanEvent });
+      const surface = cleanSurface(action.surface);
+      actions.push(surface ? { type, event: cleanEvent, surface } : { type, event: cleanEvent });
+      continue;
+    }
+
+    if (type === 'create_calendar_series') {
+      const event = action.event && typeof action.event === 'object' ? action.event as Record<string, unknown> : {};
+      const title = cleanString(event.title, 180);
+      const startDate = cleanDate(action.startDate);
+      const endDate = cleanDate(action.endDate);
+      const weekdays = cleanWeekdays(action.weekdays);
+      if (!title || !startDate || !endDate || !weekdays.length || !validSeriesRange(startDate, endDate)) continue;
+      const cleanEvent = sanitizePatch(event);
+      delete cleanEvent.date;
+      cleanEvent.title = title;
+      if (!cleanEvent.status) cleanEvent.status = 'confirmed';
+      actions.push({ type, event: cleanEvent, startDate, endDate, weekdays });
       continue;
     }
 
@@ -140,7 +174,7 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
 
 function navigationIntent(text: string): { section: NavigableSection; reply: string } | null {
   const clean = normalize(text);
-  const transition = '(?:pasemos|pasamos|pasar|pasaramos|vamos|vayamos|ve|abre|abrir|cambia|cambiemos|cambiar|ir|vamonos|llevame|llevame a|quiero ir)';
+  const transition = '(?:pasemos|pasamos|pasar|vamos|vayamos|ve|abre|abrir|cambia|cambiemos|cambiar|ir|vamonos|llevame|quiero ir)';
   const matches = (term: string) => new RegExp(`${transition}\\s+(?:a\\s+|al\\s+|la\\s+)?${term}\\b`).test(clean);
 
   if (matches('calendario')) return { section: 'calendar', reply: 'Perfecto, pasamos a Calendario.' };
@@ -152,34 +186,51 @@ function navigationIntent(text: string): { section: NavigableSection; reply: str
 }
 
 function mutationIntent(text: string) {
-  return /\b(crea|crear|creame|agrega|anade|añade|pon|edita|editar|cambia|cambiar|modifica|actualiza|mueve|reprograma|borra|borrar|elimina|eliminar|abre|abrir)\b/i.test(text);
+  return /\b(crea|crear|creame|hacer|haz|agrega|anade|añade|pon|ponle|programa|programar|agenda|agendar|cada|todos|todas|edita|editar|cambia|cambiar|modifica|actualiza|mueve|reprograma|borra|borrar|elimina|eliminar)\b/i.test(text);
+}
+
+function pureNavigationOnly(text: string) {
+  const words = normalize(text).split(/\s+/).filter(Boolean);
+  return words.length <= 6 && !mutationIntent(text) && !/\b(que|cual|cuando|dime|revisa|busca|tengo|hay|evento|eventos)\b/i.test(normalize(text));
 }
 
 function systemPrompt(contextText: string) {
-  return `Eres Noah, el asistente personal de voz de DJ NOA. Hablas español de México como una persona: natural, continuo, breve y sin frases robóticas. Mantienes el hilo de la conversación aunque el usuario cambie de sección o de tema.
+  return `Eres Noah, el asistente personal de voz de DJ NOA. Hablas español de México como una persona: natural, continuo, breve y sin frases robóticas. Mantienes el hilo completo de una instrucción aunque el usuario mencione una sección al principio.
 
 CONTEXTO ACTUAL:
 ${contextText}
 
 HERRAMIENTAS DISPONIBLES AHORA:
 - EVENTOS: leer, buscar, resumir, crear, editar, borrar y abrir eventos usando CURRENT_EVENTS.
-- NAVEGACIÓN: puedes cambiar libremente entre Inicio, Eventos, Calendario, Excel y Tareas.
+- CALENDARIO: crear un evento directamente sobre el calendario y crear series recurrentes por rango de fechas y días de la semana.
+- NAVEGACIÓN: cambiar entre Inicio, Eventos, Calendario, Excel y Tareas.
 
-REGLAS DE CONVERSACIÓN:
-1. Nunca discutas con el usuario sobre qué sección debe terminar primero. Si dice “terminamos Eventos, pasemos a Calendario”, simplemente cambia a Calendario.
-2. Nunca digas “estamos terminando Eventos”, “todavía no hemos terminado Eventos” ni frases equivalentes.
-3. Una respuesta hablada por turno. Corta, humana y directa. No enumeres en voz lo que la interfaz ya mostrará visualmente.
-4. Mantén continuidad con HISTORY. Si el usuario cambia de tema, síguelo naturalmente.
-5. No inventes datos ni acciones ejecutadas.
+REGLAS CRÍTICAS DE INTENCIÓN:
+1. Escucha la frase COMPLETA antes de decidir. Una mención como “vamos a Calendario” NO significa que debas detenerte ahí si después viene una tarea.
+2. Si el usuario da sección + operación + datos en una sola frase, EJECUTA TODO EN ESE MISMO TURNO. Nunca navegues solamente y luego pidas que repita la información.
+3. Si la operación pertenece al Calendario, usa directamente create_event con surface="calendar" o create_calendar_series. Estas acciones ya abren Calendario; no necesitas navigate_section antes.
+4. Para recurrencias, interioriza el patrón completo y devuelve UNA sola create_calendar_series. Nunca generes decenas de create_event.
+5. Solo pregunta algo si de verdad falta un dato imprescindible y no puede inferirse del lenguaje.
+6. Nunca discutas con el usuario sobre qué sección debe terminar primero.
+7. Una sola respuesta hablada por turno, corta y humana. El detalle del trabajo se mostrará visualmente.
 
 REGLAS DE EVENTOS:
 1. Nunca inventes un eventId. Para update/delete/open usa EXACTAMENTE un id de CURRENT_EVENTS.
 2. Si hay ambigüedad real entre dos eventos, pregunta cuál y devuelve cero acciones.
 3. Para fechas relativas usa CURRENT_LOCAL_DATETIME. Devuelve fechas YYYY-MM-DD y horas HH:mm en formato 24h.
-4. Puedes devolver varias acciones en orden si el usuario pide varias modificaciones en una sola frase.
-5. Para consultas solamente, eventActions debe ser [].
-6. Para cambios de sección usa navigate_section. Cambiar de sección NO termina la conversación.
-7. Si el usuario pide una operación interna de Calendario, Excel o Tareas que aún no está representada por una acción disponible, no inventes que la hiciste. Puedes navegar a esa sección y continuar la conversación desde ahí.
+4. Para consultas solamente, eventActions debe ser [].
+5. Cambiar de sección NO termina la conversación.
+
+REGLAS DE CALENDARIO:
+1. weekday usa JavaScript: domingo=0, lunes=1, martes=2, miércoles=3, jueves=4, viernes=5, sábado=6.
+2. “todos los viernes, sábado y domingo de 2027” => startDate 2027-01-01, endDate 2027-12-31, weekdays [0,5,6].
+3. Si el usuario dice “ponle Evento de 50 mil”, ese texto puede ser el título del evento.
+4. Si pide un solo día en Calendario, usa create_event con surface="calendar".
+5. No afirmes que algo quedó creado si no incluyes la acción correspondiente.
+
+EJEMPLO:
+Usuario: “Vamos a hacer un evento en el calendario todos los viernes, sábado y domingo del año 2027 y vamos a ponerle Evento de 50 mil.”
+Respuesta: {"reply":"Perfecto, lo creo en Calendario.","eventActions":[{"type":"create_calendar_series","event":{"title":"Evento de 50 mil","status":"confirmed"},"startDate":"2027-01-01","endDate":"2027-12-31","weekdays":[0,5,6]}]}
 
 RESPONDE SOLO JSON VÁLIDO, sin markdown:
 {"reply":"una sola frase breve","eventActions":[]}
@@ -188,7 +239,8 @@ Acciones permitidas:
 {"type":"navigate_section","section":"home|events|calendar|sheet|reminders"}
 {"type":"open_events"}
 {"type":"open_event","eventId":"id existente"}
-{"type":"create_event","event":{"title":"...","date":"YYYY-MM-DD","showTime":"HH:mm","venue":"...","status":"confirmed"}}
+{"type":"create_event","surface":"events|calendar","event":{"title":"...","date":"YYYY-MM-DD","showTime":"HH:mm","venue":"...","status":"confirmed"}}
+{"type":"create_calendar_series","event":{"title":"...","showTime":"HH:mm","venue":"...","status":"confirmed"},"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD","weekdays":[0,5,6]}
 {"type":"update_event","eventId":"id existente","patch":{"venue":"..."}}
 {"type":"delete_event","eventId":"id existente"}`;
 }
@@ -214,7 +266,7 @@ async function runModel(env: Env, messages: Array<{ role: string; content: strin
 
   return env.AI.run(
     '@cf/meta/llama-3.1-8b-instruct-fast',
-    { messages, temperature: 0.1, max_tokens: 650 },
+    { messages, temperature: 0.05, max_tokens: 700 },
     { rejectIfBusy: false }
   );
 }
@@ -228,11 +280,11 @@ export async function handleNoahChat(request: Request, env: Env) {
       history?: ChatTurn[];
       context?: { section?: string; localDateTime?: string; timezoneOffsetMinutes?: number; events?: EventSnapshot[] };
     };
-    const message = String(body?.message || '').trim().slice(0, 1600);
+    const message = String(body?.message || '').trim().slice(0, 1800);
     if (!message) return json({ error: 'message_required' }, 400);
 
     const directNavigation = navigationIntent(message);
-    if (directNavigation) {
+    if (directNavigation && pureNavigationOnly(message)) {
       return json({
         text: directNavigation.reply,
         eventActions: [{ type: 'navigate_section', section: directNavigation.section }]
@@ -240,7 +292,7 @@ export async function handleNoahChat(request: Request, env: Env) {
     }
 
     const events = Array.isArray(body.context?.events)
-      ? body.context!.events!.slice(0, 80).map((event) => ({
+      ? body.context!.events!.slice(0, 100).map((event) => ({
           id: cleanString(event.id, 120),
           title: cleanString(event.title, 180),
           date: cleanDate(event.date),
@@ -269,9 +321,9 @@ export async function handleNoahChat(request: Request, env: Env) {
     });
 
     const history = Array.isArray(body.history)
-      ? body.history.slice(-12).map((item) => ({
+      ? body.history.slice(-14).map((item) => ({
           role: item?.role === 'assistant' ? 'assistant' : 'user',
-          content: String(item?.content || '').trim().slice(0, 900)
+          content: String(item?.content || '').trim().slice(0, 1000)
         })).filter((item) => item.content)
       : [];
 

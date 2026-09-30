@@ -19,9 +19,11 @@ export type NoahEventPatch = Partial<Pick<EventItem,
 >>;
 
 export type NoahNavigableSection = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
+export type NoahActionSurface = 'events' | 'calendar';
 
 export type NoahEventAction =
-  | { type: 'create_event'; event: NoahEventPatch & { title: string; date: string; status?: EventStatus } }
+  | { type: 'create_event'; event: NoahEventPatch & { title: string; date: string; status?: EventStatus }; surface?: NoahActionSurface }
+  | { type: 'create_calendar_series'; event: NoahEventPatch & { title: string; status?: EventStatus }; startDate: string; endDate: string; weekdays: number[] }
   | { type: 'update_event'; eventId: string; patch: NoahEventPatch }
   | { type: 'delete_event'; eventId: string }
   | { type: 'open_event'; eventId: string }
@@ -63,7 +65,8 @@ export function sectionName(section: NoahNavigableSection) {
 export function eventActionLabel(action: NoahEventAction, events: EventItem[]) {
   if (action.type === 'navigate_section') return { title: `Abriendo ${sectionName(action.section)}`, detail: 'Cambiando de sección', scope: 'NAVEGACIÓN' };
   if (action.type === 'open_events') return { title: 'Abriendo Eventos', detail: 'Agenda de eventos', scope: 'EVENTOS' };
-  if (action.type === 'create_event') return { title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS' };
+  if (action.type === 'create_calendar_series') return { title: 'Creando serie', detail: action.event.title, scope: 'CALENDARIO' };
+  if (action.type === 'create_event') return { title: 'Creando evento', detail: action.event.title, scope: action.surface === 'calendar' ? 'CALENDARIO' : 'EVENTOS' };
   const event = events.find((item) => item.id === action.eventId);
   const name = event?.title || 'Evento';
   if (action.type === 'update_event') return { title: 'Actualizando evento', detail: name, scope: 'EVENTOS' };

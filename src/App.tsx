@@ -42,6 +42,10 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
 
+function normalizedEventTitle(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 const fieldLabels: Partial<Record<keyof NoahEventPatch, string>> = {
   title: 'Nombre',
   date: 'Fecha',
@@ -71,7 +75,7 @@ function patchEntries(patch: NoahEventPatch) {
 }
 
 function progressSteps(entries: Array<[keyof NoahEventPatch, unknown]>, prefix: string, activeIndex: number, complete = false): NoahActionStep[] {
-  const steps: NoahActionStep[] = [
+  return [
     { id: `${prefix}-open`, label: prefix === 'create' ? 'Preparando ficha' : 'Abriendo ficha', state: complete || activeIndex > 0 ? 'done' : 'active' },
     ...entries.map(([key, value], index) => ({
       id: `${prefix}-${String(key)}`,
@@ -81,7 +85,20 @@ function progressSteps(entries: Array<[keyof NoahEventPatch, unknown]>, prefix: 
     } as NoahActionStep)),
     { id: `${prefix}-save`, label: 'Guardando cambios', state: complete ? 'done' : activeIndex > entries.length ? 'active' : 'pending' }
   ];
-  return steps;
+}
+
+function calendarSeriesSteps(created: number, total: number, monthLabel: string, complete = false): NoahActionStep[] {
+  return [
+    { id: 'series-pattern', label: 'Patrón entendido', state: 'done' },
+    { id: 'series-calendar', label: 'Calendario abierto', state: 'done' },
+    {
+      id: 'series-write',
+      label: complete ? 'Fechas creadas' : 'Agregando fechas',
+      value: complete ? `${created}` : `${monthLabel} · ${created}/${total}`,
+      state: complete ? 'done' : 'active'
+    },
+    { id: 'series-save', label: 'Guardando serie', state: complete ? 'done' : 'pending' }
+  ];
 }
 
 export default function App() {
@@ -97,6 +114,7 @@ export default function App() {
   const [eventHubId, setEventHubId] = useState<string | null>(null);
   const [selectedSheetRowId, setSelectedSheetRowId] = useState<string | null>(null);
   const [noahActivity, setNoahActivity] = useState<NoahActionActivity | null>(null);
+  const [noahCalendarDates, setNoahCalendarDates] = useState<string[]>([]);
   const noahRef = useRef<NoahVoiceHandle>(null);
   const noahActivityTimerRef = useRef<number | null>(null);
 
@@ -141,6 +159,7 @@ export default function App() {
     if (activity.phase !== 'working') {
       noahActivityTimerRef.current = window.setTimeout(() => {
         setNoahActivity(null);
+        setNoahCalendarDates([]);
         noahActivityTimerRef.current = null;
       }, 1650);
     }
@@ -190,7 +209,7 @@ export default function App() {
         setEventHubId(null);
         if (action.section === 'calendar') setMonth(startOfMonth(new Date()));
         setView(action.section);
-        await sleep(220);
+        await sleep(180);
         showNoahActivity({ phase: 'done', title: name, detail: 'Listo', scope: 'NAVEGACIÓN' });
         return { ok: true, message: `Perfecto, pasamos a ${name}.` };
       }
@@ -199,51 +218,150 @@ export default function App() {
         showNoahActivity({ phase: 'working', ...label });
         setEventHubId(null);
         setView('events');
-        await sleep(180);
+        await sleep(150);
         showNoahActivity({ phase: 'done', title: 'Eventos', detail: 'Agenda lista', scope: 'EVENTOS' });
         return { ok: true, message: 'Aquí están tus eventos.' };
       }
 
-      if (action.type === 'create_event') {
-        const entries = patchEntries(action.event);
-        showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', 0) });
-        setView('events');
+      if (action.type === 'create_calendar_series') {
+        const start = parseISO(action.startDate);
+        const end = parseISO(action.endDate);
+        const wantedWeekdays = new Set(action.weekdays);
+        const dates: string[] = [];
+        for (let day = start; day <= end; day = addDays(day, 1)) {
+          if (wantedWeekdays.has(day.getDay())) dates.push(format(day, 'yyyy-MM-dd'));
+        }
+        if (!dates.length) {
+          showNoahActivity({ phase: 'error', title: 'No encontré fechas', detail: 'Revisa el patrón solicitado', scope: 'CALENDARIO' });
+          return { ok: false, message: 'No encontré fechas para ese patrón.' };
+        }
+
         setEventHubId(null);
-        await sleep(180);
+        setView('calendar');
+        setMonth(startOfMonth(start));
+        setNoahCalendarDates([]);
+        showNoahActivity({ phase: 'working', title: 'Creando serie en Calendario', detail: action.event.title, scope: 'CALENDARIO', steps: calendarSeriesSteps(0, dates.length, 'Preparando') });
+        await sleep(160);
+
+        const existingKeys = new Set(events.map((event) => `${normalizedEventTitle(event.title)}|${event.date}`));
+        const monthGroups = new Map<string, string[]>();
+        for (const date of dates) {
+          const key = date.slice(0, 7);
+          const group = monthGroups.get(key) || [];
+          group.push(date);
+          monthGroups.set(key, group);
+        }
+
+        let created = 0;
+        let skipped = 0;
+        const firstMonthDates = monthGroups.values().next().value as string[] | undefined;
+
+        for (const groupDates of monthGroups.values()) {
+          const monthDate = startOfMonth(parseISO(groupDates[0]));
+          const monthLabel = format(monthDate, 'MMMM yyyy', { locale: es });
+          setMonth(monthDate);
+          setNoahCalendarDates(groupDates);
+
+          const batch: EventItem[] = [];
+          for (const date of groupDates) {
+            const duplicateKey = `${normalizedEventTitle(action.event.title)}|${date}`;
+            if (existingKeys.has(duplicateKey)) {
+              skipped += 1;
+              continue;
+            }
+            existingKeys.add(duplicateKey);
+            const now = new Date().toISOString();
+            const showTime = action.event.showTime ?? action.event.time ?? '';
+            batch.push({
+              id: uid(),
+              title: action.event.title.trim(),
+              date,
+              time: showTime,
+              callTime: action.event.callTime,
+              soundcheckTime: action.event.soundcheckTime,
+              showTime,
+              venue: action.event.venue,
+              address: action.event.address,
+              details: action.event.details,
+              dressCode: action.event.dressCode,
+              contactName: action.event.contactName,
+              contactPhone: action.event.contactPhone,
+              mapUrl: action.event.mapUrl,
+              notes: action.event.notes,
+              status: action.event.status || 'confirmed',
+              createdAt: now,
+              updatedAt: now
+            });
+          }
+
+          if (batch.length) {
+            await db.events.bulkAdd(batch);
+            created += batch.length;
+            setEvents((current) => sortEvents([...current, ...batch]));
+          }
+
+          showNoahActivity({
+            phase: 'working',
+            title: 'Escribiendo en Calendario',
+            detail: action.event.title,
+            scope: 'CALENDARIO',
+            steps: calendarSeriesSteps(created + skipped, dates.length, monthLabel)
+          });
+          await sleep(125);
+        }
+
+        if (firstMonthDates?.length) {
+          setMonth(startOfMonth(parseISO(firstMonthDates[0])));
+          setNoahCalendarDates(firstMonthDates);
+        }
+        const detail = skipped ? `${created} creados · ${skipped} ya existían` : `${created} eventos creados`;
+        showNoahActivity({ phase: 'done', title: 'Serie creada', detail, scope: 'CALENDARIO', steps: calendarSeriesSteps(created + skipped, dates.length, '', true) });
+        return { ok: true, message: skipped ? `Listo. Creé ${created} y omití ${skipped} que ya existían.` : `Listo, creé ${created} eventos en Calendario.` };
+      }
+
+      if (action.type === 'create_event') {
+        const calendarSurface = action.surface === 'calendar';
+        const entries = patchEntries(action.event);
+        const scope = calendarSurface ? 'CALENDARIO' : 'EVENTOS';
+        showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope, steps: progressSteps(entries, 'create', 0) });
+        setEventHubId(null);
+        if (calendarSurface) {
+          setView('calendar');
+          setMonth(startOfMonth(parseISO(action.event.date)));
+          setNoahCalendarDates([action.event.date]);
+        } else {
+          setView('events');
+        }
+        await sleep(150);
 
         const now = new Date().toISOString();
+        const showTime = action.event.showTime ?? action.event.time ?? '';
         const item: EventItem = {
           id: uid(),
           title: action.event.title.trim(),
           date: action.event.date,
-          time: '',
-          showTime: '',
+          time: showTime,
+          callTime: action.event.callTime,
+          soundcheckTime: action.event.soundcheckTime,
+          showTime,
+          venue: action.event.venue,
+          address: action.event.address,
+          details: action.event.details,
+          dressCode: action.event.dressCode,
+          contactName: action.event.contactName,
+          contactPhone: action.event.contactPhone,
+          mapUrl: action.event.mapUrl,
+          notes: action.event.notes,
           status: action.event.status || 'confirmed',
           createdAt: now,
           updatedAt: now
         };
         await db.events.add(item);
         setEvents((current) => sortEvents([...current, item]));
-        setEventHubId(item.id);
-        await sleep(240);
-
-        let currentItem = item;
-        for (let index = 0; index < entries.length; index += 1) {
-          const [key, value] = entries[index];
-          if (key === 'title' || key === 'date' || key === 'status') continue;
-          showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', index + 1) });
-          const patch: Partial<EventItem> & { updatedAt: string } = { [key]: value, updatedAt: new Date().toISOString() } as Partial<EventItem> & { updatedAt: string };
-          if (key === 'showTime') patch.time = String(value || '');
-          await db.events.update(item.id, patch);
-          currentItem = { ...currentItem, ...patch };
-          setEvents((current) => sortEvents(current.map((event) => event.id === item.id ? currentItem : event)));
-          await sleep(260);
-        }
-
-        showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', entries.length + 1) });
+        if (!calendarSurface) setEventHubId(item.id);
         await sleep(180);
-        showNoahActivity({ phase: 'done', title: 'Evento creado', detail: action.event.title, scope: 'EVENTOS', steps: progressSteps(entries, 'create', entries.length + 2, true) });
-        return { ok: true, message: 'Listo, evento creado.' };
+        showNoahActivity({ phase: 'done', title: 'Evento creado', detail: item.title, scope, steps: progressSteps(entries, 'create', entries.length + 2, true) });
+        return { ok: true, message: calendarSurface ? 'Listo, ya está en Calendario.' : 'Listo, evento creado.' };
       }
 
       const target = events.find((event) => event.id === action.eventId);
@@ -256,7 +374,7 @@ export default function App() {
         showNoahActivity({ phase: 'working', title: 'Abriendo ficha', detail: target.title, scope: 'EVENTOS' });
         setView('events');
         setEventHubId(target.id);
-        await sleep(200);
+        await sleep(160);
         showNoahActivity({ phase: 'done', title: target.title, detail: 'Ficha abierta', scope: 'EVENTOS' });
         return { ok: true, message: 'Aquí está.' };
       }
@@ -266,7 +384,7 @@ export default function App() {
         showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: target.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', 0) });
         setView('events');
         setEventHubId(target.id);
-        await sleep(250);
+        await sleep(200);
 
         let currentTarget = target;
         for (let index = 0; index < entries.length; index += 1) {
@@ -277,11 +395,9 @@ export default function App() {
           await db.events.update(target.id, patch);
           currentTarget = { ...currentTarget, ...patch };
           setEvents((current) => sortEvents(current.map((event) => event.id === target.id ? currentTarget : event)));
-          await sleep(285);
+          await sleep(220);
         }
 
-        showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 1) });
-        await sleep(180);
         showNoahActivity({ phase: 'done', title: 'Evento actualizado', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 2, true) });
         return { ok: true, message: 'Listo, quedó actualizado.' };
       }
@@ -295,12 +411,10 @@ export default function App() {
         setView('events');
         setEventHubId(target.id);
         showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps });
-        await sleep(260);
+        await sleep(220);
         showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps: steps.map((step, index) => ({ ...step, state: index === 0 ? 'done' : index === 1 ? 'active' : 'pending' })) });
-        await sleep(260);
-        showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps: steps.map((step, index) => ({ ...step, state: index < 2 ? 'done' : 'active' })) });
+        await sleep(220);
         await deleteEventWithRelations(target.id);
-        await sleep(160);
         showNoahActivity({ phase: 'done', title: 'Evento eliminado', detail: target.title, scope: 'EVENTOS', steps: steps.map((step) => ({ ...step, state: 'done' })) });
         return { ok: true, message: 'Listo, quedó eliminado.' };
       }
@@ -371,13 +485,13 @@ export default function App() {
             onToggleReminder={toggleReminder}
           />}
           {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
-          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
+          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} noahHighlightDates={noahCalendarDates} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
           {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={startNoah} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
           {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={startNoah} />}
         </>}
       </main>
 
-      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setView(next); }} />
+      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setNoahCalendarDates([]); setView(next); }} />
       <NoahVoice ref={noahRef} events={events} section={mlbOpen ? 'mlb' : view} onEventAction={executeNoahEventAction} />
       <NoahActionOverlay activity={noahActivity} />
 

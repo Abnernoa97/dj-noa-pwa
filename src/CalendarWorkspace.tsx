@@ -13,6 +13,7 @@ type Props = {
   events: EventItem[];
   reminders: ReminderItem[];
   sheetRows: SheetRow[];
+  noahHighlightDates?: string[];
   onOpenEvent: (event: EventItem) => void;
   onCreateEvent: (date: string) => void;
   onToggleReminder: (item: ReminderItem) => Promise<void> | void;
@@ -33,11 +34,12 @@ function dateKeyFromIso(value?: string) {
   try { return format(parseISO(value), 'yyyy-MM-dd'); } catch { return null; }
 }
 
-export default function CalendarWorkspace({ month, setMonth, events, reminders, sheetRows, onOpenEvent, onCreateEvent, onToggleReminder, onOpenReminders, onOpenSheetRow }: Props) {
+export default function CalendarWorkspace({ month, setMonth, events, reminders, sheetRows, noahHighlightDates = [], onOpenEvent, onCreateEvent, onToggleReminder, onOpenReminders, onOpenSheetRow }: Props) {
   const [mode, setMode] = useState<CalendarMode>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [datePicker, setDatePicker] = useState<DatePickerMode>(null);
+  const noahHighlightSet = useMemo(() => new Set(noahHighlightDates), [noahHighlightDates]);
 
   const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
 
@@ -155,14 +157,15 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
         const bundle = outside ? { events: [], reminders: [], rows: [] } : itemsForDate(dateKey);
         const selected = !outside && isSameDay(day, selectedDate);
         const totalItems = bundle.events.length + bundle.reminders.length + bundle.rows.length;
-        return <button key={dateKey} type="button" disabled={outside} aria-hidden={outside ? true : undefined} className={`calendar-day rich-day ${outside ? 'outside' : ''} ${!outside && isSameDay(day, new Date()) ? 'today' : ''} ${selected ? 'selected' : ''}`} onClick={() => openDay(day)}>{!outside && <><span className="rich-day-number">{format(day, 'd')}</span><div className="rich-day-dots">{bundle.events.length > 0 && <i className="event" />}{bundle.reminders.length > 0 && <i className="task" />}{bundle.rows.length > 0 && <i className="sheet" />}</div>{totalItems > 0 && <small>{totalItems}</small>}</>}</button>;
+        const noahWriting = !outside && noahHighlightSet.has(dateKey);
+        return <button key={dateKey} type="button" disabled={outside} aria-hidden={outside ? true : undefined} className={`calendar-day rich-day ${outside ? 'outside' : ''} ${!outside && isSameDay(day, new Date()) ? 'today' : ''} ${selected ? 'selected' : ''} ${noahWriting ? 'noah-writing' : ''}`} onClick={() => openDay(day)}>{!outside && <><span className="rich-day-number">{format(day, 'd')}</span><div className="rich-day-dots">{bundle.events.length > 0 && <i className="event" />}{bundle.reminders.length > 0 && <i className="task" />}{bundle.rows.length > 0 && <i className="sheet" />}</div>{totalItems > 0 && <small>{totalItems}</small>}</>}</button>;
       })}</div></>}
 
       {mode === 'week' && <div className="calendar-week rich-week">{weekDays.map((day) => {
         const dateKey = format(day, 'yyyy-MM-dd');
         const bundle = itemsForDate(dateKey);
         const firstEvent = bundle.events[0];
-        return <button key={dateKey} className={`week-day ${isSameDay(day, new Date()) ? 'today' : ''} ${isSameDay(day, selectedDate) ? 'selected' : ''}`} onClick={() => openDay(day)}><div className="week-day-head"><span>{format(day, 'EEE', { locale: es })}</span><strong>{format(day, 'd')}</strong></div><div className="week-counts"><span className="event">{bundle.events.length}</span><span className="task">{bundle.reminders.length}</span><span className="sheet">{bundle.rows.length}</span></div>{firstEvent ? <div className="week-preview"><strong>{firstEvent.title}</strong><span>{firstEvent.time || 'Sin hora'}</span></div> : <div className="week-empty">Sin eventos</div>}</button>;
+        return <button key={dateKey} className={`week-day ${isSameDay(day, new Date()) ? 'today' : ''} ${isSameDay(day, selectedDate) ? 'selected' : ''} ${noahHighlightSet.has(dateKey) ? 'noah-writing' : ''}`} onClick={() => openDay(day)}><div className="week-day-head"><span>{format(day, 'EEE', { locale: es })}</span><strong>{format(day, 'd')}</strong></div><div className="week-counts"><span className="event">{bundle.events.length}</span><span className="task">{bundle.reminders.length}</span><span className="sheet">{bundle.rows.length}</span></div>{firstEvent ? <div className="week-preview"><strong>{firstEvent.title}</strong><span>{firstEvent.time || 'Sin hora'}</span></div> : <div className="week-empty">Sin eventos</div>}</button>;
       })}</div>}
 
       {mode === 'day' && <DaySummary date={month} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={onOpenEvent} onToggleReminder={onToggleReminder} onOpenReminders={onOpenReminders} onOpenSheetRow={onOpenSheetRow} onCreateEvent={onCreateEvent} />}

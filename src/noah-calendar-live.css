@@ -1,0 +1,30 @@
+.calendar-day.noah-writing,
+.week-day.noah-writing {
+  position: relative;
+  isolation: isolate;
+  animation: noahCalendarCellPulse 520ms ease-out both;
+}
+
+.calendar-day.noah-writing::after,
+.week-day.noah-writing::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  border: 1px solid rgba(234, 214, 157, 0.72);
+  box-shadow: 0 0 0 1px rgba(234, 214, 157, 0.14), 0 0 18px rgba(234, 214, 157, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.calendar-day.noah-writing .rich-day-number,
+.week-day.noah-writing .week-day-head strong {
+  transform: scale(1.08);
+  transition: transform 180ms ease;
+}
+
+@keyframes noahCalendarCellPulse {
+  0% { transform: scale(0.94); opacity: 0.72; }
+  55% { transform: scale(1.025); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
