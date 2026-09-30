@@ -1,0 +1,84 @@
+/* Final readability and interaction polish.
+   This layer only raises legibility and removes duplicate assistant entry points;
+   layout geometry remains owned by viewport-layout.css. */
+
+/* One assistant, two intentional global entrances:
+   floating voice orb + conversation dock. Remove section-specific duplicates. */
+.sheet-classic-actions button[title="Voz"]{display:none!important}
+.reminder-bottom-actions button:last-child{display:none!important}
+.reminder-bottom-actions{grid-template-columns:1fr!important}
+
+/* Global editorial labels */
+.topbar-date{font-size:9px!important;letter-spacing:.16em!important}
+.home-view::before{font-size:8px!important;letter-spacing:.16em!important}
+.card-heading{font-size:8px!important;letter-spacing:.16em!important}
+.event-date-block span{font-size:8px!important}
+.event-main-copy p{font-size:10px!important;line-height:1.35!important}
+.direction-button,.event-detail-link{font-size:8.5px!important}
+.empty-state p{font-size:10px!important}
+.empty-state button{font-size:9px!important}
+
+/* Navigation stays compact but readable */
+.nav-button{font-size:8.5px!important;letter-spacing:.06em!important;min-height:42px!important}
+
+/* Calendar */
+.calendar-today-button,.calendar-view-switch button{font-size:8px!important}
+.calendar-month-metrics span{font-size:7.5px!important;letter-spacing:.08em!important}
+.calendar-month-metrics strong{font-size:11.5px!important}
+.weekday-row{font-size:8px!important}
+.calendar-day>span{font-size:9.5px!important}
+.calendar-event-button,.calendar-more{font-size:7.5px!important}
+.agenda-date span,.agenda-copy span{font-size:8px!important}
+.agenda-copy strong{font-size:10px!important}
+.week-day-head span,.week-event span,.week-empty{font-size:7.5px!important}
+.week-event strong{font-size:8.5px!important}
+.day-event-copy strong{font-size:10.5px!important}
+.day-event-copy span{font-size:8px!important}
+
+/* Excel */
+.sheet-mini-summary span{font-size:8px!important}
+.sheet-mini-summary b{font-size:9.5px!important}
+.sheet-classic-tools label,.sheet-classic-tools input,.sheet-classic-tools select{font-size:8.5px!important}
+.excel-head span{font-size:7.5px!important;letter-spacing:.03em!important}
+.excel-row>span{font-size:8.5px!important;line-height:1.25!important}
+.sheet-table-hint{font-size:8.5px!important;line-height:1.35!important}
+
+/* Events and reminders */
+.events-section-label,.reminder-section-title{font-size:8px!important;letter-spacing:.12em!important}
+.event-row-date span,.event-row-copy span,.reminder-main span{font-size:8px!important}
+.event-row-copy strong,.reminder-main strong{font-size:10px!important;line-height:1.25!important}
+.notification-permission span strong{font-size:10px!important}
+.notification-permission span small{font-size:8px!important;line-height:1.3!important}
+
+/* Continuous conversation */
+.dj-thread-head>div span{font-size:8px!important}
+.dj-thread-head>div strong{font-size:14px!important}
+.dj-thread-turn p{font-size:10.5px!important;line-height:1.42!important}
+.dj-thread-empty{font-size:9.5px!important}
+.dj-thread-live small{font-size:8.5px!important}
+.dj-thread-compose input{font-size:10.5px!important}
+.dj-thread-stop-note{font-size:8px!important}
+.dj-thread-collapsed strong{font-size:8.5px!important}
+.dj-thread-collapsed span{font-size:8.5px!important}
+
+/* Visible AI execution */
+.dj-live-kicker{font-size:8px!important;letter-spacing:.14em!important}
+.dj-live-count{font-size:8.5px!important}
+.dj-live-cancel{font-size:8px!important}
+.dj-live-action small{font-size:9px!important;line-height:1.3!important}
+
+/* Large-plan preview */
+.dj-plan-top span,.dj-plan-top small{font-size:8px!important}
+.dj-plan-steps span{font-size:9px!important;line-height:1.4!important}
+.dj-plan-actions button{font-size:8.5px!important}
+
+@media(max-width:640px){
+  .topbar-date{font-size:8.5px!important}
+  .home-view::before{font-size:7.5px!important}
+  .nav-button{font-size:8px!important;min-height:40px!important}
+  .dj-thread-turn p{font-size:10px!important}
+  .dj-thread-compose input{font-size:10px!important}
+  .dj-live-kicker{font-size:7.5px!important}
+  .dj-live-action small{font-size:8.5px!important}
+  .dj-plan-steps span{font-size:8.5px!important}
+}
