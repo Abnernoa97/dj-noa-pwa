@@ -10,6 +10,7 @@ export type RequestBody = {
   now?: string;
   timezone?: string;
   locale?: string;
+  inputMode?: 'text' | 'voice';
   history?: Array<{ role?: string; content?: string }>;
   uiContext?: {
     view?: string;
