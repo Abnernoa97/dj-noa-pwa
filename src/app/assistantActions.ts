@@ -34,7 +34,7 @@ export function isMutatingAction(action: AssistantAction) {
   return [
     'create_event', 'update_event', 'delete_event',
     'create_reminder', 'update_reminder', 'delete_reminder',
-    'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'add_sheet_column'
+    'add_sheet_row', 'update_sheet_row', 'delete_sheet_row', 'clear_sheet_rows', 'add_sheet_column'
   ].includes(action.type);
 }
 
@@ -63,6 +63,7 @@ export function actionMeta(action: AssistantAction): { visible: boolean; view?: 
   if (action.type === 'add_sheet_row') return { visible: true, view: 'sheet', title: 'Añadiendo a Excel', detail: `${action.label} · ${money.format(action.amount)}` };
   if (action.type === 'update_sheet_row') return { visible: true, view: 'sheet', title: 'Actualizando Excel', detail: action.label || 'Aplicando cambios a la fila' };
   if (action.type === 'delete_sheet_row') return { visible: true, view: 'sheet', title: 'Eliminando fila', detail: 'Eliminando también sus fotos vinculadas' };
+  if (action.type === 'clear_sheet_rows') return { visible: true, view: 'sheet', title: 'Vaciando Excel', detail: 'Eliminando todos los registros y sus fotos' };
   if (action.type === 'add_sheet_column') return { visible: true, view: 'sheet', title: 'Creando columna', detail: action.name };
   if (action.type === 'navigate') return { visible: true, view: action.view, title: 'Abriendo sección', detail: action.view === 'sheet' ? 'Excel' : action.view === 'reminders' ? 'Tareas' : action.view === 'calendar' ? 'Calendario' : action.view === 'events' ? 'Eventos' : 'Inicio' };
   if (action.type === 'open_map') return { visible: true, view: 'events', title: 'Preparando ruta', detail: 'Abriendo ubicación del evento' };
