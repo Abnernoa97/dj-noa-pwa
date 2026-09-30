@@ -1,9 +1,18 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
+import type { EventItem } from './types';
+import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 
 type VoiceStatus = 'idle' | 'starting' | 'listening' | 'thinking' | 'speaking' | 'error';
 type ChatTurn = { role: 'user' | 'assistant'; content: string };
 type OrbPosition = { x: number; y: number };
+type PendingConfirmation = { actions: NoahEventAction[]; reply: string };
+
+type Props = {
+  events: EventItem[];
+  section: string;
+  onEventAction: (action: NoahEventAction) => Promise<NoahEventActionResult>;
+};
 
 export type NoahVoiceHandle = {
   start: () => void;
@@ -13,6 +22,8 @@ export type NoahVoiceHandle = {
 const POSITION_KEY = 'dj-noa-voice-button-position-v1';
 const TURN_SILENCE_MS = 1400;
 const CLOSE_SESSION = /^(?:listo|terminamos|termina|eso es todo|ya estuvo|gracias(?: noah| noa)?|cierra(?: la conversación)?|hasta luego)$/i;
+const YES_CONFIRM = /^(?:si|sí|confirmo|confirmado|adelante|hazlo|correcto|ok|okay|de acuerdo)$/i;
+const NO_CONFIRM = /^(?:no|cancela|cancelar|no lo hagas|no lo borres|dejalo|déjalo)$/i;
 
 function recognitionCtor() {
   const scope = window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any };
@@ -27,7 +38,7 @@ function normalizeSpeech(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
+const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events, section, onEventAction }, ref) {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [position, setPosition] = useState<OrbPosition | null>(null);
@@ -43,6 +54,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
   const interimRef = useRef('');
   const lastSubmittedRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   const historyRef = useRef<ChatTurn[]>([]);
+  const pendingConfirmationRef = useRef<PendingConfirmation | null>(null);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
 
   const clearTurnTimer = () => {
@@ -73,6 +85,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     setStatus('idle');
     processingRef.current = false;
     speakingRef.current = false;
+    pendingConfirmationRef.current = null;
     resetTurnBuffer();
     closeRecognition(true);
     try { window.speechSynthesis?.cancel?.(); } catch { /* noop */ }
@@ -162,8 +175,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
         return;
       }
 
-      // Android/Google may end a recognition window by itself. Do not auto-restart it:
-      // restarting here is what causes the repeated microphone activation sound.
       stopSession();
     };
 
@@ -183,8 +194,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
         return;
       }
 
-      // No automatic onend -> start loop. If Google closes an empty listening window,
-      // the session simply returns to idle and the button can start a fresh conversation.
       stopSession();
     };
 
@@ -227,11 +236,43 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     window.speechSynthesis.speak(utterance);
   };
 
+  const executeEventActions = async (actions: NoahEventAction[], successText: string) => {
+    processingRef.current = true;
+    setStatus('thinking');
+    let failed: NoahEventActionResult | null = null;
+    for (const action of actions) {
+      const result = await onEventAction(action);
+      if (!result.ok) {
+        failed = result;
+        break;
+      }
+    }
+    processingRef.current = false;
+    if (!activeRef.current) return;
+    speak(failed ? failed.message : (successText || 'Listo.'), startRecognition);
+  };
+
   const askNoah = async (message: string) => {
     const clean = message.trim();
     if (!clean || !activeRef.current || processingRef.current || speakingRef.current) return;
 
     const normalized = normalizeSpeech(clean);
+
+    const pending = pendingConfirmationRef.current;
+    if (pending) {
+      if (YES_CONFIRM.test(clean.trim())) {
+        pendingConfirmationRef.current = null;
+        await executeEventActions(pending.actions, pending.reply || 'Listo.');
+        return;
+      }
+      if (NO_CONFIRM.test(clean.trim())) {
+        pendingConfirmationRef.current = null;
+        speak('Entendido, no lo borro.', startRecognition);
+        return;
+      }
+      pendingConfirmationRef.current = null;
+    }
+
     const previousSubmission = lastSubmittedRef.current;
     if (normalized && normalized === previousSubmission.text && Date.now() - previousSubmission.at < 5000) return;
     lastSubmittedRef.current = { text: normalized, at: Date.now() };
@@ -244,23 +285,70 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     processingRef.current = true;
     setStatus('thinking');
     const previous = historyRef.current.slice(-10);
+    const now = new Date();
+    const eventSnapshot = events.slice(0, 80).map((event) => ({
+      id: event.id,
+      title: event.title,
+      date: event.date,
+      time: event.time,
+      callTime: event.callTime,
+      soundcheckTime: event.soundcheckTime,
+      showTime: event.showTime,
+      venue: event.venue,
+      address: event.address,
+      details: event.details,
+      dressCode: event.dressCode,
+      contactName: event.contactName,
+      contactPhone: event.contactPhone,
+      mapUrl: event.mapUrl,
+      notes: event.notes,
+      status: event.status
+    }));
 
     try {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 9000);
+      const timeout = window.setTimeout(() => controller.abort(), 12_000);
       const response = await fetch('/api/noah-chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: clean, history: previous }),
+        body: JSON.stringify({
+          message: clean,
+          history: previous,
+          context: {
+            section,
+            localDateTime: now.toString(),
+            timezoneOffsetMinutes: now.getTimezoneOffset(),
+            events: eventSnapshot
+          }
+        }),
         signal: controller.signal
       });
       window.clearTimeout(timeout);
       if (!response.ok) throw new Error('chat_unavailable');
-      const payload = await response.json() as { text?: string };
+      const payload = await response.json() as { text?: string; eventActions?: NoahEventAction[] };
       const answer = String(payload.text || '').trim() || 'Dime otra vez.';
+      const actions = Array.isArray(payload.eventActions) ? payload.eventActions : [];
       const userTurn: ChatTurn = { role: 'user', content: clean };
       const assistantTurn: ChatTurn = { role: 'assistant', content: answer };
       historyRef.current = [...previous, userTurn, assistantTurn].slice(-12);
+
+      if (actions.some((action) => action.type === 'delete_event')) {
+        pendingConfirmationRef.current = { actions, reply: answer };
+        const names = actions
+          .filter((action): action is Extract<NoahEventAction, { type: 'delete_event' }> => action.type === 'delete_event')
+          .map((action) => events.find((event) => event.id === action.eventId)?.title)
+          .filter(Boolean);
+        processingRef.current = false;
+        const target = names.length === 1 ? `“${names[0]}”` : names.length > 1 ? `${names.length} eventos` : 'ese evento';
+        speak(`Voy a eliminar ${target}. ¿Confirmas?`, startRecognition);
+        return;
+      }
+
+      if (actions.length) {
+        await executeEventActions(actions, answer);
+        return;
+      }
+
       processingRef.current = false;
       if (activeRef.current) speak(answer, startRecognition);
     } catch {
@@ -279,6 +367,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     activeRef.current = true;
     stoppingRef.current = false;
     historyRef.current = [];
+    pendingConfirmationRef.current = null;
     lastSubmittedRef.current = { text: '', at: 0 };
     resetTurnBuffer();
     setActive(true);

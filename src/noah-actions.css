@@ -1,0 +1,100 @@
+.noah-action-overlay {
+  position: fixed;
+  left: 50%;
+  bottom: calc(112px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 4200;
+  width: min(88vw, 430px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(221, 195, 125, 0.3);
+  background: rgba(4, 24, 17, 0.9);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  color: #f5edd9;
+  animation: noahActionIn 180ms ease-out;
+  pointer-events: none;
+}
+
+.noah-action-overlay.done {
+  border-color: rgba(221, 195, 125, 0.48);
+}
+
+.noah-action-overlay.error {
+  border-color: rgba(255, 145, 145, 0.35);
+}
+
+.noah-action-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, rgba(226, 201, 137, 0.19), rgba(226, 201, 137, 0.06));
+  border: 1px solid rgba(226, 201, 137, 0.3);
+  color: #ead69d;
+}
+
+.noah-action-overlay.error .noah-action-icon {
+  color: #ffc4c4;
+}
+
+.noah-action-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.noah-action-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: rgba(234, 214, 157, 0.72);
+  font-weight: 700;
+}
+
+.noah-action-copy strong {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.noah-action-copy span {
+  font-size: 12px;
+  color: rgba(245, 237, 217, 0.64);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.noah-action-icon .spin {
+  animation: noahActionSpin 0.85s linear infinite;
+}
+
+@keyframes noahActionSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes noahActionIn {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@media (max-width: 520px) {
+  .noah-action-overlay {
+    width: calc(100vw - 34px);
+    bottom: calc(104px + env(safe-area-inset-bottom));
+    border-radius: 22px;
+  }
+}
