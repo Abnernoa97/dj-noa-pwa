@@ -64,8 +64,9 @@ async function runReliable(env: DjNoaAiEnv, messages: AssistantMessage[]) {
 
 export async function runAssistant(env: DjNoaAiEnv, body: RequestBody, text: string) {
   const messages = conversationMessages(body, text);
+  const preferReliable = body.inputMode === 'voice' || looksComplex(text);
 
-  if (looksComplex(text)) {
+  if (preferReliable) {
     try {
       const reliable = await runReliable(env, messages);
       if (reliable) return reliable;
