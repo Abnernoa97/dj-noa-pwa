@@ -217,7 +217,7 @@ export async function handleNoahChat(request: Request, env: Env) {
           mapUrl: cleanString(event.mapUrl, 500),
           notes: cleanString(event.notes, 500),
           status: cleanStatus(event.status)
-        }).filter((event) => event.id && event.title && event.date)
+        })).filter((event) => event.id && event.title && event.date)
       : [];
 
     const eventIds = new Set(events.map((event) => String(event.id)));
