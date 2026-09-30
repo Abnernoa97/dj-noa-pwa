@@ -21,6 +21,7 @@ import './data-safety.css';
 import './visual-polish.css';
 import './excel-scroll-fix.css';
 import './scroll-fix.css';
+import './calendar-focus.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
