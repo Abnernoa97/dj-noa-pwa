@@ -34,7 +34,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
 
   const activeRef = useRef(false);
   const recognitionRef = useRef<any>(null);
-  const restartTimerRef = useRef<number | null>(null);
   const turnTimerRef = useRef<number | null>(null);
   const processingRef = useRef(false);
   const speakingRef = useRef(false);
@@ -45,11 +44,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
   const lastSubmittedRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   const historyRef = useRef<ChatTurn[]>([]);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
-
-  const clearRestart = () => {
-    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
-    restartTimerRef.current = null;
-  };
 
   const clearTurnTimer = () => {
     if (turnTimerRef.current !== null) window.clearTimeout(turnTimerRef.current);
@@ -62,6 +56,16 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     interimRef.current = '';
   };
 
+  const closeRecognition = (abort = false) => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    recognitionRef.current = null;
+    try {
+      if (abort) recognition.abort?.();
+      else recognition.stop?.();
+    } catch { /* noop */ }
+  };
+
   const stopSession = () => {
     stoppingRef.current = true;
     activeRef.current = false;
@@ -69,12 +73,128 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     setStatus('idle');
     processingRef.current = false;
     speakingRef.current = false;
-    clearRestart();
     resetTurnBuffer();
-    try { recognitionRef.current?.abort?.(); } catch { /* noop */ }
-    recognitionRef.current = null;
+    closeRecognition(true);
     try { window.speechSynthesis?.cancel?.(); } catch { /* noop */ }
     window.setTimeout(() => { stoppingRef.current = false; }, 120);
+  };
+
+  const startRecognition = () => {
+    if (!activeRef.current || stoppingRef.current || processingRef.current || speakingRef.current || document.visibilityState !== 'visible') return;
+    if (recognitionRef.current) return;
+
+    const Ctor = recognitionCtor();
+    if (!Ctor) {
+      setStatus('error');
+      return;
+    }
+
+    resetTurnBuffer();
+    setStatus('starting');
+
+    const recognition = new Ctor();
+    recognition.lang = 'es-MX';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      if (activeRef.current && recognitionRef.current === recognition && !speakingRef.current && !processingRef.current) {
+        setStatus('listening');
+      }
+    };
+
+    recognition.onresult = (event: any) => {
+      if (!activeRef.current || processingRef.current || speakingRef.current || recognitionRef.current !== recognition || Date.now() < ignoreUntilRef.current) return;
+
+      let heardSomething = false;
+      let latestInterim = interimRef.current;
+
+      for (let index = event.resultIndex ?? 0; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const text = String(result?.[0]?.transcript || '').trim();
+        if (!text) continue;
+        heardSomething = true;
+
+        if (result?.isFinal) {
+          finalPartsRef.current.push(text);
+          latestInterim = '';
+        } else {
+          latestInterim = text;
+        }
+      }
+
+      interimRef.current = latestInterim;
+      if (heardSomething) {
+        clearTurnTimer();
+        turnTimerRef.current = window.setTimeout(() => {
+          const pieces = [...finalPartsRef.current];
+          const interim = interimRef.current.trim();
+          if (interim) pieces.push(interim);
+          const fullText = pieces.join(' ').replace(/\s+/g, ' ').trim();
+          resetTurnBuffer();
+          closeRecognition(false);
+          if (fullText) void askNoah(fullText);
+        }, TURN_SILENCE_MS);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      const error = String(event?.error || '');
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      if (!activeRef.current || stoppingRef.current || error === 'aborted') return;
+
+      const pieces = [...finalPartsRef.current];
+      const interim = interimRef.current.trim();
+      if (interim) pieces.push(interim);
+      const fullText = pieces.join(' ').replace(/\s+/g, ' ').trim();
+      resetTurnBuffer();
+
+      if (fullText) {
+        void askNoah(fullText);
+        return;
+      }
+
+      if (error === 'not-allowed' || error === 'service-not-allowed') {
+        setStatus('error');
+        stopSession();
+        return;
+      }
+
+      // Android/Google may end a recognition window by itself. Do not auto-restart it:
+      // restarting here is what causes the repeated microphone activation sound.
+      stopSession();
+    };
+
+    recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
+      recognitionRef.current = null;
+      if (!activeRef.current || stoppingRef.current || processingRef.current || speakingRef.current) return;
+
+      const pieces = [...finalPartsRef.current];
+      const interim = interimRef.current.trim();
+      if (interim) pieces.push(interim);
+      const fullText = pieces.join(' ').replace(/\s+/g, ' ').trim();
+      resetTurnBuffer();
+
+      if (fullText) {
+        void askNoah(fullText);
+        return;
+      }
+
+      // No automatic onend -> start loop. If Google closes an empty listening window,
+      // the session simply returns to idle and the button can start a fresh conversation.
+      stopSession();
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      setStatus('error');
+      stopSession();
+    }
   };
 
   const speak = (text: string, after?: () => void) => {
@@ -85,6 +205,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     }
 
     resetTurnBuffer();
+    closeRecognition(false);
     speakingRef.current = true;
     setStatus('speaking');
     window.speechSynthesis.cancel();
@@ -93,12 +214,14 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     utterance.rate = 0.98;
     utterance.pitch = 1;
     utterance.volume = 1;
+
     const done = () => {
       speakingRef.current = false;
-      ignoreUntilRef.current = Date.now() + 320;
-      if (activeRef.current) setStatus('listening');
+      ignoreUntilRef.current = Date.now() + 250;
+      if (!activeRef.current) return;
       after?.();
     };
+
     utterance.onend = done;
     utterance.onerror = done;
     window.speechSynthesis.speak(utterance);
@@ -139,115 +262,12 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
       const assistantTurn: ChatTurn = { role: 'assistant', content: answer };
       historyRef.current = [...previous, userTurn, assistantTurn].slice(-12);
       processingRef.current = false;
-      if (activeRef.current) speak(answer);
+      if (activeRef.current) speak(answer, startRecognition);
     } catch {
       processingRef.current = false;
-      if (activeRef.current) speak('No pude responder ahora. Dime otra vez.');
+      if (activeRef.current) speak('No pude responder ahora. Dime otra vez.', startRecognition);
     }
   };
-
-  const flushTurn = () => {
-    clearTurnTimer();
-    if (!activeRef.current || processingRef.current || speakingRef.current) {
-      resetTurnBuffer();
-      return;
-    }
-
-    const pieces = [...finalPartsRef.current];
-    const interim = interimRef.current.trim();
-    if (interim) pieces.push(interim);
-    const fullText = pieces.join(' ').replace(/\s+/g, ' ').trim();
-    resetTurnBuffer();
-    if (fullText) void askNoah(fullText);
-  };
-
-  const scheduleTurnFlush = () => {
-    clearTurnTimer();
-    if (!activeRef.current || processingRef.current || speakingRef.current) return;
-    turnTimerRef.current = window.setTimeout(flushTurn, TURN_SILENCE_MS);
-  };
-
-  const scheduleRecognitionRestart = (delay = 140) => {
-    clearRestart();
-    if (!activeRef.current || stoppingRef.current || document.visibilityState !== 'visible') return;
-    restartTimerRef.current = window.setTimeout(() => {
-      restartTimerRef.current = null;
-      if (speakingRef.current || processingRef.current) {
-        scheduleRecognitionRestart(220);
-        return;
-      }
-      startRecognition();
-    }, delay);
-  };
-
-  function startRecognition() {
-    if (!activeRef.current || stoppingRef.current || document.visibilityState !== 'visible') return;
-    if (recognitionRef.current) return;
-    const Ctor = recognitionCtor();
-    if (!Ctor) {
-      setStatus('error');
-      return;
-    }
-
-    const recognition = new Ctor();
-    recognition.lang = 'es-MX';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => {
-      if (activeRef.current && !speakingRef.current && !processingRef.current) setStatus('listening');
-    };
-
-    recognition.onresult = (event: any) => {
-      if (!activeRef.current || processingRef.current || speakingRef.current || Date.now() < ignoreUntilRef.current) return;
-
-      let heardSomething = false;
-      let latestInterim = interimRef.current;
-
-      for (let index = event.resultIndex ?? 0; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const text = String(result?.[0]?.transcript || '').trim();
-        if (!text) continue;
-        heardSomething = true;
-
-        if (result?.isFinal) {
-          finalPartsRef.current.push(text);
-          latestInterim = '';
-        } else {
-          latestInterim = text;
-        }
-      }
-
-      interimRef.current = latestInterim;
-      if (heardSomething) scheduleTurnFlush();
-    };
-
-    recognition.onerror = (event: any) => {
-      const error = String(event?.error || '');
-      if (!activeRef.current || stoppingRef.current || error === 'aborted') return;
-      if (error === 'not-allowed' || error === 'service-not-allowed') {
-        setStatus('error');
-        stopSession();
-        return;
-      }
-      if (error !== 'no-speech') resetTurnBuffer();
-      scheduleRecognitionRestart(220);
-    };
-
-    recognition.onend = () => {
-      if (recognitionRef.current === recognition) recognitionRef.current = null;
-      if (activeRef.current && !stoppingRef.current) scheduleRecognitionRestart();
-    };
-
-    try {
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      scheduleRecognitionRestart(220);
-    }
-  }
 
   const startSession = () => {
     if (activeRef.current) return;
@@ -264,7 +284,6 @@ const NoahVoice = forwardRef<NoahVoiceHandle>(function NoahVoice(_, ref) {
     setActive(true);
     setStatus('starting');
 
-    // One greeting only. Listening starts after Noah has completely finished speaking.
     speak('Hola, ¿en qué te puedo ayudar hoy?', startRecognition);
   };
 
