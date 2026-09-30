@@ -27,6 +27,7 @@ import './events-focus.css';
 import './sheet-focus.css';
 import './reminders-focus.css';
 import './overlay-layout.css';
+import './home-focus.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
