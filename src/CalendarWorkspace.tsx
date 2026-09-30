@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { addDays, addMonths, format, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Bell, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
 import type { EventItem, ReminderItem, SheetRow } from './types';
 
 type CalendarMode = 'month' | 'week' | 'day';
+type DatePickerMode = 'month' | 'year' | null;
 
 type Props = {
   month: Date;
@@ -20,6 +21,12 @@ type Props = {
 };
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+const MONTH_NAMES = Array.from({ length: 12 }, (_, index) => format(new Date(2026, index, 1), 'MMMM', { locale: es }));
+const YEARS = Array.from({ length: 111 }, (_, index) => 1990 + index);
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 function dateKeyFromIso(value?: string) {
   if (!value) return null;
@@ -30,6 +37,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
   const [mode, setMode] = useState<CalendarMode>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [datePicker, setDatePicker] = useState<DatePickerMode>(null);
 
   const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
 
@@ -60,13 +68,12 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
   const monthRows = sheetRows.filter((row) => sheetDate(row)?.startsWith(visibleMonthKey));
   const monthFinanceTotal = monthRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
-  const title = mode === 'month'
-    ? format(month, 'MMMM yyyy', { locale: es })
-    : mode === 'week'
-      ? `${format(weekStart, 'd MMM', { locale: es })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: es })}`
-      : format(month, "EEEE d 'de' MMMM", { locale: es });
+  const title = mode === 'week'
+    ? `${format(weekStart, 'd MMM', { locale: es })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: es })}`
+    : format(month, "EEEE d 'de' MMMM", { locale: es });
 
   const move = (direction: -1 | 1) => {
+    setDatePicker(null);
     if (mode === 'month') setMonth(addMonths(month, direction));
     if (mode === 'week') setMonth(addDays(month, 7 * direction));
     if (mode === 'day') setMonth(addDays(month, direction));
@@ -74,16 +81,33 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
   const goToday = () => {
     const now = new Date();
+    setDatePicker(null);
     setSelectedDate(now);
     setMonth(mode === 'month' ? startOfMonth(now) : now);
   };
 
   const selectMode = (next: CalendarMode) => {
+    setDatePicker(null);
     setMode(next);
     if (next !== 'month') setMonth(selectedDate);
   };
 
+  const selectMonth = (monthIndex: number) => {
+    const next = new Date(month.getFullYear(), monthIndex, 1);
+    setMonth(next);
+    setSelectedDate(next);
+    setDatePicker(null);
+  };
+
+  const selectYear = (year: number) => {
+    const next = new Date(year, month.getMonth(), 1);
+    setMonth(next);
+    setSelectedDate(next);
+    setDatePicker(null);
+  };
+
   const openDay = (day: Date, openSummary = true) => {
+    setDatePicker(null);
     setSelectedDate(day);
     if (day.getMonth() !== month.getMonth() || day.getFullYear() !== month.getFullYear()) setMonth(day);
     if (mode !== 'month') setMonth(day);
@@ -93,8 +117,24 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
   return (
     <section className="page-card calendar-page calendar-integrated">
       <div className="calendar-topline">
-        <div className="calendar-title-wrap"><p className="eyebrow">TODO EN UN SOLO DÍA</p><h2>{title}</h2></div>
-        <div className="calendar-actions"><button className="calendar-today-button" onClick={goToday}>Hoy</button><button className="calendar-nav-button" onClick={() => move(-1)} aria-label="Anterior"><ChevronLeft size={18} /></button><button className="calendar-nav-button" onClick={() => move(1)} aria-label="Siguiente"><ChevronRight size={18} /></button></div>
+        <div className="calendar-title-wrap">
+          <p className="eyebrow">TODO EN UN SOLO DÍA</p>
+          {mode === 'month' ? <div className="calendar-date-selector" aria-label="Seleccionar mes y año">
+            <button className="calendar-date-trigger calendar-month-trigger" onClick={() => setDatePicker((current) => current === 'month' ? null : 'month')} aria-expanded={datePicker === 'month'}>
+              <span>{capitalize(format(month, 'MMMM', { locale: es }))}</span><ChevronDown size={18} />
+            </button>
+            <button className="calendar-date-trigger calendar-year-trigger" onClick={() => setDatePicker((current) => current === 'year' ? null : 'year')} aria-expanded={datePicker === 'year'}>
+              <span>{format(month, 'yyyy')}</span><ChevronDown size={17} />
+            </button>
+            {datePicker && <div className="calendar-date-dropdown" role="listbox" aria-label={datePicker === 'month' ? 'Meses' : 'Años'}>
+              <div className="calendar-date-dropdown-head"><span>{datePicker === 'month' ? 'ELIGE MES' : 'ELIGE AÑO'}</span><button onClick={() => setDatePicker(null)} aria-label="Cerrar"><X size={16} /></button></div>
+              <div className="calendar-date-options">
+                {datePicker === 'month' ? MONTH_NAMES.map((name, index) => <button key={name} className={month.getMonth() === index ? 'active' : ''} onClick={() => selectMonth(index)}>{capitalize(name)}</button>) : YEARS.map((year) => <button key={year} className={month.getFullYear() === year ? 'active' : ''} onClick={() => selectYear(year)}>{year}</button>)}
+              </div>
+            </div>}
+          </div> : <h2>{title}</h2>}
+        </div>
+        <div className="calendar-actions"><button className="calendar-today-button" onClick={goToday}>Hoy</button><button className="calendar-nav-button" onClick={() => move(-1)} aria-label="Anterior"><ChevronLeft size={20} /></button><button className="calendar-nav-button" onClick={() => move(1)} aria-label="Siguiente"><ChevronRight size={20} /></button></div>
       </div>
 
       <div className="calendar-overview">
@@ -107,7 +147,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
       <div className="calendar-view-switch"><button className={mode === 'month' ? 'active' : ''} onClick={() => selectMode('month')}>Mes</button><button className={mode === 'week' ? 'active' : ''} onClick={() => selectMode('week')}>Semana</button><button className={mode === 'day' ? 'active' : ''} onClick={() => selectMode('day')}>Día</button></div>
 
-      {mode === 'month' && <><div className="weekday-row">{['L','M','X','J','V','S','D'].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid calendar-grid-rich">{monthDays.map((day) => {
+      {mode === 'month' && <><div className="weekday-row weekday-row-full">{['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid calendar-grid-rich">{monthDays.map((day) => {
         const dateKey = format(day, 'yyyy-MM-dd');
         const bundle = itemsForDate(dateKey);
         const outside = day.getMonth() !== month.getMonth();
@@ -125,7 +165,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
       {mode === 'day' && <DaySummary date={month} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={onOpenEvent} onToggleReminder={onToggleReminder} onOpenReminders={onOpenReminders} onOpenSheetRow={onOpenSheetRow} onCreateEvent={onCreateEvent} />}
 
-      {mode !== 'day' && <button className="calendar-selected-preview" onClick={() => setSummaryOpen(true)}><span>{format(selectedDate, "EEE d MMM", { locale: es })}</span><strong>{activeItems.events.length + activeItems.reminders.length + activeItems.rows.length} elementos</strong><ChevronRight size={16} /></button>}
+      {mode !== 'day' && <button className="calendar-selected-preview" onClick={() => setSummaryOpen(true)}><span>{format(selectedDate, "EEE d MMM", { locale: es })}</span><strong>{activeItems.events.length + activeItems.reminders.length + activeItems.rows.length} elementos</strong><ChevronRight size={18} /></button>}
 
       {summaryOpen && <div className="calendar-summary-backdrop" onClick={() => setSummaryOpen(false)}><section className="calendar-summary-sheet" onClick={(event) => event.stopPropagation()}><div className="calendar-summary-handle" /><button className="calendar-summary-close" onClick={() => setSummaryOpen(false)}><X size={19} /></button><DaySummary date={selectedDate} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={(event) => { setSummaryOpen(false); onOpenEvent(event); }} onToggleReminder={onToggleReminder} onOpenReminders={() => { setSummaryOpen(false); onOpenReminders(); }} onOpenSheetRow={(id) => { setSummaryOpen(false); onOpenSheetRow(id); }} onCreateEvent={(date) => { setSummaryOpen(false); onCreateEvent(date); }} /></section></div>}
     </section>
