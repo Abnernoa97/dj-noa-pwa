@@ -51,6 +51,7 @@ export interface ReminderItem {
 
 export type SheetStatus = 'pending' | 'paid' | 'info';
 export type FinancialType = 'income' | 'expense' | 'neutral';
+export type CurrencyCode = 'MXN' | 'USD';
 export type SheetValue = string | number | boolean | null | { [key: string]: SheetValue };
 
 export interface SheetRow {
@@ -58,6 +59,7 @@ export interface SheetRow {
   label: string;
   category: string;
   amount: number;
+  currency?: CurrencyCode;
   status: SheetStatus;
   financialType?: FinancialType;
   eventId?: string;
