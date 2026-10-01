@@ -5,6 +5,7 @@ import App from './App';
 import AppMaintenance from './AppMaintenance';
 import DataSafetyPanel from './DataSafetyPanel';
 import ExcelModulesEnhancer from './ExcelModulesEnhancer';
+import HardRockMarketEnhancer from './HardRockMarketEnhancer';
 import SportsEnhancer from './SportsEnhancer';
 import './styles.css';
 import './events.css';
@@ -33,6 +34,7 @@ import './mlb.css';
 import './mlb-matchups.css';
 import './nba.css';
 import './sports-detail.css';
+import './hard-rock-market.css';
 import './sports-context.css';
 import './sports-realtime.css';
 
@@ -63,6 +65,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
     <ExcelModulesEnhancer />
     <SportsEnhancer />
+    <HardRockMarketEnhancer />
     <AppMaintenance />
     <DataSafetyPanel />
   </React.StrictMode>
