@@ -27,7 +27,7 @@
 }
 
 @media (max-width:699px){
-  .sheet-classic .excel-frame{
+  .app-shell .sheet-classic .excel-frame{
     width:100%!important;
     max-width:100%!important;
     overflow-x:hidden!important;
@@ -35,44 +35,44 @@
     touch-action:pan-y!important;
   }
 
-  .sheet-classic .excel-letters,
-  .sheet-classic .excel-head,
-  .sheet-classic .excel-row,
-  .sheet-classic .excel-body,
-  .sheet-classic .excel-empty{
+  .app-shell .sheet-classic .excel-letters,
+  .app-shell .sheet-classic .excel-head,
+  .app-shell .sheet-classic .excel-row,
+  .app-shell .sheet-classic .excel-body,
+  .app-shell .sheet-classic .excel-empty{
     width:100%!important;
     min-width:0!important;
     max-width:100%!important;
   }
 
-  .sheet-classic .excel-letters,
-  .sheet-classic .excel-head,
-  .sheet-classic .excel-row{
+  .app-shell .sheet-classic .excel-letters,
+  .app-shell .sheet-classic .excel-head,
+  .app-shell .sheet-classic .excel-row{
     grid-template-columns:6.5% 30% 17% 17% 13% 16.5%!important;
   }
 
-  .sheet-classic .excel-letters span,
-  .sheet-classic .excel-head span,
-  .sheet-classic .excel-row>span{
+  .app-shell .sheet-classic .excel-letters span,
+  .app-shell .sheet-classic .excel-head span,
+  .app-shell .sheet-classic .excel-row>span{
     min-width:0!important;
     overflow:hidden!important;
     text-overflow:ellipsis!important;
     box-sizing:border-box!important;
   }
 
-  .sheet-classic .excel-letters{
+  .app-shell .sheet-classic .excel-letters{
     height:25px!important;
   }
-  .sheet-classic .excel-letters span{
+  .app-shell .sheet-classic .excel-letters span{
     padding:0 2px!important;
     font-size:7.5px!important;
     white-space:nowrap!important;
   }
 
-  .sheet-classic .excel-head{
+  .app-shell .sheet-classic .excel-head{
     min-height:44px!important;
   }
-  .sheet-classic .excel-head span{
+  .app-shell .sheet-classic .excel-head span{
     padding:0 4px!important;
     font-size:clamp(6.4px,1.85vw,8.2px)!important;
     line-height:1.12!important;
@@ -81,34 +81,34 @@
     overflow-wrap:anywhere!important;
     text-align:left!important;
   }
-  .sheet-classic .excel-head span:first-child{
+  .app-shell .sheet-classic .excel-head span:first-child{
     padding:0!important;
     text-align:center!important;
   }
 
-  .sheet-classic .excel-row{
+  .app-shell .sheet-classic .excel-row{
     min-height:52px!important;
   }
-  .sheet-classic .excel-row>span{
+  .app-shell .sheet-classic .excel-row>span{
     padding:0 4px!important;
     font-size:clamp(8.2px,2.45vw,10.5px)!important;
     line-height:1.15!important;
     white-space:nowrap!important;
   }
-  .sheet-classic .excel-row-number{
+  .app-shell .sheet-classic .excel-row-number{
     padding:0!important;
     justify-content:center!important;
   }
-  .sheet-classic .excel-money{
+  .app-shell .sheet-classic .excel-money{
     justify-content:flex-end!important;
     font-variant-numeric:tabular-nums!important;
   }
 
-  .sheet-classic .excel-empty{
+  .app-shell .sheet-classic .excel-empty{
     min-height:130px!important;
   }
 
-  .sheet-classic .sheet-table-hint{
+  .app-shell .sheet-classic .sheet-table-hint{
     width:100%!important;
     max-width:100%!important;
   }
