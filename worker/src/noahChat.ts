@@ -6,10 +6,12 @@ type Env = { AI: AiBinding };
 type ChatTurn = { role?: string; content?: string };
 type EventSnapshot = Record<string, unknown>;
 type SheetSnapshot = Record<string, unknown>;
-type EventAction = Record<string, unknown>;
+type SheetColumnSnapshot = Record<string, unknown>;
+type ChatAction = Record<string, unknown>;
 type NavigableSection = 'home' | 'events' | 'calendar' | 'sheet' | 'reminders';
 type ActionSurface = 'events' | 'calendar' | 'sheet';
 type CurrencyCode = 'MXN' | 'USD';
+type SheetColumnBehavior = 'income' | 'expense' | 'investment' | 'neutral';
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -78,6 +80,14 @@ function cleanFinancialType(value: unknown) {
   return value === 'income' || value === 'expense' || value === 'neutral' ? value : undefined;
 }
 
+function cleanColumnBehavior(value: unknown): SheetColumnBehavior | undefined {
+  return value === 'income' || value === 'expense' || value === 'investment' || value === 'neutral' ? value : undefined;
+}
+
+function cleanColumnType(value: unknown) {
+  return value === 'text' || value === 'number' || value === 'currency' || value === 'date' || value === 'formula' ? value : undefined;
+}
+
 function cleanCurrency(value: unknown): CurrencyCode | undefined {
   const text = String(value || '').trim().toUpperCase();
   return text === 'MXN' || text === 'USD' ? text : undefined;
@@ -88,6 +98,14 @@ function cleanAmount(value: unknown) {
     ? value
     : Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
   return Number.isFinite(number) && Math.abs(number) <= 1_000_000_000 ? Math.abs(number) : undefined;
+}
+
+function cleanSheetValue(value: unknown): string | number | boolean | null | undefined {
+  if (value === null) return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) <= 1_000_000_000 ? value : undefined;
+  if (typeof value === 'string') return value.trim().slice(0, 900);
+  return undefined;
 }
 
 function cleanSurface(value: unknown): ActionSurface | undefined {
@@ -150,10 +168,10 @@ function validSeriesRange(startDate: string, endDate: string) {
   return end - start <= 732 * 24 * 60 * 60 * 1000;
 }
 
-function sanitizeActions(raw: unknown, eventIds: Set<string>) {
+function sanitizeActions(raw: unknown, eventIds: Set<string>, rowIds: Set<string>, columnIds: Set<string>) {
   if (!Array.isArray(raw)) return [];
-  const actions: EventAction[] = [];
-  for (const item of raw.slice(0, 20)) {
+  const actions: ChatAction[] = [];
+  for (const item of raw.slice(0, 30)) {
     if (!item || typeof item !== 'object') continue;
     const action = item as Record<string, unknown>;
     const type = String(action.type || '');
@@ -169,6 +187,78 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
       continue;
     }
 
+    if (type === 'create_sheet_column') {
+      const name = cleanString(action.name, 120);
+      if (!name) continue;
+      actions.push({ type, name, behavior: cleanColumnBehavior(action.behavior) || 'neutral' });
+      continue;
+    }
+
+    if (type === 'update_sheet_column') {
+      const columnId = cleanString(action.columnId, 120);
+      if (!columnId || !columnIds.has(columnId)) continue;
+      const name = cleanString(action.name, 120);
+      const behavior = cleanColumnBehavior(action.behavior);
+      if (!name && !behavior) continue;
+      actions.push({ type, columnId, ...(name ? { name } : {}), ...(behavior ? { behavior } : {}) });
+      continue;
+    }
+
+    if (type === 'delete_sheet_column') {
+      const columnId = cleanString(action.columnId, 120);
+      if (columnId && columnIds.has(columnId)) actions.push({ type, columnId });
+      continue;
+    }
+
+    if (type === 'create_sheet_grid_row') {
+      const label = cleanString(action.label, 180);
+      if (!label) continue;
+      const cells: Array<{ columnId: string; value: string | number | boolean | null }> = [];
+      if (Array.isArray(action.cells)) {
+        for (const rawCell of action.cells.slice(0, 80)) {
+          if (!rawCell || typeof rawCell !== 'object') continue;
+          const cell = rawCell as Record<string, unknown>;
+          const columnId = cleanString(cell.columnId, 120);
+          if (!columnId || !columnIds.has(columnId)) continue;
+          const value = cleanSheetValue(cell.value);
+          if (value === undefined) continue;
+          cells.push({ columnId, value });
+        }
+      }
+      actions.push({ type, label, cells });
+      continue;
+    }
+
+    if (type === 'rename_sheet_row') {
+      const rowId = cleanString(action.rowId, 120);
+      const label = cleanString(action.label, 180);
+      if (rowId && rowIds.has(rowId) && label) actions.push({ type, rowId, label });
+      continue;
+    }
+
+    if (type === 'set_sheet_cell') {
+      const rowId = cleanString(action.rowId, 120);
+      const columnId = cleanString(action.columnId, 120);
+      const value = cleanSheetValue(action.value);
+      if (rowId && rowIds.has(rowId) && columnId && columnIds.has(columnId) && value !== undefined) {
+        actions.push({ type, rowId, columnId, value });
+      }
+      continue;
+    }
+
+    if (type === 'clear_sheet_cell') {
+      const rowId = cleanString(action.rowId, 120);
+      const columnId = cleanString(action.columnId, 120);
+      if (rowId && rowIds.has(rowId) && columnId && columnIds.has(columnId)) actions.push({ type, rowId, columnId });
+      continue;
+    }
+
+    if (type === 'delete_sheet_row') {
+      const rowId = cleanString(action.rowId, 120);
+      if (rowId && rowIds.has(rowId)) actions.push({ type, rowId });
+      continue;
+    }
+
     if (type === 'create_event') {
       const event = action.event && typeof action.event === 'object' ? action.event as Record<string, unknown> : {};
       const title = cleanString(event.title, 180);
@@ -180,7 +270,7 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
       if (!cleanEvent.status) cleanEvent.status = 'confirmed';
       const surface = cleanSurface(action.surface);
       const finance = sanitizeFinance(action.finance);
-      const result: EventAction = { type, event: cleanEvent, surface: surface === 'events' ? 'events' : 'calendar' };
+      const result: ChatAction = { type, event: cleanEvent, surface: surface === 'events' ? 'events' : 'calendar' };
       if (finance) result.finance = finance;
       actions.push(result);
       continue;
@@ -198,7 +288,7 @@ function sanitizeActions(raw: unknown, eventIds: Set<string>) {
       cleanEvent.title = title;
       if (!cleanEvent.status) cleanEvent.status = 'confirmed';
       const finance = sanitizeFinance(action.finance);
-      const result: EventAction = { type, event: cleanEvent, startDate, endDate, weekdays };
+      const result: ChatAction = { type, event: cleanEvent, startDate, endDate, weekdays };
       if (finance) result.finance = finance;
       actions.push(result);
       continue;
@@ -250,7 +340,7 @@ function navigationIntent(text: string): { section: NavigableSection; reply: str
 
 function mutationIntent(text: string) {
   const clean = normalize(text);
-  return /\b(crea|crear|creame|hacer|haz|agrega|anade|añade|pon|ponle|programa|programar|agenda|agendar|cada|todos|todas|edita|editar|cambia|cambiar|modifica|actualiza|mueve|reprograma|borra|borrar|elimina|eliminar|pesos?|mxn|dolares?|usd|cobra|cobro|cuesta|precio|pago|pagado|ingreso|gasto)\b/i.test(clean) || /\$\s*\d/.test(text);
+  return /\b(crea|crear|creame|hacer|haz|agrega|anade|añade|pon|ponle|escribe|anota|programa|programar|agenda|agendar|cada|todos|todas|edita|editar|cambia|cambiar|renombra|modifica|actualiza|mueve|reprograma|borra|borrar|elimina|eliminar|quita|quitar|limpia|limpiar|vacia|vaciar|columna|fila|celda|pesos?|mxn|dolares?|usd|cobra|cobro|cuesta|precio|pago|pagado|ingreso|gasto|inversion|excel|tabla)\b/i.test(clean) || /\$\s*\d/.test(text);
 }
 
 function pureNavigationOnly(text: string) {
@@ -261,37 +351,60 @@ function pureNavigationOnly(text: string) {
 function systemPrompt(contextText: string) {
   return `Eres Noah, el asistente personal de voz de DJ NOA. Hablas español de México como una persona: natural, continuo, breve y sin frases robóticas. Tu trabajo es entender la intención COMPLETA y convertirla en todas las acciones necesarias en un solo turno.
 
-CONTEXTO ACTUAL:
+CONTEXTO ACTUAL EN TIEMPO REAL:
 ${contextText}
 
 ARQUITECTURA MENTAL:
 - CALENDARIO es la matriz visual central.
 - EVENTOS contiene la ficha operativa del mismo evento.
-- EXCEL contiene movimientos financieros y puede vincularse al mismo eventId.
+- EXCEL es una hoja clásica personalizada por el usuario.
 - Una misma frase puede requerir varias acciones. No la cortes al detectar una sección.
 
-HERRAMIENTAS DISPONIBLES:
+REGLA ABSOLUTA DE EXCEL EN TIEMPO REAL:
+- CURRENT_SHEET_COLUMNS es la estructura REAL y ACTUAL de la tabla, leída de IndexedDB justo antes de esta petición.
+- CURRENT_SHEET_ROWS son las filas REALES y ACTUALES. Cada fila incluye cells con columnId, columnName y value de las celdas que tienen contenido.
+- Antes de responder o ejecutar CUALQUIER cosa relacionada con Excel, mira CURRENT_SHEET_COLUMNS y CURRENT_SHEET_ROWS.
+- Los nombres de columnas pueden ser CUALQUIER palabra: “Perro”, “Árbol”, “Sombrero”, “XYZ”, etc. No necesitan tener significado financiero.
+- Si el usuario dice “en Perro”, busca primero una columna existente cuyo name coincida con Perro ignorando mayúsculas, acentos y pequeñas variaciones obvias. Luego usa EXACTAMENTE su id real como columnId.
+- Nunca inventes columnId ni rowId. Solo usa IDs presentes en el contexto actual.
+- Si una columna fue renombrada, usa SIEMPRE el nombre nuevo que aparece en CURRENT_SHEET_COLUMNS. No dependas de memoria anterior.
+- behavior define la matemática real de una columna: income=suma, expense=resta, investment=resta como inversión, neutral=no calcula. No cambies behavior salvo que el usuario lo pida.
+- Una palabra arbitraria como “Perro” NO significa gasto, ingreso ni nada por sí sola. Su behavior actual manda.
+
+CONTROL DE LA HOJA:
+- create_sheet_column: crea una nueva columna. Si el usuario no especifica qué representa, behavior="neutral".
+- update_sheet_column: renombra una columna o cambia su behavior usando su columnId existente.
+- delete_sheet_column: elimina una columna existente; la app pedirá confirmación.
+- create_sheet_grid_row: crea una fila nueva y puede rellenar varias columnas en la misma acción.
+- set_sheet_cell: cambia UNA celda existente usando rowId + columnId.
+- clear_sheet_cell: vacía una celda existente.
+- rename_sheet_row: cambia el Concepto/nombre de una fila.
+- delete_sheet_row: elimina una fila; la app pedirá confirmación.
+- Si el usuario pide “agrega Hotel con 10 en Perro”, crea una fila Hotel y usa el columnId real de Perro.
+- Si dice “en la fila Hotel pon 20 en Sombrero”, localiza la fila Hotel y la columna Sombrero, y usa set_sheet_cell.
+- Si dice solo “pon 20 en Sombrero” y hay varias filas posibles sin contexto suficiente, pregunta EN QUÉ FILA; no inventes una.
+- Si la petición nombra una columna que NO existe, no la crees a menos que el usuario esté pidiendo crearla. Pregunta o aclara.
+- Para leer/consultar datos de Excel, responde usando CURRENT_SHEET_COLUMNS/CURRENT_SHEET_ROWS y devuelve cero acciones.
+- Cuando el usuario esté en otra sección y pida una modificación de Excel que quiere ver, puedes anteponer navigate_section a sheet y luego ejecutar la acción.
+
+HERRAMIENTAS GENERALES:
 - EVENTOS: leer, crear, editar, borrar y abrir eventos usando CURRENT_EVENTS.
 - CALENDARIO: mostrar eventos y crear series recurrentes por rango y días de semana.
-- EXCEL: crear movimientos independientes o sincronizar un monto con un evento existente.
+- EXCEL FINANCIERO LEGADO: create_sheet_row y sync_event_finance siguen disponibles para montos vinculados a eventos.
 - NAVEGACIÓN: Inicio, Eventos, Calendario, Excel y Tareas.
 
 REGLAS CRÍTICAS:
 1. Escucha la frase COMPLETA antes de decidir.
-2. Si una frase contiene fecha + evento + dinero, interioriza TODO y ejecútalo en el mismo turno.
-3. Un evento nuevo aparece automáticamente en Calendario y Eventos porque es el mismo objeto. Si además hay dinero explícito, adjunta finance al create_event para crear Excel con el mismo eventId.
-4. Para un evento nuevo, usa surface="calendar" por defecto. Usa surface="events" solo si el usuario dice explícitamente “en Eventos”, “abre Eventos” o “sección Eventos”.
-5. Si el usuario dice Calendario dentro de la instrucción, usa surface="calendar" y no agregues una navegación previa innecesaria.
-6. Si dice Excel con un movimiento sin evento, usa create_sheet_row. Si el dinero corresponde a un evento existente, usa sync_event_finance.
-7. Puedes devolver VARIAS acciones ordenadas en eventActions. Solo una respuesta hablada al final.
-8. Pregunta únicamente si falta un dato realmente imprescindible o hay ambigüedad real.
-9. Nunca obligues al usuario a repetir datos que ya dijo en el mismo turno o en HISTORY.
-10. Nunca afirmes que una acción se hizo si no incluyes la acción correspondiente.
+2. Si una frase contiene varias instrucciones, devuelve TODAS las acciones necesarias en orden.
+3. Pregunta únicamente si falta un dato realmente imprescindible o hay ambigüedad real.
+4. Nunca obligues al usuario a repetir datos que ya dijo en el mismo turno o en HISTORY.
+5. Nunca afirmes que una acción se hizo si no incluyes la acción correspondiente.
+6. Solo una respuesta hablada breve al final; no narres cada paso.
 
 DINERO Y MONEDA:
 - “50 mil pesos”, “50,000 MXN”, “$50,000” en contexto mexicano => amount 50000, currency MXN.
 - “50 mil dólares”, “50,000 USD”, “50 thousand dollars” => amount 50000, currency USD.
-- Si la cifra forma parte del NOMBRE, por ejemplo “Evento de 50 mil”, y NO dice pesos/dólares/MXN/USD ni habla de precio/cobro/pago/ingreso/gasto, NO la conviertas en Excel.
+- Si la cifra forma parte del NOMBRE, por ejemplo “Evento de 50 mil”, y NO dice pesos/dólares/MXN/USD ni habla de precio/cobro/pago/ingreso/gasto, NO la conviertas en Excel financiero.
 - amount siempre es número, no texto.
 - Para eventos cobrados/contratados usa financialType="income" por defecto salvo que el usuario indique gasto.
 - status financiero por defecto="pending", salvo que diga pagado/cobrado.
@@ -308,23 +421,37 @@ REGLAS DE EVENTOS EXISTENTES:
 - Si hay dos eventos posibles y no puedes distinguir, pregunta cuál y devuelve cero acciones.
 - Fechas YYYY-MM-DD y horas HH:mm 24h usando CURRENT_LOCAL_DATETIME.
 
-EJEMPLO 1:
+EJEMPLO EXCEL 1:
+CURRENT_SHEET_COLUMNS contiene {"id":"col-perro","name":"Perro","behavior":"neutral"}.
+Usuario: “Agrega Hotel y en Perro pon Reservado.”
+Respuesta: {"reply":"Listo, lo agrego.","eventActions":[{"type":"navigate_section","section":"sheet"},{"type":"create_sheet_grid_row","label":"Hotel","cells":[{"columnId":"col-perro","value":"Reservado"}]}]}
+
+EJEMPLO EXCEL 2:
+CURRENT_SHEET_ROWS contiene {"id":"row-hotel","label":"Hotel"} y CURRENT_SHEET_COLUMNS contiene {"id":"col-sombrero","name":"Sombrero"}.
+Usuario: “En Hotel pon 250 en Sombrero.”
+Respuesta: {"reply":"Listo.","eventActions":[{"type":"set_sheet_cell","rowId":"row-hotel","columnId":"col-sombrero","value":250}]}
+
+EJEMPLO EXCEL 3:
+Usuario: “Crea una columna que se llame Transporte y que sea gasto.”
+Respuesta: {"reply":"Listo, creo Transporte como gasto.","eventActions":[{"type":"navigate_section","section":"sheet"},{"type":"create_sheet_column","name":"Transporte","behavior":"expense"}]}
+
+EJEMPLO EVENTO:
 Usuario: “El 27 de noviembre de 2027 tengo una boda en San Miguel por 50 mil pesos y quiero verla en calendario.”
 Respuesta: {"reply":"Listo, lo dejo sincronizado.","eventActions":[{"type":"create_event","surface":"calendar","event":{"title":"Boda en San Miguel","date":"2027-11-27","status":"confirmed"},"finance":{"amount":50000,"currency":"MXN","label":"Boda en San Miguel","category":"Evento","status":"pending","financialType":"income"}}]}
-
-EJEMPLO 2:
-Usuario: “Todos los viernes, sábado y domingo de 2027 crea Evento de 50 mil.”
-Respuesta: {"reply":"Listo, creo la serie en Calendario.","eventActions":[{"type":"create_calendar_series","event":{"title":"Evento de 50 mil","status":"confirmed"},"startDate":"2027-01-01","endDate":"2027-12-31","weekdays":[0,5,6]}]}
-
-EJEMPLO 3:
-Usuario: “A la boda de San Miguel ponle 8 mil dólares y abre Excel.”
-Respuesta: {"reply":"Listo, sincronizo el monto y te lo muestro en Excel.","eventActions":[{"type":"sync_event_finance","eventId":"ID_REAL","surface":"sheet","finance":{"amount":8000,"currency":"USD","category":"Evento","status":"pending","financialType":"income"}}]}
 
 RESPONDE SOLO JSON VÁLIDO, sin markdown:
 {"reply":"una sola frase breve","eventActions":[]}
 
 Acciones permitidas:
 {"type":"navigate_section","section":"home|events|calendar|sheet|reminders"}
+{"type":"create_sheet_column","name":"Perro","behavior":"income|expense|investment|neutral"}
+{"type":"update_sheet_column","columnId":"id existente","name":"nuevo nombre","behavior":"income|expense|investment|neutral"}
+{"type":"delete_sheet_column","columnId":"id existente"}
+{"type":"create_sheet_grid_row","label":"Hotel","cells":[{"columnId":"id existente","value":"texto o número"}]}
+{"type":"rename_sheet_row","rowId":"id existente","label":"nuevo concepto"}
+{"type":"set_sheet_cell","rowId":"id existente","columnId":"id existente","value":"texto o número"}
+{"type":"clear_sheet_cell","rowId":"id existente","columnId":"id existente"}
+{"type":"delete_sheet_row","rowId":"id existente"}
 {"type":"open_events"}
 {"type":"open_event","eventId":"id existente"}
 {"type":"create_event","surface":"events|calendar","event":{"title":"...","date":"YYYY-MM-DD","showTime":"HH:mm","venue":"...","status":"confirmed"},"finance":{"amount":50000,"currency":"MXN","label":"...","category":"Evento","status":"pending","financialType":"income"}}
@@ -344,7 +471,7 @@ async function runModel(env: Env, messages: Array<{ role: string; content: strin
           messages,
           response_format: { type: 'json_object' },
           temperature: 0,
-          max_completion_tokens: 1600,
+          max_completion_tokens: 1800,
           chat_template_kwargs: { enable_thinking: false }
         },
         { rejectIfBusy: false }
@@ -356,7 +483,7 @@ async function runModel(env: Env, messages: Array<{ role: string; content: strin
 
   return env.AI.run(
     '@cf/meta/llama-3.1-8b-instruct-fast',
-    { messages, temperature: 0.05, max_tokens: 800 },
+    { messages, temperature: 0.05, max_tokens: 900 },
     { rejectIfBusy: false }
   );
 }
@@ -373,6 +500,7 @@ export async function handleNoahChat(request: Request, env: Env) {
         localDateTime?: string;
         timezoneOffsetMinutes?: number;
         events?: EventSnapshot[];
+        sheetColumns?: SheetColumnSnapshot[];
         sheetRows?: SheetSnapshot[];
       };
     };
@@ -408,28 +536,60 @@ export async function handleNoahChat(request: Request, env: Env) {
         })).filter((event) => event.id && event.title && event.date)
       : [];
 
+    const sheetColumns = Array.isArray(body.context?.sheetColumns)
+      ? body.context!.sheetColumns!.slice(0, 80).map((column) => ({
+          id: cleanString(column.id, 120),
+          name: cleanString(column.name, 120),
+          key: cleanString(column.key, 160),
+          type: cleanColumnType(column.type) || 'text',
+          behavior: cleanColumnBehavior(column.behavior) || 'neutral',
+          position: Number.isFinite(Number(column.position)) ? Number(column.position) : 0
+        })).filter((column) => column.id && column.name && column.key)
+      : [];
+
+    const columnIds = new Set(sheetColumns.map((column) => String(column.id)));
+    const columnById = new Map(sheetColumns.map((column) => [String(column.id), column]));
+
     const sheetRows = Array.isArray(body.context?.sheetRows)
-      ? body.context!.sheetRows!.slice(0, 120).map((row) => ({
-          id: cleanString(row.id, 120),
-          label: cleanString(row.label, 180),
-          category: cleanString(row.category, 120),
-          amount: cleanAmount(row.amount),
-          currency: cleanCurrency(row.currency) || 'MXN',
-          status: cleanSheetStatus(row.status),
-          financialType: cleanFinancialType(row.financialType),
-          eventId: cleanString(row.eventId, 120),
-          calendarDate: cleanDate(row.calendarDate),
-          notes: cleanString(row.notes, 400),
-          description: cleanString(row.description, 400)
-        })).filter((row) => row.id && row.label)
+      ? body.context!.sheetRows!.slice(0, 120).map((row) => {
+          const cells: Array<{ columnId: string; columnName: string; value: string | number | boolean | null }> = [];
+          if (Array.isArray(row.cells)) {
+            for (const rawCell of row.cells.slice(0, 80)) {
+              if (!rawCell || typeof rawCell !== 'object') continue;
+              const cell = rawCell as Record<string, unknown>;
+              const columnId = cleanString(cell.columnId, 120);
+              if (!columnId || !columnIds.has(columnId)) continue;
+              const value = cleanSheetValue(cell.value);
+              if (value === undefined) continue;
+              const column = columnById.get(columnId);
+              cells.push({ columnId, columnName: String(column?.name || ''), value });
+            }
+          }
+          return {
+            id: cleanString(row.id, 120),
+            label: cleanString(row.label, 180),
+            category: cleanString(row.category, 120),
+            amount: cleanAmount(row.amount),
+            currency: cleanCurrency(row.currency) || 'MXN',
+            status: cleanSheetStatus(row.status),
+            financialType: cleanFinancialType(row.financialType),
+            eventId: cleanString(row.eventId, 120),
+            calendarDate: cleanDate(row.calendarDate),
+            notes: cleanString(row.notes, 400),
+            description: cleanString(row.description, 400),
+            cells
+          };
+        }).filter((row) => row.id && row.label)
       : [];
 
     const eventIds = new Set(events.map((event) => String(event.id)));
+    const rowIds = new Set(sheetRows.map((row) => String(row.id)));
     const contextText = JSON.stringify({
       CURRENT_LOCAL_DATETIME: cleanString(body.context?.localDateTime, 100) || new Date().toISOString(),
       TIMEZONE_OFFSET_MINUTES: Number(body.context?.timezoneOffsetMinutes || 0),
       CURRENT_SECTION: cleanString(body.context?.section, 40) || 'unknown',
       CURRENT_EVENTS: events,
+      CURRENT_SHEET_COLUMNS: sheetColumns,
       CURRENT_SHEET_ROWS: sheetRows
     });
 
@@ -446,7 +606,8 @@ export async function handleNoahChat(request: Request, env: Env) {
       { role: 'user', content: message }
     ];
 
-    const result = await runModel(env, messages, mutationIntent(message));
+    const reliable = mutationIntent(message) || body.context?.section === 'sheet';
+    const result = await runModel(env, messages, reliable);
     const raw = readText(result);
     const parsed = parseJsonObject(raw);
 
@@ -456,7 +617,7 @@ export async function handleNoahChat(request: Request, env: Env) {
     }
 
     const reply = cleanString(parsed.reply, 420) || 'Listo.';
-    const eventActions = sanitizeActions(parsed.eventActions, eventIds);
+    const eventActions = sanitizeActions(parsed.eventActions, eventIds, rowIds, columnIds);
     return json({ text: reply, eventActions });
   } catch (error) {
     console.error('Noah chat failed', error);
