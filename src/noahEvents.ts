@@ -38,6 +38,7 @@ export type NoahEventAction =
       event: NoahEventPatch & { title: string; date: string; status?: EventStatus };
       surface?: Exclude<NoahActionSurface, 'sheet'>;
       finance?: NoahFinanceInput;
+      createExcelConcept?: boolean;
     }
   | {
       type: 'create_calendar_series';
