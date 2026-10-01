@@ -270,7 +270,12 @@ export function sanitizeActions(raw: unknown, eventIds: Set<string>, rowIds: Set
       if (!cleanEvent.status) cleanEvent.status = 'confirmed';
       const surface = cleanSurface(action.surface);
       const finance = sanitizeFinance(action.finance);
-      const result: ChatAction = { type, event: cleanEvent, surface: surface === 'events' ? 'events' : 'calendar' };
+      const result: ChatAction = {
+        type,
+        event: cleanEvent,
+        surface: surface === 'events' ? 'events' : 'calendar',
+        ...(action.createExcelConcept === true ? { createExcelConcept: true } : {})
+      };
       if (finance) result.finance = finance;
       actions.push(result);
       continue;
