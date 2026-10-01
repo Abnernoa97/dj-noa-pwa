@@ -18,7 +18,8 @@ import {
   type NoahActionStep,
   type NoahEventAction,
   type NoahEventActionResult,
-  type NoahEventPatch
+  type NoahEventPatch,
+  type NoahFinanceInput
 } from './noahEvents';
 import BottomNav from './app/BottomNav';
 import HomeView from './app/HomeView';
@@ -44,6 +45,18 @@ function sleep(ms: number) {
 
 function normalizedEventTitle(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function financeText(finance: NoahFinanceInput) {
+  try {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: finance.currency,
+      maximumFractionDigits: 0
+    }).format(finance.amount);
+  } catch {
+    return `${finance.amount} ${finance.currency}`;
+  }
 }
 
 const fieldLabels: Partial<Record<keyof NoahEventPatch, string>> = {
@@ -87,8 +100,29 @@ function progressSteps(entries: Array<[keyof NoahEventPatch, unknown]>, prefix: 
   ];
 }
 
-function calendarSeriesSteps(created: number, total: number, monthLabel: string, complete = false): NoahActionStep[] {
-  return [
+function matrixSteps(title: string, date: string, finance: NoahFinanceInput | undefined, stage: number, complete = false): NoahActionStep[] {
+  const steps: NoahActionStep[] = [
+    { id: 'matrix-calendar', label: 'Calendario', value: date, state: complete || stage > 0 ? 'done' : 'active' },
+    { id: 'matrix-event', label: 'Evento', value: title, state: complete || stage > 1 ? 'done' : stage === 1 ? 'active' : 'pending' }
+  ];
+  if (finance) {
+    steps.push({
+      id: 'matrix-excel',
+      label: 'Excel',
+      value: financeText(finance),
+      state: complete || stage > 2 ? 'done' : stage === 2 ? 'active' : 'pending'
+    });
+  }
+  steps.push({
+    id: 'matrix-link',
+    label: 'Sincronizando todo',
+    state: complete ? 'done' : stage > (finance ? 2 : 1) ? 'active' : 'pending'
+  });
+  return steps;
+}
+
+function calendarSeriesSteps(created: number, total: number, monthLabel: string, finance?: NoahFinanceInput, complete = false): NoahActionStep[] {
+  const steps: NoahActionStep[] = [
     { id: 'series-pattern', label: 'Patrón entendido', state: 'done' },
     { id: 'series-calendar', label: 'Calendario abierto', state: 'done' },
     {
@@ -96,9 +130,18 @@ function calendarSeriesSteps(created: number, total: number, monthLabel: string,
       label: complete ? 'Fechas creadas' : 'Agregando fechas',
       value: complete ? `${created}` : `${monthLabel} · ${created}/${total}`,
       state: complete ? 'done' : 'active'
-    },
-    { id: 'series-save', label: 'Guardando serie', state: complete ? 'done' : 'pending' }
+    }
   ];
+  if (finance) {
+    steps.push({
+      id: 'series-excel',
+      label: 'Excel vinculado',
+      value: complete ? `${created} movimientos` : financeText(finance),
+      state: complete ? 'done' : created > 0 ? 'active' : 'pending'
+    });
+  }
+  steps.push({ id: 'series-save', label: 'Sincronizando serie', state: complete ? 'done' : 'pending' });
+  return steps;
 }
 
 export default function App() {
@@ -144,7 +187,7 @@ export default function App() {
     });
   }, [events]);
 
-  const total = useMemo(() => sheetRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), [sheetRows]);
+  const total = useMemo(() => sheetRows.filter((row) => (row.currency || 'MXN') === 'MXN').reduce((sum, row) => sum + Number(row.amount || 0), 0), [sheetRows]);
   const openReminders = reminders.filter((item) => !item.done).length;
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
@@ -175,6 +218,42 @@ export default function App() {
     setSelectedEvent(event || null);
     setEventCreateDate(event ? null : createDate || null);
     setEventEditorOpen(true);
+  };
+
+  const financeRowData = (event: EventItem, finance: NoahFinanceInput, existing?: SheetRow) => ({
+    label: finance.label || event.title,
+    category: finance.category || 'Evento',
+    amount: finance.amount,
+    currency: finance.currency,
+    status: finance.status || 'pending' as const,
+    financialType: finance.financialType || 'income' as const,
+    eventId: event.id,
+    calendarDate: event.date,
+    notes: finance.notes ?? existing?.notes,
+    description: finance.description ?? existing?.description,
+    values: existing?.values || {},
+    updatedAt: new Date().toISOString()
+  });
+
+  const syncFinanceForEvent = async (event: EventItem, finance: NoahFinanceInput) => {
+    const existing = sheetRows.find((row) => row.eventId === event.id && row.financialType !== 'neutral') || sheetRows.find((row) => row.eventId === event.id);
+    if (existing) {
+      const patch = financeRowData(event, finance, existing);
+      await db.sheetRows.update(existing.id, patch);
+      const updated = { ...existing, ...patch } as SheetRow;
+      setSheetRows((current) => current.map((row) => row.id === existing.id ? updated : row));
+      return updated;
+    }
+
+    const now = new Date().toISOString();
+    const row: SheetRow = {
+      id: uid(),
+      ...financeRowData(event, finance),
+      createdAt: now
+    };
+    await db.sheetRows.add(row);
+    setSheetRows((current) => [row, ...current]);
+    return row;
   };
 
   const deleteEventWithRelations = async (eventId: string) => {
@@ -223,6 +302,59 @@ export default function App() {
         return { ok: true, message: 'Aquí están tus eventos.' };
       }
 
+      if (action.type === 'create_sheet_row') {
+        const now = new Date().toISOString();
+        const row: SheetRow = {
+          id: uid(),
+          label: action.row.label || 'Movimiento',
+          category: action.row.category || (action.row.financialType === 'expense' ? 'Gasto' : 'General'),
+          amount: action.row.amount,
+          currency: action.row.currency,
+          status: action.row.status || 'pending',
+          financialType: action.row.financialType || 'neutral',
+          calendarDate: action.row.calendarDate,
+          notes: action.row.notes,
+          description: action.row.description,
+          values: {},
+          createdAt: now,
+          updatedAt: now
+        };
+        showNoahActivity({
+          phase: 'working',
+          title: 'Agregando a Excel',
+          detail: row.label,
+          scope: 'EXCEL',
+          steps: [
+            { id: 'sheet-read', label: 'Movimiento entendido', value: financeText(action.row), state: 'done' },
+            { id: 'sheet-write', label: 'Escribiendo fila', state: 'active' },
+            { id: 'sheet-save', label: 'Guardando', state: 'pending' }
+          ]
+        });
+        await db.sheetRows.add(row);
+        setSheetRows((current) => [row, ...current]);
+        await sleep(160);
+        if (action.surface === 'calendar' && row.calendarDate) {
+          setView('calendar');
+          setMonth(startOfMonth(parseISO(row.calendarDate)));
+          setNoahCalendarDates([row.calendarDate]);
+        } else {
+          setView('sheet');
+          setSelectedSheetRowId(row.id);
+        }
+        showNoahActivity({
+          phase: 'done',
+          title: 'Movimiento guardado',
+          detail: `${row.label} · ${financeText(action.row)}`,
+          scope: 'EXCEL',
+          steps: [
+            { id: 'sheet-read', label: 'Movimiento entendido', value: financeText(action.row), state: 'done' },
+            { id: 'sheet-write', label: 'Fila creada', state: 'done' },
+            { id: 'sheet-save', label: 'Guardado', state: 'done' }
+          ]
+        });
+        return { ok: true, message: 'Listo, quedó en Excel.' };
+      }
+
       if (action.type === 'create_calendar_series') {
         const start = parseISO(action.startDate);
         const end = parseISO(action.endDate);
@@ -240,7 +372,13 @@ export default function App() {
         setView('calendar');
         setMonth(startOfMonth(start));
         setNoahCalendarDates([]);
-        showNoahActivity({ phase: 'working', title: 'Creando serie en Calendario', detail: action.event.title, scope: 'CALENDARIO', steps: calendarSeriesSteps(0, dates.length, 'Preparando') });
+        showNoahActivity({
+          phase: 'working',
+          title: action.finance ? 'Construyendo matriz' : 'Creando serie en Calendario',
+          detail: action.event.title,
+          scope: action.finance ? 'MATRIZ' : 'CALENDARIO',
+          steps: calendarSeriesSteps(0, dates.length, 'Preparando', action.finance)
+        });
         await sleep(160);
 
         const existingKeys = new Set(events.map((event) => `${normalizedEventTitle(event.title)}|${event.date}`));
@@ -298,14 +436,34 @@ export default function App() {
             await db.events.bulkAdd(batch);
             created += batch.length;
             setEvents((current) => sortEvents([...current, ...batch]));
+            if (action.finance) {
+              const rows: SheetRow[] = batch.map((event) => ({
+                id: uid(),
+                label: action.finance?.label || event.title,
+                category: action.finance?.category || 'Evento',
+                amount: action.finance!.amount,
+                currency: action.finance!.currency,
+                status: action.finance?.status || 'pending',
+                financialType: action.finance?.financialType || 'income',
+                eventId: event.id,
+                calendarDate: event.date,
+                notes: action.finance?.notes,
+                description: action.finance?.description,
+                values: {},
+                createdAt: event.createdAt,
+                updatedAt: event.updatedAt
+              }));
+              await db.sheetRows.bulkAdd(rows);
+              setSheetRows((current) => [...rows.reverse(), ...current]);
+            }
           }
 
           showNoahActivity({
             phase: 'working',
-            title: 'Escribiendo en Calendario',
+            title: action.finance ? 'Sincronizando matriz' : 'Escribiendo en Calendario',
             detail: action.event.title,
-            scope: 'CALENDARIO',
-            steps: calendarSeriesSteps(created + skipped, dates.length, monthLabel)
+            scope: action.finance ? 'MATRIZ' : 'CALENDARIO',
+            steps: calendarSeriesSteps(created + skipped, dates.length, monthLabel, action.finance)
           });
           await sleep(125);
         }
@@ -315,15 +473,32 @@ export default function App() {
           setNoahCalendarDates(firstMonthDates);
         }
         const detail = skipped ? `${created} creados · ${skipped} ya existían` : `${created} eventos creados`;
-        showNoahActivity({ phase: 'done', title: 'Serie creada', detail, scope: 'CALENDARIO', steps: calendarSeriesSteps(created + skipped, dates.length, '', true) });
-        return { ok: true, message: skipped ? `Listo. Creé ${created} y omití ${skipped} que ya existían.` : `Listo, creé ${created} eventos en Calendario.` };
+        showNoahActivity({
+          phase: 'done',
+          title: action.finance ? 'Matriz sincronizada' : 'Serie creada',
+          detail,
+          scope: action.finance ? 'MATRIZ' : 'CALENDARIO',
+          steps: calendarSeriesSteps(created + skipped, dates.length, '', action.finance, true)
+        });
+        return {
+          ok: true,
+          message: action.finance
+            ? `Listo, creé ${created} eventos con Excel vinculado.`
+            : skipped ? `Listo. Creé ${created} y omití ${skipped} que ya existían.` : `Listo, creé ${created} eventos en Calendario.`
+        };
       }
 
       if (action.type === 'create_event') {
-        const calendarSurface = action.surface === 'calendar';
+        const calendarSurface = action.surface !== 'events';
+        const scope = action.finance ? 'MATRIZ' : calendarSurface ? 'CALENDARIO' : 'EVENTOS';
         const entries = patchEntries(action.event);
-        const scope = calendarSurface ? 'CALENDARIO' : 'EVENTOS';
-        showNoahActivity({ phase: 'working', title: 'Creando evento', detail: action.event.title, scope, steps: progressSteps(entries, 'create', 0) });
+        showNoahActivity({
+          phase: 'working',
+          title: action.finance ? 'Construyendo matriz' : 'Creando evento',
+          detail: action.event.title,
+          scope,
+          steps: action.finance ? matrixSteps(action.event.title, action.event.date, action.finance, 0) : progressSteps(entries, 'create', 0)
+        });
         setEventHubId(null);
         if (calendarSurface) {
           setView('calendar');
@@ -356,18 +531,79 @@ export default function App() {
           createdAt: now,
           updatedAt: now
         };
+
+        if (action.finance) {
+          showNoahActivity({ phase: 'working', title: 'Construyendo matriz', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 1) });
+        }
         await db.events.add(item);
         setEvents((current) => sortEvents([...current, item]));
+        await sleep(130);
+
+        if (action.finance) {
+          showNoahActivity({ phase: 'working', title: 'Sincronizando Excel', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 2) });
+          await syncFinanceForEvent(item, action.finance);
+          await sleep(130);
+          showNoahActivity({ phase: 'working', title: 'Vinculando todo', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 3) });
+          await sleep(120);
+        }
+
         if (!calendarSurface) setEventHubId(item.id);
-        await sleep(180);
-        showNoahActivity({ phase: 'done', title: 'Evento creado', detail: item.title, scope, steps: progressSteps(entries, 'create', entries.length + 2, true) });
-        return { ok: true, message: calendarSurface ? 'Listo, ya está en Calendario.' : 'Listo, evento creado.' };
+        showNoahActivity({
+          phase: 'done',
+          title: action.finance ? 'Todo sincronizado' : 'Evento creado',
+          detail: item.title,
+          scope,
+          steps: action.finance ? matrixSteps(item.title, item.date, action.finance, 4, true) : progressSteps(entries, 'create', entries.length + 2, true)
+        });
+        return {
+          ok: true,
+          message: action.finance ? 'Listo, quedó sincronizado en Calendario, Eventos y Excel.' : calendarSurface ? 'Listo, ya está en Calendario.' : 'Listo, evento creado.'
+        };
       }
 
       const target = events.find((event) => event.id === action.eventId);
       if (!target) {
         showNoahActivity({ phase: 'error', title: 'Evento no encontrado', detail: 'No hice cambios', scope: 'EVENTOS' });
         return { ok: false, message: 'No encontré ese evento.' };
+      }
+
+      if (action.type === 'sync_event_finance') {
+        showNoahActivity({
+          phase: 'working',
+          title: 'Sincronizando monto',
+          detail: target.title,
+          scope: 'MATRIZ',
+          steps: [
+            { id: 'finance-event', label: 'Evento localizado', value: target.title, state: 'done' },
+            { id: 'finance-excel', label: 'Excel', value: financeText(action.finance), state: 'active' },
+            { id: 'finance-link', label: 'Vínculo por eventId', state: 'pending' }
+          ]
+        });
+        const row = await syncFinanceForEvent(target, action.finance);
+        await sleep(150);
+        if (action.surface === 'calendar') {
+          setView('calendar');
+          setMonth(startOfMonth(parseISO(target.date)));
+          setNoahCalendarDates([target.date]);
+        } else if (action.surface === 'events') {
+          setView('events');
+          setEventHubId(target.id);
+        } else {
+          setView('sheet');
+          setSelectedSheetRowId(row.id);
+        }
+        showNoahActivity({
+          phase: 'done',
+          title: 'Monto sincronizado',
+          detail: `${target.title} · ${financeText(action.finance)}`,
+          scope: 'MATRIZ',
+          steps: [
+            { id: 'finance-event', label: 'Evento localizado', value: target.title, state: 'done' },
+            { id: 'finance-excel', label: 'Excel actualizado', value: financeText(action.finance), state: 'done' },
+            { id: 'finance-link', label: 'Vínculo por eventId', state: 'done' }
+          ]
+        });
+        return { ok: true, message: 'Listo, el monto quedó sincronizado con el evento.' };
       }
 
       if (action.type === 'open_event') {
@@ -381,7 +617,8 @@ export default function App() {
 
       if (action.type === 'update_event') {
         const entries = patchEntries(action.patch);
-        showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: target.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', 0) });
+        const linkedRows = sheetRows.filter((row) => row.eventId === target.id);
+        showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: target.title, scope: linkedRows.length && action.patch.date ? 'MATRIZ' : 'EVENTOS', steps: progressSteps(entries, 'update', 0) });
         setView('events');
         setEventHubId(target.id);
         await sleep(200);
@@ -389,17 +626,23 @@ export default function App() {
         let currentTarget = target;
         for (let index = 0; index < entries.length; index += 1) {
           const [key, value] = entries[index];
-          showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', index + 1) });
+          showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: currentTarget.title, scope: linkedRows.length && key === 'date' ? 'MATRIZ' : 'EVENTOS', steps: progressSteps(entries, 'update', index + 1) });
           const patch: Partial<EventItem> & { updatedAt: string } = { [key]: value, updatedAt: new Date().toISOString() } as Partial<EventItem> & { updatedAt: string };
           if (key === 'showTime') patch.time = String(value || '');
           await db.events.update(target.id, patch);
           currentTarget = { ...currentTarget, ...patch };
           setEvents((current) => sortEvents(current.map((event) => event.id === target.id ? currentTarget : event)));
+
+          if (key === 'date' && typeof value === 'string' && linkedRows.length) {
+            const updatedAt = new Date().toISOString();
+            await Promise.all(linkedRows.map((row) => db.sheetRows.update(row.id, { calendarDate: value, updatedAt })));
+            setSheetRows((current) => current.map((row) => row.eventId === target.id ? { ...row, calendarDate: value, updatedAt } : row));
+          }
           await sleep(220);
         }
 
-        showNoahActivity({ phase: 'done', title: 'Evento actualizado', detail: currentTarget.title, scope: 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 2, true) });
-        return { ok: true, message: 'Listo, quedó actualizado.' };
+        showNoahActivity({ phase: 'done', title: 'Evento actualizado', detail: currentTarget.title, scope: linkedRows.length && action.patch.date ? 'MATRIZ' : 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 2, true) });
+        return { ok: true, message: linkedRows.length && action.patch.date ? 'Listo, moví el evento y mantuve Excel sincronizado.' : 'Listo, quedó actualizado.' };
       }
 
       if (action.type === 'delete_event') {
@@ -492,7 +735,7 @@ export default function App() {
       </main>
 
       <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setNoahCalendarDates([]); setView(next); }} />
-      <NoahVoice ref={noahRef} events={events} section={mlbOpen ? 'mlb' : view} onEventAction={executeNoahEventAction} />
+      <NoahVoice ref={noahRef} events={events} sheetRows={sheetRows} section={mlbOpen ? 'mlb' : view} onEventAction={executeNoahEventAction} />
       <NoahActionOverlay activity={noahActivity} />
 
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
