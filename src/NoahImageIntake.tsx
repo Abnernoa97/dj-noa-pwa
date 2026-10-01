@@ -11,11 +11,25 @@ type Finding = {
   confidence: 'high' | 'medium' | 'low';
 };
 
+type DraftEvent = {
+  title: string;
+  dateText: string;
+  dateISO: string | null;
+  monthDay: string | null;
+  showTime?: string;
+  venue?: string;
+  address?: string;
+  notes?: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
 type AnalysisPayload = {
   text: string;
   rawText?: string;
   warnings: string[];
   findings: Finding[];
+  draftEvents: DraftEvent[];
+  pendingExcelAmounts?: number;
   eventActions: NoahChatAction[];
 };
 
@@ -107,6 +121,8 @@ export default function NoahImageIntake({ onApply }: Props) {
   const [fileName, setFileName] = useState('');
   const [analysis, setAnalysis] = useState<AnalysisPayload | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selectedDrafts, setSelectedDrafts] = useState<Set<number>>(new Set());
+  const [documentYear, setDocumentYear] = useState('');
   const [error, setError] = useState('');
 
   const reset = () => {
@@ -117,6 +133,8 @@ export default function NoahImageIntake({ onApply }: Props) {
     setFileName('');
     setAnalysis(null);
     setSelected(new Set());
+    setSelectedDrafts(new Set());
+    setDocumentYear('');
     setError('');
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -182,15 +200,19 @@ export default function NoahImageIntake({ onApply }: Props) {
       if (!response.ok) throw new Error(`analysis_${response.status}`);
       const payload = await response.json() as AnalysisPayload;
       const actions = Array.isArray(payload.eventActions) ? payload.eventActions : [];
+      const drafts = Array.isArray(payload.draftEvents) ? payload.draftEvents : [];
       const normalized: AnalysisPayload = {
         text: String(payload.text || 'Imagen analizada.'),
         rawText: String(payload.rawText || ''),
         warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
         findings: Array.isArray(payload.findings) ? payload.findings : [],
+        draftEvents: drafts,
+        pendingExcelAmounts: Number(payload.pendingExcelAmounts || 0),
         eventActions: actions
       };
       setAnalysis(normalized);
       setSelected(new Set(actions.map((_, index) => index)));
+      setSelectedDrafts(new Set(drafts.map((_, index) => index)));
     } catch (reason) {
       const message = String((reason as Error)?.message || '');
       if (message === 'format') setError('Usa una foto JPG, PNG o WEBP.');
@@ -204,6 +226,29 @@ export default function NoahImageIntake({ onApply }: Props) {
   const apply = async () => {
     if (!analysis || applying) return;
     const actions = analysis.eventActions.filter((_, index) => selected.has(index));
+    const year = Number(documentYear);
+    const selectedPending = analysis.draftEvents.filter((_, index) => selectedDrafts.has(index));
+    if (selectedPending.length && (!Number.isInteger(year) || year < 2000 || year > 2100)) {
+      setError('Confirma el año del documento para organizar estas fechas.');
+      return;
+    }
+    for (const draft of selectedPending) {
+      if (!draft.monthDay) continue;
+      actions.push({
+        type: 'create_event',
+        surface: 'calendar',
+        createExcelConcept: true,
+        event: {
+          title: draft.title,
+          date: `${year}-${draft.monthDay}`,
+          showTime: draft.showTime,
+          venue: draft.venue,
+          address: draft.address,
+          notes: draft.notes,
+          status: 'confirmed'
+        }
+      });
+    }
     if (!actions.length) {
       setError('No hay acciones seleccionadas para guardar.');
       return;
@@ -224,6 +269,15 @@ export default function NoahImageIntake({ onApply }: Props) {
 
   const toggle = (index: number) => {
     setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const toggleDraft = (index: number) => {
+    setSelectedDrafts((current) => {
       const next = new Set(current);
       if (next.has(index)) next.delete(index);
       else next.add(index);
@@ -299,15 +353,39 @@ export default function NoahImageIntake({ onApply }: Props) {
               {analysis.warnings.map((warning, index) => <div className="noah-image-warning" key={index}><AlertTriangle size={16} /><span>{warning}</span></div>)}
             </div> : null}
 
+            {analysis.draftEvents.length ? <div className="noah-image-year">
+              <div>
+                <span>AÑO DEL DOCUMENTO</span>
+                <strong>Falta solo este dato para crear los eventos.</strong>
+              </div>
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={documentYear}
+                placeholder="2026"
+                onChange={(event) => setDocumentYear(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                aria-label="Año del documento"
+              />
+            </div> : null}
+
             <div className="noah-image-plan">
-              <div className="noah-image-section-title">PLAN · {selected.size}/{analysis.eventActions.length}</div>
+              <div className="noah-image-section-title">PLAN · {selected.size + selectedDrafts.size}/{analysis.eventActions.length + analysis.draftEvents.length}</div>
+              {analysis.draftEvents.map((draft, index) => {
+                const checked = selectedDrafts.has(index);
+                const date = draft.monthDay ? `${documentYear || 'AÑO'}-${draft.monthDay}` : draft.dateText;
+                return <button type="button" className={checked ? 'selected' : ''} key={`draft-${index}`} onClick={() => toggleDraft(index)}>
+                  <span className="noah-image-check">{checked ? <Check size={15} /> : null}</span>
+                  <div><small>CALENDARIO + EVENTOS + EXCEL</small><strong>{draft.title} · {date}</strong><em>Excel: Concepto creado · monto pendiente</em></div>
+                </button>;
+              })}
               {analysis.eventActions.length ? analysis.eventActions.map((action, index) => {
                 const checked = selected.has(index);
                 return <button type="button" className={checked ? 'selected' : ''} key={index} onClick={() => toggle(index)}>
                   <span className="noah-image-check">{checked ? <Check size={15} /> : null}</span>
                   <div><small>{actionKind(action)}</small><strong>{actionLabel(action)}</strong></div>
                 </button>;
-              }) : <div className="noah-image-empty">No encontré acciones suficientemente claras para guardar.</div>}
+              }) : analysis.draftEvents.length ? null : <div className="noah-image-empty">No encontré acciones suficientemente claras para guardar.</div>}
             </div>
 
             {analysis.rawText ? <details className="noah-image-raw">
@@ -317,7 +395,7 @@ export default function NoahImageIntake({ onApply }: Props) {
 
             <footer className="noah-image-actions">
               <button type="button" className="secondary" onClick={reset}>Cancelar</button>
-              <button type="button" className="primary" disabled={!selected.size || applying} onClick={() => void apply()}>
+              <button type="button" className="primary" disabled={!(selected.size || selectedDrafts.size) || applying} onClick={() => void apply()}>
                 {applying ? 'ORGANIZANDO…' : 'ORGANIZAR TODO'}
               </button>
             </footer>
