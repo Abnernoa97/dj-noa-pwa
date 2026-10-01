@@ -44,3 +44,14 @@ test('base Worker owns only health, push, reminders and assets', () => {
   assert.match(base, /env\.ASSETS\.fetch\(request\)/);
   assert.equal(base.includes('dj-noa-ai'), false);
 });
+
+
+test('Noah image analysis is grounded in a real multimodal vision pass', () => {
+  const imageWorker = read('worker/src/noahImage.ts');
+  assert.match(imageWorker, /type: 'image_url'/);
+  assert.match(imageWorker, /image_url: \{ url: image \}/);
+  assert.match(imageWorker, /visionPrompt\(\)/);
+  assert.match(imageWorker, /planningPrompt\(contextText, visualGrounding\)/);
+  assert.match(imageWorker, /actionGrounded/);
+  assert.equal(/\n\s*image,\n/.test(imageWorker), false);
+});
