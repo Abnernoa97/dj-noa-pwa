@@ -76,6 +76,74 @@ function normalize(value: unknown) {
     .trim();
 }
 
+type DraftEvent = {
+  title: string;
+  dateText: string;
+  dateISO: string | null;
+  monthDay: string | null;
+  showTime?: string;
+  venue?: string;
+  address?: string;
+  notes?: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+function monthDayFrom(dateText: unknown) {
+  const clean = String(dateText || '').trim().toLowerCase();
+  const months: Record<string, string> = {
+    jan: '01', january: '01', ene: '01', enero: '01',
+    feb: '02', february: '02', febrero: '02',
+    mar: '03', march: '03', marzo: '03',
+    apr: '04', april: '04', abr: '04', abril: '04',
+    may: '05', mayo: '05',
+    jun: '06', june: '06', junio: '06',
+    jul: '07', july: '07', julio: '07',
+    aug: '08', august: '08', ago: '08', agosto: '08',
+    sep: '09', sept: '09', september: '09', septiembre: '09',
+    oct: '10', october: '10', octubre: '10',
+    nov: '11', november: '11', noviembre: '11',
+    dec: '12', december: '12', dic: '12', diciembre: '12'
+  };
+  const words = clean.replace(/[,./-]+/g, ' ').split(/\s+/).filter(Boolean);
+  let month = '';
+  let day = 0;
+  for (const word of words) {
+    if (!month && months[word]) month = months[word];
+    if (!day && /^\d{1,2}$/.test(word)) {
+      const candidate = Number(word);
+      if (candidate >= 1 && candidate <= 31) day = candidate;
+    }
+  }
+  return month && day ? `${month}-${String(day).padStart(2, '0')}` : null;
+}
+
+function draftEventsFrom(items: unknown): DraftEvent[] {
+  if (!Array.isArray(items)) return [];
+  const drafts: DraftEvent[] = [];
+  for (const raw of items.slice(0, 100)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const item = raw as Record<string, unknown>;
+    if (String(item.kind || '').toLowerCase() !== 'event') continue;
+    const title = cleanString(item.title, 180);
+    const dateText = cleanString(item.dateText, 80);
+    const dateISO = /^\d{4}-\d{2}-\d{2}$/.test(String(item.dateISO || '')) ? String(item.dateISO) : null;
+    const monthDay = dateISO ? dateISO.slice(5) : monthDayFrom(dateText);
+    if (!title || (!dateISO && !monthDay)) continue;
+    drafts.push({
+      title,
+      dateText,
+      dateISO,
+      monthDay,
+      showTime: /^\d{2}:\d{2}$/.test(String(item.time24 || '')) ? String(item.time24) : undefined,
+      venue: cleanString(item.venue, 240) || undefined,
+      address: cleanString(item.address, 320) || undefined,
+      notes: cleanString(item.details, 600) || undefined,
+      confidence: item.confidence === 'low' ? 'low' : item.confidence === 'medium' ? 'medium' : 'high'
+    });
+  }
+  return drafts;
+}
+
 function findingsFrom(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 80).map((raw) => {
@@ -156,7 +224,8 @@ REGLAS DE ANCLAJE:
 - Está PROHIBIDO inventar personas, eventos, fechas, horas, lugares, montos o años.
 - Todo title, date, time, venue, address y amount usado en una acción debe existir en la extracción visual.
 - Preserva nombres propios de la extracción; no los sustituyas por títulos genéricos.
-- Si dateISO es null porque no hay año visible, muestra el hallazgo pero NO crees create_event. Añade UNA advertencia general indicando que falta confirmar el año.
+- Si dateISO es null porque no hay año visible, muestra el hallazgo y deja la creación para el selector de año de la app. Añade UNA advertencia general indicando que falta confirmar el año.
+- Para TODO evento con dateISO completo, create_event debe llevar createExcelConcept=true. Eso crea también una fila Excel vacía con el mismo Concepto.
 - No conviertas el año actual en el año del documento.
 - No avises que "falta lugar" si el documento no necesita lugar o si el título es un establecimiento/lugar.
 - No generes una advertencia repetida por cada item; agrupa dudas comunes.
@@ -178,7 +247,7 @@ RESPONDE SOLO JSON VÁLIDO:
 
 Acciones permitidas:
 {"type":"navigate_section","section":"calendar|events|sheet"}
-{"type":"create_event","surface":"calendar","event":{"title":"...","date":"YYYY-MM-DD","showTime":"HH:mm","venue":"...","address":"...","notes":"...","status":"confirmed"},"finance":{"amount":50000,"currency":"MXN","label":"...","category":"Evento","status":"pending","financialType":"income"}}
+{"type":"create_event","surface":"calendar","createExcelConcept":true,"event":{"title":"...","date":"YYYY-MM-DD","showTime":"HH:mm","venue":"...","address":"...","notes":"...","status":"confirmed"},"finance":{"amount":50000,"currency":"MXN","label":"...","category":"Evento","status":"pending","financialType":"income"}}
 {"type":"create_calendar_series","event":{"title":"...","showTime":"HH:mm","venue":"...","status":"confirmed"},"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD","weekdays":[0,5,6]}
 {"type":"create_sheet_row","surface":"sheet","row":{"amount":1200,"currency":"USD","label":"Hotel","category":"Gasto","status":"pending","financialType":"expense","calendarDate":"YYYY-MM-DD"}}
 {"type":"create_sheet_grid_row","label":"Registro","cells":[{"columnId":"id REAL existente","value":"texto o número"}]}
@@ -280,6 +349,7 @@ export async function handleNoahImage(request: Request, env: Env) {
     if (!vision) return json({ error: 'invalid_vision_response' }, 503);
 
     const rawText = cleanString(vision.rawText, 12_000);
+    const draftEvents = draftEventsFrom(vision.items);
     const visualGrounding = JSON.stringify({
       documentType: cleanString(vision.documentType, 40),
       summary: cleanString(vision.summary, 500),
@@ -322,6 +392,7 @@ export async function handleNoahImage(request: Request, env: Env) {
 
     const sanitized = sanitizeActions(parsed.eventActions, eventIds, rowIds, columnIds)
       .filter((action) => ALLOWED_IMPORT_ACTIONS.has(String(action.type)))
+      .map((action) => action.type === 'create_event' ? { ...action, createExcelConcept: true } : action)
       .filter((action) => {
         const grounded = actionGrounded(action as ChatAction, visualGrounding);
         if (!grounded) {
@@ -344,6 +415,8 @@ export async function handleNoahImage(request: Request, env: Env) {
       rawText,
       warnings: [...new Set(uniqueWarnings)].slice(0, 24),
       findings: findingsFrom(parsed.findings),
+      draftEvents: draftEvents.filter((draft) => !draft.dateISO),
+      pendingExcelAmounts: draftEvents.length,
       eventActions
     });
   } catch (error) {
