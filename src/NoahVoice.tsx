@@ -1,12 +1,14 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
-import type { EventItem, SheetRow } from './types';
+import { db } from './db';
+import type { EventItem, SheetColumn, SheetRow, SheetValue } from './types';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
+import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from './noahExcel';
 
 type VoiceStatus = 'idle' | 'starting' | 'listening' | 'thinking' | 'speaking' | 'error';
 type ChatTurn = { role: 'user' | 'assistant'; content: string };
 type OrbPosition = { x: number; y: number };
-type PendingConfirmation = { actions: NoahEventAction[] };
+type PendingConfirmation = { actions: NoahChatAction[] };
 
 type Props = {
   events: EventItem[];
@@ -37,6 +39,21 @@ function clamp(value: number, min: number, max: number) {
 
 function normalizeSpeech(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function hasCellValue(value: SheetValue | undefined) {
+  return value !== undefined && value !== null && value !== '';
+}
+
+function sheetColumnSnapshot(columns: SheetColumn[]) {
+  return columns.slice(0, 80).map((column) => ({
+    id: column.id,
+    name: column.name,
+    key: column.key,
+    type: column.type,
+    behavior: column.behavior || 'neutral',
+    position: column.position
+  }));
 }
 
 const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events, sheetRows, section, onEventAction }, ref) {
@@ -237,13 +254,15 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     window.speechSynthesis.speak(utterance);
   };
 
-  const executeEventActions = async (actions: NoahEventAction[]) => {
+  const executeActions = async (actions: NoahChatAction[]) => {
     processingRef.current = true;
     setStatus('thinking');
     let finalResult: NoahEventActionResult = { ok: true, message: 'Listo.' };
 
     for (const action of actions) {
-      const result = await onEventAction(action);
+      const result = isNoahSheetAction(action)
+        ? await executeNoahSheetAction(action)
+        : await onEventAction(action);
       finalResult = result;
       if (!result.ok) break;
     }
@@ -263,7 +282,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     if (pending) {
       if (YES_CONFIRM.test(clean.trim())) {
         pendingConfirmationRef.current = null;
-        await executeEventActions(pending.actions);
+        await executeActions(pending.actions);
         return;
       }
       if (NO_CONFIRM.test(clean.trim())) {
@@ -287,39 +306,57 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     setStatus('thinking');
     const previous = historyRef.current.slice(-12);
     const now = new Date();
-    const eventSnapshot = events.slice(0, 100).map((event) => ({
-      id: event.id,
-      title: event.title,
-      date: event.date,
-      time: event.time,
-      callTime: event.callTime,
-      soundcheckTime: event.soundcheckTime,
-      showTime: event.showTime,
-      venue: event.venue,
-      address: event.address,
-      details: event.details,
-      dressCode: event.dressCode,
-      contactName: event.contactName,
-      contactPhone: event.contactPhone,
-      mapUrl: event.mapUrl,
-      notes: event.notes,
-      status: event.status
-    }));
-    const sheetSnapshot = sheetRows.slice(0, 100).map((row) => ({
-      id: row.id,
-      label: row.label,
-      category: row.category,
-      amount: row.amount,
-      currency: row.currency || 'MXN',
-      status: row.status,
-      financialType: row.financialType,
-      eventId: row.eventId,
-      calendarDate: row.calendarDate,
-      notes: row.notes,
-      description: row.description
-    }));
 
     try {
+      const [dbEvents, dbRows, dbColumns] = await Promise.all([
+        db.events.orderBy('date').toArray(),
+        db.sheetRows.orderBy('createdAt').reverse().toArray(),
+        db.sheetColumns.orderBy('position').toArray()
+      ]);
+      const currentEvents = dbEvents.length ? dbEvents : events;
+      const currentRows = dbRows.length ? dbRows : sheetRows;
+      const currentColumns = dbColumns.slice(0, 80);
+
+      const eventSnapshot = currentEvents.slice(0, 120).map((event) => ({
+        id: event.id,
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        callTime: event.callTime,
+        soundcheckTime: event.soundcheckTime,
+        showTime: event.showTime,
+        venue: event.venue,
+        address: event.address,
+        details: event.details,
+        dressCode: event.dressCode,
+        contactName: event.contactName,
+        contactPhone: event.contactPhone,
+        mapUrl: event.mapUrl,
+        notes: event.notes,
+        status: event.status
+      }));
+      const sheetColumns = sheetColumnSnapshot(currentColumns);
+      const sheetSnapshot = currentRows.slice(0, 120).map((row) => ({
+        id: row.id,
+        label: row.label,
+        category: row.category,
+        amount: row.amount,
+        currency: row.currency || 'MXN',
+        status: row.status,
+        financialType: row.financialType,
+        eventId: row.eventId,
+        calendarDate: row.calendarDate,
+        notes: row.notes,
+        description: row.description,
+        cells: currentColumns
+          .map((column) => ({
+            columnId: column.id,
+            columnName: column.name,
+            value: row.values?.[column.key]
+          }))
+          .filter((cell) => hasCellValue(cell.value))
+      }));
+
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 12_000);
       const response = await fetch('/api/noah-chat', {
@@ -333,6 +370,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
             localDateTime: now.toString(),
             timezoneOffsetMinutes: now.getTimezoneOffset(),
             events: eventSnapshot,
+            sheetColumns,
             sheetRows: sheetSnapshot
           }
         }),
@@ -340,28 +378,33 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
       });
       window.clearTimeout(timeout);
       if (!response.ok) throw new Error('chat_unavailable');
-      const payload = await response.json() as { text?: string; eventActions?: NoahEventAction[] };
+      const payload = await response.json() as { text?: string; eventActions?: NoahChatAction[] };
       const answer = String(payload.text || '').trim() || 'Dime otra vez.';
       const actions = Array.isArray(payload.eventActions) ? payload.eventActions : [];
       const userTurn: ChatTurn = { role: 'user', content: clean };
       const assistantTurn: ChatTurn = { role: 'assistant', content: answer };
       historyRef.current = [...previous, userTurn, assistantTurn].slice(-16);
 
-      if (actions.some((action) => action.type === 'delete_event')) {
+      const destructive = actions.filter((action) =>
+        action.type === 'delete_event' || action.type === 'delete_sheet_row' || action.type === 'delete_sheet_column'
+      );
+      if (destructive.length) {
         pendingConfirmationRef.current = { actions };
-        const names = actions
-          .filter((action): action is Extract<NoahEventAction, { type: 'delete_event' }> => action.type === 'delete_event')
-          .map((action) => events.find((event) => event.id === action.eventId)?.title)
-          .filter(Boolean);
+        const targets = destructive.map((action) => {
+          if (action.type === 'delete_event') return currentEvents.find((event) => event.id === action.eventId)?.title || 'evento';
+          if (action.type === 'delete_sheet_row') return currentRows.find((row) => row.id === action.rowId)?.label || 'fila';
+          if (action.type === 'delete_sheet_column') return currentColumns.find((column) => column.id === action.columnId)?.name || 'columna';
+          return 'elemento';
+        });
         processingRef.current = false;
-        const target = names.length === 1 ? `“${names[0]}”` : names.length > 1 ? `${names.length} eventos` : 'ese evento';
+        const target = targets.length === 1 ? `“${targets[0]}”` : `${targets.length} elementos`;
         speak(`Voy a eliminar ${target}. ¿Confirmas?`, startRecognition);
         return;
       }
 
       if (actions.length) {
         processingRef.current = false;
-        await executeEventActions(actions);
+        await executeActions(actions);
         return;
       }
 
