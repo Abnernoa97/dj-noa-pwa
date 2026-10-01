@@ -1,70 +1,84 @@
-.sheet-classic.excel-modular-active .sheet-classic-tools,
-.sheet-classic.excel-modular-active .excel-frame,
-.sheet-classic.excel-modular-active .sheet-table-hint{display:none!important}
+.sheet-classic.excel-classic-grid-active .sheet-mini-summary,
+.sheet-classic.excel-classic-grid-active .sheet-classic-tools,
+.sheet-classic.excel-classic-grid-active .excel-frame,
+.sheet-classic.excel-classic-grid-active .sheet-table-hint{display:none!important}
+.sheet-classic.excel-classic-grid-active .sheet-classic-actions .sheet-add{display:none!important}
 
-.excel-modules-mount{width:100%;margin:14px 0 88px}
-.excel-modules{width:100%;display:flex;flex-direction:column;gap:12px}
-.excel-modules-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.excel-modules-heading>div{min-width:0;display:flex;flex-direction:column;gap:4px}
-.excel-modules-heading span{font-size:8px;letter-spacing:.17em;color:rgba(232,216,173,.42)}
-.excel-modules-heading strong{font-family:Georgia,"Times New Roman",serif;font-size:18px;font-weight:400;color:#eadbb4}
-.excel-module-new{height:36px;padding:0 12px;display:flex;align-items:center;gap:6px;border:1px solid rgba(217,190,123,.18);border-radius:11px;background:rgba(214,180,96,.06);color:#eadbb4;font-size:9px;font-weight:700;letter-spacing:.06em}
-.excel-module-new span{font-size:9px;letter-spacing:.06em;color:inherit}
+.excel-modules-mount{width:100%;margin:8px 0 92px}
+.excel-classic-grid{width:100%;display:flex;flex-direction:column;gap:11px}
 
-.excel-module-create{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;padding:9px;border:1px solid rgba(217,190,123,.16);border-radius:14px;background:rgba(7,17,13,.92)}
-.excel-module-create input{min-width:0;height:40px;padding:0 12px;border:1px solid rgba(217,190,123,.13);border-radius:10px;background:#05100b;color:#f3ead2;font-size:12px;outline:0}
-.excel-module-create button{height:40px;padding:0 13px;display:flex;align-items:center;gap:6px;border:1px solid rgba(217,190,123,.22);border-radius:10px;background:rgba(214,180,96,.1);color:#eadbb4;font-size:10px;font-weight:700}
-.excel-module-create button:disabled{opacity:.35}
+.excel-grid-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.excel-grid-summary>div{min-width:0;min-height:60px;padding:9px 10px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(217,190,123,.12);border-radius:16px;background:rgba(3,13,9,.52);overflow:hidden}
+.excel-grid-summary span{font-size:7px;line-height:1;letter-spacing:.13em;color:rgba(232,216,173,.43)}
+.excel-grid-summary strong{margin-top:7px;font-family:Georgia,"Times New Roman",serif;font-size:18px;line-height:1;font-weight:400;color:#eadbb4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.excel-module-strip{display:flex;gap:7px;overflow-x:auto;padding:1px 1px 3px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.excel-module-strip::-webkit-scrollbar{display:none}
-.excel-module-chip{flex:0 0 auto;min-width:112px;min-height:54px;padding:9px 11px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;border:1px solid rgba(217,190,123,.12);border-radius:14px;background:rgba(5,15,11,.72);color:rgba(242,233,207,.72);text-align:left}
-.excel-module-chip>span{max-width:132px;font-family:Georgia,"Times New Roman",serif;font-size:15px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.excel-module-chip small{font-size:8px;line-height:1;color:rgba(232,216,173,.38);white-space:nowrap}
-.excel-module-chip.active{border-color:rgba(217,190,123,.38);background:linear-gradient(180deg,rgba(214,180,96,.13),rgba(214,180,96,.045));box-shadow:inset 0 0 0 1px rgba(217,190,123,.04)}
-.excel-module-chip.active>span{color:#f0dfb4}
-.excel-module-chip.add{min-width:76px;align-items:center;text-align:center;border-style:dashed;color:rgba(232,216,173,.58)}
-.excel-module-chip.add>span{font-family:inherit;font-size:9px;text-transform:uppercase;letter-spacing:.07em}
+.excel-grid-toolbar{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.excel-grid-toolbar>div:first-child{min-width:0;display:flex;flex-direction:column;gap:3px}
+.excel-grid-toolbar>div:first-child span{font-size:7px;letter-spacing:.16em;color:rgba(232,216,173,.38)}
+.excel-grid-toolbar>div:first-child strong{font-family:Georgia,"Times New Roman",serif;font-size:18px;font-weight:400;color:#eadbb4}
+.excel-grid-toolbar>div:last-child{display:flex;align-items:center;gap:6px}
+.excel-grid-toolbar button{height:36px;padding:0 11px;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid rgba(217,190,123,.16);border-radius:11px;background:rgba(214,180,96,.04);color:rgba(238,226,193,.72);font-size:9px;font-weight:700;letter-spacing:.04em}
+.excel-grid-toolbar button.primary{border-color:rgba(217,190,123,.3);background:rgba(214,180,96,.1);color:#eadbb4}
 
-.excel-module-panel{overflow:hidden;border:1px solid rgba(217,190,123,.14);border-radius:19px;background:linear-gradient(180deg,rgba(9,23,16,.94),rgba(5,14,10,.94));box-shadow:0 18px 40px rgba(0,0,0,.16)}
-.excel-module-panel-head{min-height:76px;padding:14px 14px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(217,190,123,.09)}
-.excel-module-panel-head>div{min-width:0;display:flex;flex-direction:column;gap:3px}
-.excel-module-panel-head>div>span{font-size:7px;letter-spacing:.18em;color:rgba(232,216,173,.38)}
-.excel-module-panel-head h3{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:25px;line-height:1;font-weight:400;color:#eadbb4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.excel-module-panel-head small{font-size:9px;color:rgba(232,216,173,.44)}
-.excel-module-panel-head>button{height:36px;padding:0 12px;display:flex;align-items:center;gap:6px;border:1px solid rgba(217,190,123,.2);border-radius:11px;background:rgba(214,180,96,.08);color:#eadbb4;font-size:9px;font-weight:700}
-.excel-module-search{display:block;padding:10px 12px 0}
-.excel-module-search input{width:100%;height:38px;padding:0 12px;border:1px solid rgba(217,190,123,.1);border-radius:11px;background:rgba(2,10,7,.55);color:#f5eedc;font-size:11px;outline:0}
+.excel-grid-column-editor{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(120px,.75fr) auto;gap:7px;padding:9px;border:1px solid rgba(217,190,123,.17);border-radius:14px;background:rgba(7,17,13,.96);box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.excel-grid-editor-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 1px}
+.excel-grid-editor-head strong{font-family:Georgia,"Times New Roman",serif;font-size:16px;font-weight:400;color:#eadbb4}
+.excel-grid-editor-head button{width:30px;height:30px;padding:0;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:rgba(232,216,173,.56)}
+.excel-grid-column-editor>input,.excel-grid-column-editor>select{min-width:0;height:40px;padding:0 11px;border:1px solid rgba(217,190,123,.13);border-radius:10px;background:#05100b;color:#efe7d2;font-size:10px;outline:0}
+.excel-grid-column-editor>select option{background:#07110d}
+.excel-grid-column-editor>button.save,.excel-grid-column-editor>button.danger{height:40px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(217,190,123,.22);border-radius:10px;background:rgba(214,180,96,.1);color:#eadbb4;font-size:9px;font-weight:700;white-space:nowrap}
+.excel-grid-column-editor>button.save:disabled{opacity:.35}
+.excel-grid-column-editor>button.danger{border-color:rgba(199,105,105,.22);background:rgba(199,105,105,.055);color:#dba4a4}
 
-.excel-module-grid{width:100%;padding:10px 12px 4px;overflow:hidden}
-.excel-module-grid-head,.excel-module-grid-row{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(74px,.8fr) minmax(84px,.9fr) 30px;align-items:stretch}
-.excel-module-grid-head{min-height:28px;border-bottom:1px solid rgba(217,190,123,.1)}
-.excel-module-grid-head span{display:flex;align-items:center;padding:0 7px;font-size:7px;letter-spacing:.12em;color:rgba(232,216,173,.38)}
-.excel-module-grid-row{min-height:54px;border-bottom:1px solid rgba(217,190,123,.075)}
-.excel-cell{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:6px 7px}
-.excel-cell input,.excel-cell select{width:100%;min-width:0;height:30px;padding:0;border:0;background:transparent;color:#efe7d2;font-size:11px;outline:0}
-.excel-cell input::placeholder{color:rgba(255,255,255,.28)}
-.excel-cell.amount input{text-align:right;font-variant-numeric:tabular-nums;color:#eadbb4}
-.excel-cell.status select{appearance:none;font-size:10px;color:rgba(239,231,210,.82)}
-.excel-cell.status small{display:none}
-.excel-cell.concept small{max-width:100%;margin-top:-2px;font-size:7px;color:rgba(232,216,173,.34);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.excel-row-delete{align-self:center;width:28px;height:28px;padding:0;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:rgba(224,164,164,.42)}
-.excel-row-delete:active{background:rgba(205,106,106,.1);color:#e3abab}
-.excel-module-empty{width:100%;min-height:98px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:0;background:transparent;color:rgba(232,216,173,.42);font-size:10px}
-.excel-module-add-bottom{margin:8px 12px 0;width:calc(100% - 24px);height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed rgba(217,190,123,.17);border-radius:11px;background:rgba(214,180,96,.025);color:rgba(232,216,173,.56);font-size:9px;font-weight:700;letter-spacing:.05em}
-.excel-module-foot{height:34px;display:flex;align-items:center;justify-content:center;gap:5px;color:rgba(232,216,173,.28);font-size:8px}
+.excel-grid-scroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid rgba(217,190,123,.14);border-radius:16px;background:#06100c;box-shadow:0 16px 34px rgba(0,0,0,.15);scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.excel-grid-scroll::-webkit-scrollbar{display:none}
+.excel-grid-sheet{width:100%;background:#06100c}
+.excel-grid-row{display:grid;align-items:stretch;width:100%}
+.excel-grid-head{min-height:58px;border-bottom:1px solid rgba(217,190,123,.14);background:#0a1711}
+.excel-grid-data-row{min-height:48px;border-bottom:1px solid rgba(217,190,123,.08);background:rgba(255,255,255,.006)}
+.excel-grid-data-row:nth-child(odd){background:rgba(214,180,96,.012)}
 
-@media(max-width:430px){
-  .excel-modules-mount{margin-top:12px}
-  .excel-modules-heading strong{font-size:17px}
-  .excel-module-chip{min-width:102px;min-height:51px;padding:8px 10px}
-  .excel-module-chip>span{font-size:14px}
-  .excel-module-panel-head{min-height:70px;padding:12px}
-  .excel-module-panel-head h3{font-size:23px}
-  .excel-module-grid{padding:8px 8px 4px}
-  .excel-module-grid-head,.excel-module-grid-row{grid-template-columns:minmax(0,1.55fr) minmax(66px,.72fr) minmax(72px,.82fr) 28px}
-  .excel-module-grid-head span{padding:0 5px;font-size:6.5px}
-  .excel-cell{padding:5px}
-  .excel-cell input,.excel-cell select{font-size:10px}
-  .excel-cell.status select{font-size:9px}
+.excel-grid-index,.excel-grid-concept,.excel-grid-column-head,.excel-grid-cell,.excel-grid-row-end,.excel-grid-add-column{min-width:0;border-right:1px solid rgba(217,190,123,.085)}
+.excel-grid-index{position:sticky;left:0;z-index:4;display:flex;align-items:center;justify-content:center;background:#08140f;color:rgba(232,216,173,.42);font-size:9px}
+.excel-grid-concept{position:sticky;left:42px;z-index:3;display:flex;align-items:center;padding:0 9px;background:#091610;color:rgba(232,216,173,.58);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.excel-grid-head .excel-grid-index,.excel-grid-head .excel-grid-concept{z-index:7;background:#0b1913}
+.excel-grid-column-head{position:relative;padding:7px 20px 7px 8px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;border-top:0;border-bottom:0;border-left:0;background:#0b1913;color:#eadbb4;text-align:left}
+.excel-grid-column-head strong{max-width:100%;font-size:10px;line-height:1.05;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.excel-grid-column-head small{max-width:100%;font-size:6.5px;line-height:1;color:rgba(232,216,173,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.excel-grid-column-head svg{position:absolute;right:7px;top:50%;transform:translateY(-50%);opacity:.3}
+.excel-grid-column-head.income{box-shadow:inset 0 2px 0 rgba(140,194,151,.34)}
+.excel-grid-column-head.expense{box-shadow:inset 0 2px 0 rgba(211,133,133,.3)}
+.excel-grid-column-head.investment{box-shadow:inset 0 2px 0 rgba(205,179,112,.35)}
+.excel-grid-column-head.neutral{box-shadow:inset 0 2px 0 rgba(170,184,176,.18)}
+.excel-grid-add-column{display:grid;place-items:center;border-top:0;border-bottom:0;border-left:0;background:#0b1913;color:rgba(232,216,173,.6)}
+
+.excel-grid-cell{display:flex;align-items:center;padding:0 7px}
+.excel-grid-cell input{width:100%;min-width:0;height:34px;padding:0 3px;border:0;background:transparent;color:#eee6d1;font-size:10.5px;outline:0}
+.excel-grid-cell input::placeholder{color:rgba(255,255,255,.22)}
+.excel-grid-cell:not(.neutral) input{text-align:right;font-variant-numeric:tabular-nums;color:#eadbb4}
+.excel-grid-concept.excel-grid-cell{padding:0 8px;text-transform:none;letter-spacing:0}
+.excel-grid-concept.excel-grid-cell input{font-size:10.5px;color:#efe7d2;text-align:left}
+.excel-grid-row-end{background:rgba(255,255,255,.004)}
+.excel-grid-index.row-action{padding:0;border-top:0;border-bottom:0;border-left:0;gap:4px;color:rgba(232,216,173,.4)}
+.excel-grid-index.row-action svg{opacity:.28}
+.excel-grid-index.row-action:active svg{opacity:.9;color:#dba4a4}
+
+.excel-grid-empty{width:100%;min-height:116px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:0;background:transparent;color:rgba(232,216,173,.42);font-size:10px}
+.excel-grid-add-row{width:100%;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed rgba(217,190,123,.18);border-radius:12px;background:rgba(214,180,96,.025);color:rgba(232,216,173,.6);font-size:9px;font-weight:700;letter-spacing:.05em}
+.excel-grid-note{margin:0;padding:0 8px;text-align:center;font-size:8px;line-height:1.45;color:rgba(232,216,173,.3)}
+
+@media(max-width:560px){
+  .excel-modules-mount{margin-top:6px}
+  .excel-grid-summary{gap:5px}
+  .excel-grid-summary>div{min-height:57px;padding:8px}
+  .excel-grid-summary span{font-size:6.5px}
+  .excel-grid-summary strong{font-size:16px}
+  .excel-grid-toolbar{min-height:48px}
+  .excel-grid-toolbar>div:first-child strong{font-size:17px}
+  .excel-grid-toolbar button{height:34px;padding:0 9px;font-size:8px}
+  .excel-grid-column-editor{grid-template-columns:1fr;gap:6px;padding:8px}
+  .excel-grid-column-editor>input,.excel-grid-column-editor>select,.excel-grid-column-editor>button.save,.excel-grid-column-editor>button.danger{width:100%;height:39px}
+  .excel-grid-head{min-height:54px}
+  .excel-grid-data-row{min-height:46px}
+  .excel-grid-cell input,.excel-grid-concept.excel-grid-cell input{font-size:10px}
 }
