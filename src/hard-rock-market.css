@@ -1,0 +1,21 @@
+.sports-card.hard-rock-market-active>.sports-consensus-grid,.sports-card.hard-rock-market-active>.sports-opening-row,.sports-card.hard-rock-market-active>.sports-books,.sports-card.hard-rock-market-active>.sports-odds-history,.sports-card.hard-rock-market-active>.sports-empty{display:none!important}
+.hard-rock-market-mount{width:100%}
+.hard-rock-market{display:flex;flex-direction:column;gap:14px}
+.hard-rock-source-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hard-rock-source-pill{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border:1px solid rgba(255,74,113,.42);border-radius:999px;background:rgba(227,75,115,.12);color:#ff7a9b;font-size:8px;font-weight:800;letter-spacing:.16em}
+.hard-rock-source-row small{font-size:7px;letter-spacing:.13em;color:rgba(255,255,255,.38);text-align:right}
+.hard-rock-moneyline{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hard-rock-moneyline>div{min-height:112px;padding:16px;border:1px solid rgba(255,255,255,.1);border-radius:20px;background:linear-gradient(150deg,rgba(227,75,115,.09),rgba(0,0,0,.16));display:flex;flex-direction:column;justify-content:center}
+.hard-rock-moneyline small{font-size:9px;letter-spacing:.18em;color:rgba(255,255,255,.5)}
+.hard-rock-moneyline strong{font-family:Georgia,serif;font-size:34px;font-weight:400;line-height:1;margin:9px 0 7px;color:#fff}
+.hard-rock-moneyline span{font-size:8px;letter-spacing:.13em;color:#ff7698}
+.hard-rock-board{overflow:hidden;border:1px solid rgba(255,255,255,.08);border-radius:18px;background:rgba(0,0,0,.12)}
+.hard-rock-row{display:grid;grid-template-columns:82px 1fr 1fr;align-items:center;gap:8px;min-height:54px;padding:0 13px;border-bottom:1px solid rgba(255,255,255,.07)}
+.hard-rock-row:last-child{border-bottom:0}
+.hard-rock-row>span{font-size:8px;font-weight:800;letter-spacing:.13em;color:rgba(255,255,255,.42)}
+.hard-rock-row>b{font-size:11px;font-weight:500;color:rgba(255,255,255,.82);text-align:right;white-space:nowrap}
+.hard-rock-row em{font-style:normal;color:#fff;font-weight:800;margin-left:4px}
+.hard-rock-market-note{display:flex;flex-direction:column;gap:4px;padding:0 2px 2px}
+.hard-rock-market-note strong{font-size:9px;font-weight:600;color:rgba(255,255,255,.58)}
+.hard-rock-market-note span{font-size:8px;line-height:1.45;color:rgba(255,255,255,.34)}
+@media(max-width:390px){.hard-rock-row{grid-template-columns:70px 1fr 1fr;padding:0 10px;gap:5px}.hard-rock-row>b{font-size:10px}.hard-rock-moneyline strong{font-size:31px}}
