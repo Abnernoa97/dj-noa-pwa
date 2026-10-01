@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
-import type { EventItem } from './types';
+import type { EventItem, SheetRow } from './types';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 
 type VoiceStatus = 'idle' | 'starting' | 'listening' | 'thinking' | 'speaking' | 'error';
@@ -10,6 +10,7 @@ type PendingConfirmation = { actions: NoahEventAction[] };
 
 type Props = {
   events: EventItem[];
+  sheetRows: SheetRow[];
   section: string;
   onEventAction: (action: NoahEventAction) => Promise<NoahEventActionResult>;
 };
@@ -38,7 +39,7 @@ function normalizeSpeech(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events, section, onEventAction }, ref) {
+const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events, sheetRows, section, onEventAction }, ref) {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [position, setPosition] = useState<OrbPosition | null>(null);
@@ -286,7 +287,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     setStatus('thinking');
     const previous = historyRef.current.slice(-12);
     const now = new Date();
-    const eventSnapshot = events.slice(0, 80).map((event) => ({
+    const eventSnapshot = events.slice(0, 100).map((event) => ({
       id: event.id,
       title: event.title,
       date: event.date,
@@ -304,6 +305,19 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
       notes: event.notes,
       status: event.status
     }));
+    const sheetSnapshot = sheetRows.slice(0, 100).map((row) => ({
+      id: row.id,
+      label: row.label,
+      category: row.category,
+      amount: row.amount,
+      currency: row.currency || 'MXN',
+      status: row.status,
+      financialType: row.financialType,
+      eventId: row.eventId,
+      calendarDate: row.calendarDate,
+      notes: row.notes,
+      description: row.description
+    }));
 
     try {
       const controller = new AbortController();
@@ -318,7 +332,8 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
             section,
             localDateTime: now.toString(),
             timezoneOffsetMinutes: now.getTimezoneOffset(),
-            events: eventSnapshot
+            events: eventSnapshot,
+            sheetRows: sheetSnapshot
           }
         }),
         signal: controller.signal
