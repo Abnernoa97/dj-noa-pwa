@@ -237,6 +237,30 @@ export default function App() {
     updatedAt: new Date().toISOString()
   });
 
+  const syncBlankExcelForEvent = async (event: EventItem) => {
+    const existing = sheetRows.find((row) => row.eventId === event.id);
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const row: SheetRow = {
+      id: uid(),
+      label: event.title,
+      category: 'Evento',
+      amount: 0,
+      currency: 'MXN',
+      status: 'info',
+      financialType: 'neutral',
+      eventId: event.id,
+      calendarDate: event.date,
+      values: {},
+      createdAt: now,
+      updatedAt: now
+    };
+    await db.sheetRows.add(row);
+    setSheetRows((current) => [row, ...current]);
+    return row;
+  };
+
   const syncFinanceForEvent = async (event: EventItem, finance: NoahFinanceInput) => {
     const existing = sheetRows.find((row) => row.eventId === event.id && row.financialType !== 'neutral') || sheetRows.find((row) => row.eventId === event.id);
     if (existing) {
@@ -492,11 +516,12 @@ export default function App() {
 
       if (action.type === 'create_event') {
         const calendarSurface = action.surface !== 'events';
-        const scope = action.finance ? 'MATRIZ' : calendarSurface ? 'CALENDARIO' : 'EVENTOS';
+        const syncExcel = Boolean(action.finance || action.createExcelConcept);
+        const scope = syncExcel ? 'MATRIZ' : calendarSurface ? 'CALENDARIO' : 'EVENTOS';
         const entries = patchEntries(action.event);
         showNoahActivity({
           phase: 'working',
-          title: action.finance ? 'Construyendo matriz' : 'Creando evento',
+          title: syncExcel ? 'Construyendo matriz' : 'Creando evento',
           detail: action.event.title,
           scope,
           steps: action.finance ? matrixSteps(action.event.title, action.event.date, action.finance, 0) : progressSteps(entries, 'create', 0)
@@ -547,19 +572,47 @@ export default function App() {
           await sleep(130);
           showNoahActivity({ phase: 'working', title: 'Vinculando todo', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 3) });
           await sleep(120);
+        } else if (action.createExcelConcept) {
+          showNoahActivity({
+            phase: 'working',
+            title: 'Creando concepto en Excel',
+            detail: item.title,
+            scope: 'MATRIZ',
+            steps: [
+              { id: 'photo-calendar', label: 'Calendario', value: item.date, state: 'done' },
+              { id: 'photo-event', label: 'Evento', value: item.title, state: 'done' },
+              { id: 'photo-excel', label: 'Excel · concepto', value: item.title, state: 'active' },
+              { id: 'photo-money', label: 'Monto', value: 'Pendiente', state: 'pending' }
+            ]
+          });
+          await syncBlankExcelForEvent(item);
+          await sleep(130);
         }
 
         if (!calendarSurface) setEventHubId(item.id);
         showNoahActivity({
           phase: 'done',
-          title: action.finance ? 'Todo sincronizado' : 'Evento creado',
+          title: syncExcel ? 'Todo sincronizado' : 'Evento creado',
           detail: item.title,
           scope,
-          steps: action.finance ? matrixSteps(item.title, item.date, action.finance, 4, true) : progressSteps(entries, 'create', entries.length + 2, true)
+          steps: action.finance
+            ? matrixSteps(item.title, item.date, action.finance, 4, true)
+            : action.createExcelConcept
+              ? [
+                  { id: 'photo-calendar', label: 'Calendario', value: item.date, state: 'done' },
+                  { id: 'photo-event', label: 'Evento', value: item.title, state: 'done' },
+                  { id: 'photo-excel', label: 'Excel · concepto', value: item.title, state: 'done' },
+                  { id: 'photo-money', label: 'Monto', value: 'Pendiente', state: 'done' }
+                ]
+              : progressSteps(entries, 'create', entries.length + 2, true)
         });
         return {
           ok: true,
-          message: action.finance ? 'Listo, quedó sincronizado en Calendario, Eventos y Excel.' : calendarSurface ? 'Listo, ya está en Calendario.' : 'Listo, evento creado.'
+          message: action.finance
+            ? 'Listo, quedó sincronizado en Calendario, Eventos y Excel.'
+            : action.createExcelConcept
+              ? 'Listo, quedó en Calendario, Eventos y Excel. El monto queda pendiente.'
+              : calendarSurface ? 'Listo, ya está en Calendario.' : 'Listo, evento creado.'
         };
       }
 
@@ -673,13 +726,23 @@ export default function App() {
   };
 
   const executeNoahImageActions = async (actions: NoahChatAction[]) => {
+    let blankExcelCount = 0;
     for (const action of actions) {
       const result = isNoahSheetAction(action)
         ? await executeNoahSheetAction(action)
         : await executeNoahEventAction(action);
       if (!result.ok) throw new Error(result.message || 'action_failed');
+      if (action.type === 'create_event' && action.createExcelConcept && !action.finance) blankExcelCount += 1;
     }
     await refresh();
+    if (blankExcelCount > 0) {
+      showNoahActivity({
+        phase: 'done',
+        title: 'Todo organizado',
+        detail: blankExcelCount === 1 ? 'Queda pendiente el monto de Excel' : `Quedan pendientes ${blankExcelCount} montos de Excel`,
+        scope: 'MATRIZ'
+      });
+    }
   };
 
   const saveEvent = async (draft: EventDraft) => {
