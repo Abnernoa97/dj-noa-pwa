@@ -168,10 +168,10 @@ function validSeriesRange(startDate: string, endDate: string) {
   return end - start <= 732 * 24 * 60 * 60 * 1000;
 }
 
-function sanitizeActions(raw: unknown, eventIds: Set<string>, rowIds: Set<string>, columnIds: Set<string>) {
+export function sanitizeActions(raw: unknown, eventIds: Set<string>, rowIds: Set<string>, columnIds: Set<string>) {
   if (!Array.isArray(raw)) return [];
   const actions: ChatAction[] = [];
-  for (const item of raw.slice(0, 30)) {
+  for (const item of raw.slice(0, 60)) {
     if (!item || typeof item !== 'object') continue;
     const action = item as Record<string, unknown>;
     const type = String(action.type || '');

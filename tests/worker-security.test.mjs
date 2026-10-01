@@ -24,6 +24,7 @@ test('new Noah voice chat is same-origin and legacy assistant routes are gone', 
   assert.equal(entry.includes("'/api/assistant'"), false);
   assert.equal(entry.includes("'/api/transcribe'"), false);
   assert.equal((entry.match(/url\.pathname === '\/api\/noah-chat'/g) || []).length, 1);
+  assert.equal((entry.match(/url\.pathname === '\/api\/noah-image'/g) || []).length, 1);
   assert.match(entry, /requestComesFromApp/);
   assert.match(entry, /enforceRateLimit/);
 });

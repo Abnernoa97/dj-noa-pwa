@@ -2,6 +2,7 @@ import baseWorker, { ReminderScheduler } from './index';
 import { handleMlbRequest } from './mlb';
 import { handleNbaRequest } from './nba';
 import { handleNoahChat } from './noahChat';
+import { handleNoahImage } from './noahImage';
 import { handleSportsAnalysis } from './sportsAnalysis';
 import { handleSportsContext } from './sportsContext';
 import { handleSportsLive } from './sportsLive';
@@ -19,6 +20,7 @@ type Env = {
 };
 
 const MAX_AI_BYTES = 96_000;
+const MAX_IMAGE_AI_BYTES = 5_500_000;
 
 function json(data: unknown, status = 200, headers?: HeadersInit) {
   return new Response(JSON.stringify(data), {
@@ -87,6 +89,14 @@ export default {
       const limited = await enforceRateLimit(request, env);
       if (limited) return limited;
       return handleSportsAnalysis(request, env);
+    }
+
+    if (url.pathname === '/api/noah-image') {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+      if (declaredBodyTooLarge(request, MAX_IMAGE_AI_BYTES)) return json({ error: 'request_too_large' }, 413);
+      const limited = await enforceRateLimit(request, env);
+      if (limited) return limited;
+      return handleNoahImage(request, env);
     }
 
     if (url.pathname === '/api/noah-chat') {

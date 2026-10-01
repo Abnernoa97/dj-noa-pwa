@@ -5,7 +5,9 @@ import CalendarWorkspace from './CalendarWorkspace';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
 import MlbWorkspace from './MlbWorkspace';
 import NoahActionOverlay from './NoahActionOverlay';
+import NoahImageIntake from './NoahImageIntake';
 import NoahVoice, { type NoahVoiceHandle } from './NoahVoice';
+import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from './noahExcel';
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
@@ -670,6 +672,16 @@ export default function App() {
     }
   };
 
+  const executeNoahImageActions = async (actions: NoahChatAction[]) => {
+    for (const action of actions) {
+      const result = isNoahSheetAction(action)
+        ? await executeNoahSheetAction(action)
+        : await executeNoahEventAction(action);
+      if (!result.ok) throw new Error(result.message || 'action_failed');
+    }
+    await refresh();
+  };
+
   const saveEvent = async (draft: EventDraft) => {
     const now = new Date().toISOString();
     if (selectedEvent) await db.events.update(selectedEvent.id, { ...draft, updatedAt: now });
@@ -736,6 +748,7 @@ export default function App() {
 
       <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setNoahCalendarDates([]); setView(next); }} />
       <NoahVoice ref={noahRef} events={events} sheetRows={sheetRows} section={mlbOpen ? 'mlb' : view} onEventAction={executeNoahEventAction} />
+      <NoahImageIntake onApply={executeNoahImageActions} />
       <NoahActionOverlay activity={noahActivity} />
 
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
