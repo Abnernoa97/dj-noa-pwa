@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import AppMaintenance from './AppMaintenance';
 import DataSafetyPanel from './DataSafetyPanel';
+import ExcelModulesEnhancer from './ExcelModulesEnhancer';
 import SportsEnhancer from './SportsEnhancer';
 import './styles.css';
 import './events.css';
@@ -24,6 +25,7 @@ import './calendar-focus.css';
 import './calendar-week-day.css';
 import './events-focus.css';
 import './sheet-focus.css';
+import './excel-modules.css';
 import './reminders-focus.css';
 import './overlay-layout.css';
 import './home-focus.css';
@@ -59,6 +61,7 @@ updateSW = registerSW({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <ExcelModulesEnhancer />
     <SportsEnhancer />
     <AppMaintenance />
     <DataSafetyPanel />
