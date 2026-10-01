@@ -53,6 +53,7 @@ export type SheetStatus = 'pending' | 'paid' | 'info';
 export type FinancialType = 'income' | 'expense' | 'neutral';
 export type CurrencyCode = 'MXN' | 'USD';
 export type SheetValue = string | number | boolean | null | { [key: string]: SheetValue };
+export type SheetColumnBehavior = 'income' | 'expense' | 'investment' | 'neutral';
 
 export interface SheetRow {
   id: string;
@@ -85,6 +86,7 @@ export interface SheetColumn {
   name: string;
   key: string;
   type: 'text' | 'number' | 'currency' | 'date' | 'formula';
+  behavior?: SheetColumnBehavior;
   formula?: string;
   position: number;
   createdAt: string;
