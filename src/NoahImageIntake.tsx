@@ -79,38 +79,92 @@ function actionKind(action: NoahChatAction) {
   return 'NOAH';
 }
 
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('file_read_failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
 async function compressImage(file: File) {
   const objectUrl = URL.createObjectURL(file);
+  let image: HTMLImageElement | null = null;
+  let canvas: HTMLCanvasElement | null = null;
+
   try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
+      img.decoding = 'async';
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error('image_decode_failed'));
       img.src = objectUrl;
     });
 
-    const render = (maxSide: number, quality: number) => {
-      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
-      const width = Math.max(1, Math.round(image.naturalWidth * scale));
-      const height = Math.max(1, Math.round(image.naturalHeight * scale));
-      const canvas = document.createElement('canvas');
+    const render = async (maxSide: number, quality: number) => {
+      const scale = Math.min(1, maxSide / Math.max(image!.naturalWidth, image!.naturalHeight));
+      const width = Math.max(1, Math.round(image!.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image!.naturalHeight * scale));
+      canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) throw new Error('canvas_unavailable');
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(image, 0, 0, width, height);
-      return canvas.toDataURL('image/jpeg', quality);
+      ctx.drawImage(image!, 0, 0, width, height);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas!.toBlob((value) => value ? resolve(value) : reject(new Error('image_encode_failed')), 'image/jpeg', quality);
+      });
+      const dataUrl = await blobToDataUrl(blob);
+      canvas.width = 1;
+      canvas.height = 1;
+      canvas = null;
+      return dataUrl;
     };
 
-    let dataUrl = render(2200, 0.92);
-    if (dataUrl.length > 4_600_000) dataUrl = render(1800, 0.86);
-    if (dataUrl.length > 4_600_000) dataUrl = render(1500, 0.8);
+    let dataUrl = await render(1800, 0.88);
+    if (dataUrl.length > 4_500_000) dataUrl = await render(1500, 0.82);
+    if (dataUrl.length > 4_500_000) dataUrl = await render(1200, 0.76);
     return dataUrl;
+  } catch (error) {
+    if (file.size <= 3_300_000) return blobToDataUrl(file);
+    throw error;
   } finally {
+    if (canvas) {
+      canvas.width = 1;
+      canvas.height = 1;
+    }
+    if (image) image.src = '';
     URL.revokeObjectURL(objectUrl);
   }
+}
+
+async function requestImageAnalysis(
+  imageDataUrl: string,
+  fileName: string,
+  context: Record<string, unknown>
+) {
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch('/api/noah-image', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ imageDataUrl, fileName, context })
+    });
+    if (response.ok) return response.json() as Promise<AnalysisPayload>;
+
+    lastStatus = response.status;
+    if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) break;
+    await wait(700 * (attempt + 1));
+  }
+  throw new Error(`analysis_${lastStatus || 'failed'}`);
 }
 
 export default function NoahImageIntake({ onApply }: Props) {
@@ -118,7 +172,7 @@ export default function NoahImageIntake({ onApply }: Props) {
   const [open, setOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [previews, setPreviews] = useState<Array<{ url: string; name: string }>>([]);
+  const [previews, setPreviews] = useState<Array<{ url: string; name: string; state: 'pending' | 'reading' | 'done' | 'error' }>>([]);
   const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
   const [analysis, setAnalysis] = useState<AnalysisPayload | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -127,6 +181,9 @@ export default function NoahImageIntake({ onApply }: Props) {
   const [error, setError] = useState('');
 
   const reset = () => {
+    previews.forEach((preview) => {
+      if (preview.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
+    });
     setOpen(false);
     setAnalyzing(false);
     setApplying(false);
@@ -148,7 +205,15 @@ export default function NoahImageIntake({ onApply }: Props) {
     setAnalyzing(true);
     setError('');
     setAnalysis(null);
-    setPreviews([]);
+    previews.forEach((preview) => {
+      if (preview.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
+    });
+    const initialPreviews = files.map((file) => ({
+      url: URL.createObjectURL(file),
+      name: file.name,
+      state: 'pending' as const
+    }));
+    setPreviews(initialPreviews);
     setAnalysisProgress({ current: 0, total: files.length });
 
     try {
@@ -201,25 +266,23 @@ export default function NoahImageIntake({ onApply }: Props) {
         setAnalysisProgress({ current: index + 1, total: files.length });
 
         try {
+          setPreviews((current) => current.map((preview, previewIndex) =>
+            previewIndex === index ? { ...preview, state: 'reading' } : preview
+          ));
           const imageDataUrl = await compressImage(file);
-          setPreviews((current) => [...current, { url: imageDataUrl, name: file.name }]);
-
-          const response = await fetch('/api/noah-image', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              imageDataUrl,
-              fileName: file.name,
-              context
-            })
-          });
-
-          if (!response.ok) throw new Error(`analysis_${response.status}`);
-          const payload = await response.json() as AnalysisPayload;
+          const payload = await requestImageAnalysis(imageDataUrl, file.name, context);
           payloads.push({ payload, fileName: file.name });
+          setPreviews((current) => current.map((preview, previewIndex) =>
+            previewIndex === index ? { ...preview, state: 'done' } : preview
+          ));
         } catch {
           failed.push(file.name);
+          setPreviews((current) => current.map((preview, previewIndex) =>
+            previewIndex === index ? { ...preview, state: 'error' } : preview
+          ));
         }
+
+        if (index < files.length - 1) await wait(350);
       }
 
       if (!payloads.length) throw new Error('all_failed');
@@ -396,7 +459,10 @@ export default function NoahImageIntake({ onApply }: Props) {
           {previews.length ? <div className="noah-image-preview-strip">
             {previews.map((preview, index) => <div className="noah-image-preview" key={`${preview.name}-${index}`}>
               <img src={preview.url} alt="" />
-              <div><span>IMAGEN {index + 1}</span><strong>{preview.name}</strong></div>
+              <div>
+                <span>IMAGEN {index + 1} · {preview.state === 'pending' ? 'EN ESPERA' : preview.state === 'reading' ? 'LEYENDO' : preview.state === 'done' ? 'LISTA' : 'ERROR'}</span>
+                <strong>{preview.name}</strong>
+              </div>
             </div>)}
           </div> : null}
 
