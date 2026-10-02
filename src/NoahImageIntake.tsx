@@ -95,7 +95,6 @@ function wait(ms: number) {
 async function compressImage(file: File) {
   const objectUrl = URL.createObjectURL(file);
   let image: HTMLImageElement | null = null;
-  let canvas: HTMLCanvasElement | null = null;
 
   try {
     image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -110,7 +109,7 @@ async function compressImage(file: File) {
       const scale = Math.min(1, maxSide / Math.max(image!.naturalWidth, image!.naturalHeight));
       const width = Math.max(1, Math.round(image!.naturalWidth * scale));
       const height = Math.max(1, Math.round(image!.naturalHeight * scale));
-      canvas = document.createElement('canvas');
+      const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d', { alpha: false });
@@ -125,7 +124,6 @@ async function compressImage(file: File) {
       const dataUrl = await blobToDataUrl(blob);
       canvas.width = 1;
       canvas.height = 1;
-      canvas = null;
       return dataUrl;
     };
 
@@ -137,10 +135,6 @@ async function compressImage(file: File) {
     if (file.size <= 3_300_000) return blobToDataUrl(file);
     throw error;
   } finally {
-    if (canvas) {
-      canvas.width = 1;
-      canvas.height = 1;
-    }
     if (image) image.src = '';
     URL.revokeObjectURL(objectUrl);
   }
