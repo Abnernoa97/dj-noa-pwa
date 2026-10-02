@@ -9,6 +9,7 @@ type Finding = {
   title: string;
   detail?: string;
   confidence: 'high' | 'medium' | 'low';
+  sourceName?: string;
 };
 
 type DraftEvent = {
@@ -117,8 +118,8 @@ export default function NoahImageIntake({ onApply }: Props) {
   const [open, setOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [previews, setPreviews] = useState<Array<{ url: string; name: string }>>([]);
+  const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
   const [analysis, setAnalysis] = useState<AnalysisPayload | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [selectedDrafts, setSelectedDrafts] = useState<Set<number>>(new Set());
@@ -129,8 +130,8 @@ export default function NoahImageIntake({ onApply }: Props) {
     setOpen(false);
     setAnalyzing(false);
     setApplying(false);
-    setPreviewUrl('');
-    setFileName('');
+    setPreviews([]);
+    setAnalysisProgress({ current: 0, total: 0 });
     setAnalysis(null);
     setSelected(new Set());
     setSelectedDrafts(new Set());
@@ -139,19 +140,22 @@ export default function NoahImageIntake({ onApply }: Props) {
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  const analyze = async (file: File) => {
+  const analyze = async (incomingFiles: File[]) => {
+    const files = incomingFiles.slice(0, 5);
+    if (!files.length) return;
+
     setOpen(true);
     setAnalyzing(true);
     setError('');
     setAnalysis(null);
-    setFileName(file.name);
+    setPreviews([]);
+    setAnalysisProgress({ current: 0, total: files.length });
 
     try {
-      if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) throw new Error('format');
-      if (file.size > 16 * 1024 * 1024) throw new Error('size');
-
-      const imageDataUrl = await compressImage(file);
-      setPreviewUrl(imageDataUrl);
+      for (const file of files) {
+        if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) throw new Error('format');
+        if (file.size > 16 * 1024 * 1024) throw new Error('size');
+      }
 
       const [events, rows, columns] = await Promise.all([
         db.events.orderBy('date').toArray(),
@@ -160,64 +164,134 @@ export default function NoahImageIntake({ onApply }: Props) {
       ]);
 
       const currentColumns = columns.slice(0, 80);
-      const response = await fetch('/api/noah-image', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          imageDataUrl,
-          fileName: file.name,
-          context: {
-            localDateTime: new Date().toString(),
-            events: events.slice(0, 160).map((event) => ({
-              id: event.id,
-              title: event.title,
-              date: event.date,
-              showTime: event.showTime || event.time,
-              venue: event.venue,
-              status: event.status
-            })),
-            sheetColumns: columnSnapshot(currentColumns),
-            sheetRows: rows.slice(0, 120).map((row) => ({
-              id: row.id,
-              label: row.label,
-              category: row.category,
-              amount: row.amount,
-              currency: row.currency || 'MXN',
-              financialType: row.financialType,
-              calendarDate: row.calendarDate,
-              cells: currentColumns
-                .map((column) => ({
-                  columnId: column.id,
-                  columnName: column.name,
-                  value: row.values?.[column.key]
-                }))
-                .filter((cell) => hasCellValue(cell.value))
+      const context = {
+        localDateTime: new Date().toString(),
+        events: events.slice(0, 160).map((event) => ({
+          id: event.id,
+          title: event.title,
+          date: event.date,
+          showTime: event.showTime || event.time,
+          venue: event.venue,
+          status: event.status
+        })),
+        sheetColumns: columnSnapshot(currentColumns),
+        sheetRows: rows.slice(0, 120).map((row) => ({
+          id: row.id,
+          label: row.label,
+          category: row.category,
+          amount: row.amount,
+          currency: row.currency || 'MXN',
+          financialType: row.financialType,
+          calendarDate: row.calendarDate,
+          cells: currentColumns
+            .map((column) => ({
+              columnId: column.id,
+              columnName: column.name,
+              value: row.values?.[column.key]
             }))
-          }
-        })
+            .filter((cell) => hasCellValue(cell.value))
+        }))
+      };
+
+      const payloads: Array<{ payload: AnalysisPayload; fileName: string }> = [];
+      const failed: string[] = [];
+
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        setAnalysisProgress({ current: index + 1, total: files.length });
+
+        try {
+          const imageDataUrl = await compressImage(file);
+          setPreviews((current) => [...current, { url: imageDataUrl, name: file.name }]);
+
+          const response = await fetch('/api/noah-image', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              imageDataUrl,
+              fileName: file.name,
+              context
+            })
+          });
+
+          if (!response.ok) throw new Error(`analysis_${response.status}`);
+          const payload = await response.json() as AnalysisPayload;
+          payloads.push({ payload, fileName: file.name });
+        } catch {
+          failed.push(file.name);
+        }
+      }
+
+      if (!payloads.length) throw new Error('all_failed');
+
+      const actionMap = new Map<string, NoahChatAction>();
+      const draftMap = new Map<string, DraftEvent>();
+      const findingMap = new Map<string, Finding>();
+      const warningSet = new Set<string>();
+      const rawParts: string[] = [];
+      let pendingExcelAmounts = 0;
+
+      const actionKey = (action: NoahChatAction) => {
+        if (action.type === 'create_event') return `event|${action.event.title.toLowerCase()}|${action.event.date}`;
+        if (action.type === 'create_calendar_series') return `series|${action.event.title.toLowerCase()}|${action.startDate}|${action.endDate}`;
+        if (action.type === 'create_sheet_row') return `sheet|${String(action.row.label || '').toLowerCase()}|${action.row.calendarDate || ''}|${action.row.amount}`;
+        if (action.type === 'create_sheet_grid_row') return `grid|${action.label.toLowerCase()}|${JSON.stringify(action.cells)}`;
+        if (action.type === 'navigate_section') return `nav|${action.section}`;
+        return JSON.stringify(action);
+      };
+
+      payloads.forEach(({ payload, fileName }, payloadIndex) => {
+        const actions = Array.isArray(payload.eventActions) ? payload.eventActions : [];
+        const drafts = Array.isArray(payload.draftEvents) ? payload.draftEvents : [];
+        const findings = Array.isArray(payload.findings) ? payload.findings : [];
+        const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
+
+        actions.forEach((action) => {
+          const key = actionKey(action);
+          if (!actionMap.has(key)) actionMap.set(key, action);
+        });
+
+        drafts.forEach((draft) => {
+          const key = `${draft.title.toLowerCase()}|${draft.dateISO || draft.monthDay || draft.dateText}`;
+          if (!draftMap.has(key)) draftMap.set(key, draft);
+        });
+
+        findings.forEach((finding) => {
+          const enriched = { ...finding, sourceName: fileName };
+          const key = `${finding.kind}|${finding.title.toLowerCase()}|${finding.detail || ''}`;
+          if (!findingMap.has(key)) findingMap.set(key, enriched);
+        });
+
+        warnings.forEach((warning) => warningSet.add(files.length > 1 ? `Foto ${payloadIndex + 1}: ${warning}` : warning));
+        if (payload.rawText) rawParts.push(`IMAGEN ${payloadIndex + 1} · ${fileName}\n${payload.rawText}`);
+        pendingExcelAmounts += Number(payload.pendingExcelAmounts || 0);
       });
 
-      if (!response.ok) throw new Error(`analysis_${response.status}`);
-      const payload = await response.json() as AnalysisPayload;
-      const actions = Array.isArray(payload.eventActions) ? payload.eventActions : [];
-      const drafts = Array.isArray(payload.draftEvents) ? payload.draftEvents : [];
+      failed.forEach((name) => warningSet.add(`No pude leer “${name}”. Las demás imágenes sí fueron procesadas.`));
+
+      const actions = [...actionMap.values()];
+      const drafts = [...draftMap.values()];
+      const findings = [...findingMap.values()];
       const normalized: AnalysisPayload = {
-        text: String(payload.text || 'Imagen analizada.'),
-        rawText: String(payload.rawText || ''),
-        warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
-        findings: Array.isArray(payload.findings) ? payload.findings : [],
+        text: files.length === 1
+          ? String(payloads[0]?.payload.text || 'Imagen analizada.')
+          : `${payloads.length} de ${files.length} imágenes analizadas · ${findings.length} elementos detectados.`,
+        rawText: rawParts.join('\n\n'),
+        warnings: [...warningSet],
+        findings,
         draftEvents: drafts,
-        pendingExcelAmounts: Number(payload.pendingExcelAmounts || 0),
+        pendingExcelAmounts,
         eventActions: actions
       };
+
       setAnalysis(normalized);
       setSelected(new Set(actions.map((_, index) => index)));
       setSelectedDrafts(new Set(drafts.map((_, index) => index)));
     } catch (reason) {
       const message = String((reason as Error)?.message || '');
-      if (message === 'format') setError('Usa una foto JPG, PNG o WEBP.');
-      else if (message === 'size') setError('La imagen es demasiado grande.');
-      else setError('Noah no pudo analizar esta foto. Intenta otra vez.');
+      if (message === 'format') setError('Usa solamente fotos JPG, PNG o WEBP.');
+      else if (message === 'size') setError('Una de las imágenes es demasiado grande.');
+      else setError('Noah no pudo analizar estas imágenes. Intenta otra vez.');
     } finally {
       setAnalyzing(false);
     }
@@ -292,9 +366,10 @@ export default function NoahImageIntake({ onApply }: Props) {
         className="noah-image-input"
         type="file"
         accept="image/jpeg,image/png,image/webp"
+        multiple
         onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void analyze(file);
+          const files = Array.from(event.target.files || []).slice(0, 5);
+          if (files.length) void analyze(files);
         }}
       />
 
@@ -318,15 +393,17 @@ export default function NoahImageIntake({ onApply }: Props) {
             <button type="button" onClick={reset} aria-label="Cerrar"><X size={22} /></button>
           </header>
 
-          {previewUrl ? <div className="noah-image-preview">
-            <img src={previewUrl} alt="" />
-            <div><span>FUENTE</span><strong>{fileName || 'Imagen'}</strong></div>
+          {previews.length ? <div className="noah-image-preview-strip">
+            {previews.map((preview, index) => <div className="noah-image-preview" key={`${preview.name}-${index}`}>
+              <img src={preview.url} alt="" />
+              <div><span>IMAGEN {index + 1}</span><strong>{preview.name}</strong></div>
+            </div>)}
           </div> : null}
 
           {analyzing ? <div className="noah-image-thinking">
             <LoaderCircle size={28} className="spin" />
-            <strong>Entendiendo fechas, eventos, montos y relaciones…</strong>
-            <span>Noah todavía no está guardando nada.</span>
+            <strong>{analysisProgress.total > 1 ? `Leyendo imagen ${analysisProgress.current} de ${analysisProgress.total}` : 'Entendiendo fechas, eventos, montos y relaciones…'}</strong>
+            <span>Cada imagen se analiza por separado. Noah todavía no está guardando nada.</span>
           </div> : null}
 
           {error ? <div className="noah-image-warning error"><AlertTriangle size={18} /><span>{error}</span></div> : null}
@@ -341,7 +418,7 @@ export default function NoahImageIntake({ onApply }: Props) {
               <div className="noah-image-section-title">LECTURA</div>
               {analysis.findings.map((item, index) => <article key={`${item.title}-${index}`}>
                 <div>
-                  <span>{item.kind.toUpperCase()}</span>
+                  <span>{item.kind.toUpperCase()}{item.sourceName && previews.length > 1 ? ` · ${item.sourceName}` : ''}</span>
                   <i className={item.confidence}>{item.confidence === 'high' ? 'ALTA' : item.confidence === 'medium' ? 'MEDIA' : 'BAJA'}</i>
                 </div>
                 <strong>{item.title}</strong>
