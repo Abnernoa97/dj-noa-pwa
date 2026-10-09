@@ -38,6 +38,7 @@ import './sports-detail.css';
 import './hard-rock-market.css';
 import './sports-context.css';
 import './sports-realtime.css';
+import './ios-dark-redesign.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {

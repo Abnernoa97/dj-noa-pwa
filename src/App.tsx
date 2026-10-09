@@ -780,7 +780,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell ios-shell">
       <div className="background-photo" aria-hidden="true" />
       <div className="background-shade" aria-hidden="true" />
 
