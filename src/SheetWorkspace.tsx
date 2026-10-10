@@ -122,6 +122,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   useNativeBack(Boolean(selectedRowId), () => setSelectedRowId(null), 90);
   const [selectionIds, setSelectionIds] = useState<Set<string>>(() => new Set());
+  useNativeBack(selectionIds.size > 0, () => setSelectionIds(new Set()), 65);
   const [photos, setPhotos] = useState<PhotoView[]>([]);
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [draftColumn, setDraftColumn] = useState<DraftColumn>({ name: '', type: 'text', formula: '' });

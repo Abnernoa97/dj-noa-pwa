@@ -399,7 +399,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  * Internal sheets and details supply their own Back action, never overlapping this button.
  */
 .ios-shell .ios-global-back{
- position:fixed!important;z-index:1010!important;
+ position:fixed!important;z-index:25!important;
  top:calc(env(safe-area-inset-top) + 53px)!important;
  left:max(12px,env(safe-area-inset-left))!important;
  height:44px!important;min-width:100px!important;max-width:142px!important;
@@ -441,3 +441,23 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .ios-shell:has(.ios-global-back) .calendar-page,
  .ios-shell:has(.ios-global-back) .calendar-page:has(.calendar-grid-rich){padding-top:104px!important}
 }
+
+/* Keep the native Back affordance behind dialogs, and place editor Back in the leading position. */
+.ios-shell .event-editor-head,
+.ios-shell .reminder-editor-head,
+.ios-shell .noah-image-head{
+ display:grid!important;grid-template-columns:44px minmax(0,1fr)!important;
+ align-items:center!important;justify-content:stretch!important;gap:12px!important
+}
+.ios-shell .event-editor-head>button,
+.ios-shell .reminder-editor-head>button,
+.ios-shell .noah-image-head>button{
+ grid-column:1!important;grid-row:1!important;justify-self:start!important
+}
+.ios-shell .event-editor-head>div,
+.ios-shell .reminder-editor-head>div,
+.ios-shell .noah-image-head>div{
+ grid-column:2!important;grid-row:1!important;min-width:0!important
+}
+.ios-shell .calendar-summary-close{left:14px!important;right:auto!important}
+.ios-shell .calendar-summary-sheet>.day-summary{padding-top:34px!important}

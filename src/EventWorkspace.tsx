@@ -58,6 +58,7 @@ export function EventsView({ events, onOpen, onCreate, onEdit, onDelete }: Event
   const history = sorted.filter((event) => event.date < today || event.status === 'done').reverse();
   const selectedEvents = events.filter((event) => selectedIds.has(event.id));
   const selectionMode = selectedIds.size > 0;
+  useNativeBack(selectionMode, () => setSelectedIds(new Set()), 60);
 
   useEffect(() => {
     setSelectedIds((current) => {
