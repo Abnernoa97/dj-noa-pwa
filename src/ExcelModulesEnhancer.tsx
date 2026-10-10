@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNativeBack } from './navigationBack';
 import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
@@ -51,6 +52,8 @@ export default function ExcelModulesEnhancer() {
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnBehavior, setNewColumnBehavior] = useState<SheetColumnBehavior>('expense');
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  useNativeBack(newColumnOpen, () => setNewColumnOpen(false), 95);
+  useNativeBack(Boolean(editingColumnId), () => setEditingColumnId(null), 95);
   const [editingName, setEditingName] = useState('');
   const seedingRef = useRef(false);
 

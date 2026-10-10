@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useNativeBack } from './navigationBack';
 import { Mic, Square } from 'lucide-react';
 import { db } from './db';
 import type { EventItem, SheetColumn, SheetRow, SheetValue } from './types';
@@ -435,6 +436,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
     speak('Hola, ¿en qué te puedo ayudar hoy?', startRecognition);
   };
 
+  useNativeBack(active, stopSession, 120);
   useImperativeHandle(ref, () => ({ start: startSession, stop: stopSession }));
 
   useEffect(() => {
