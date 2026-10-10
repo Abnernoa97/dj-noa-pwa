@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Bell, CalendarDays, Camera, Check, FileSpreadsheet, MapPin, Navigation, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { db, uid } from './db';
+import { useNativeBack } from './navigationBack';
 import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from './types';
 
 export type EventDraft = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;
@@ -270,6 +271,7 @@ function HavanaEventCard({ event, expanded, selected, selectionMode, onToggle, o
 }
 
 export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenCalendar, onOpenReminders, onOpenSheet, onToggleReminder }: EventHubProps) {
+  useNativeBack(true, onClose, 80);
   const [photos, setPhotos] = useState<PhotoView[]>([]);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
@@ -382,6 +384,7 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
 }
 
 export function EventEditor({ event, initialDate, onClose, onSave }: { event: EventItem | null; initialDate?: string | null; onClose: () => void; onSave: (draft: EventDraft) => Promise<void> }) {
+  useNativeBack(true, onClose, 100);
   const [draft, setDraft] = useState<EventDraft>(() => ({
     title: event?.title || '',
     date: event?.date || initialDate || format(new Date(), 'yyyy-MM-dd'),
@@ -426,7 +429,7 @@ export function EventEditor({ event, initialDate, onClose, onSave }: { event: Ev
     <div className="event-editor-backdrop" onClick={onClose}>
       <section className="event-editor" onClick={(e) => e.stopPropagation()}>
         <div className="assistant-handle" />
-        <div className="event-editor-head"><div><p className="eyebrow">{event ? 'EDITAR EVENTO' : 'NUEVO EVENTO'}</p><h3>{event ? event.title : 'Crear evento'}</h3></div><button className="icon-button" onClick={onClose}><X size={20} /></button></div>
+        <div className="event-editor-head"><div><p className="eyebrow">{event ? 'EDITAR EVENTO' : 'NUEVO EVENTO'}</p><h3>{event ? event.title : 'Crear evento'}</h3></div><button className="icon-button" onClick={onClose} aria-label="Volver"><ArrowLeft size={21} /></button></div>
         <div className="event-form">
           <label><span>EVENTO / NOMBRE</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} placeholder="Ej. Evento concretado" /></label>
           <label><span>FECHA</span><input type="date" value={draft.date} onChange={(e) => update('date', e.target.value)} /></label>

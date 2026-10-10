@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Brain, TrendingDown, TrendingUp } from 'lucide-react';
+import { useNativeBack } from './navigationBack';
 
 type BookOdds = { provider: string; away: number; home: number };
 type Standing = {
@@ -136,6 +137,7 @@ function mergeLiveGame(previous: Game, incoming?: Game) {
 }
 
 export default function SportsGameDetail({ sport, game, standings, onBack }: Props) {
+  useNativeBack(true, onBack, 110);
   const [activeGame, setActiveGame] = useState<Game>(game);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(false);

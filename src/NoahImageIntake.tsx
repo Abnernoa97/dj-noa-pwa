@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { AlertTriangle, Check, ImagePlus, LoaderCircle, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ImagePlus, LoaderCircle, Sparkles, X } from 'lucide-react';
 import { db } from './db';
+import { useNativeBack } from './navigationBack';
 import type { NoahChatAction } from './noahExcel';
 import type { SheetColumn, SheetValue } from './types';
 
@@ -173,6 +174,8 @@ export default function NoahImageIntake({ onApply }: Props) {
   const [selectedDrafts, setSelectedDrafts] = useState<Set<number>>(new Set());
   const [documentYear, setDocumentYear] = useState('');
   const [error, setError] = useState('');
+
+  useNativeBack(open, () => { if (!applying) reset(); }, 130);
 
   const reset = () => {
     previews.forEach((preview) => {
@@ -447,7 +450,7 @@ export default function NoahImageIntake({ onApply }: Props) {
               <span>NOAH · VISIÓN</span>
               <h2>{analyzing ? 'Leyendo la imagen' : 'Esto es lo que entendí'}</h2>
             </div>
-            <button type="button" onClick={reset} aria-label="Cerrar"><X size={22} /></button>
+            <button type="button" onClick={reset} aria-label="Volver de Noah Visión" disabled={applying}><ArrowLeft size={22} /></button>
           </header>
 
           {previews.length ? <div className="noah-image-preview-strip">

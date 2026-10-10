@@ -3,6 +3,7 @@ import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, parseISO,
 import { es } from 'date-fns/locale';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
 import type { EventItem, ReminderItem, SheetRow } from './types';
+import { useNativeBack } from './navigationBack';
 
 type CalendarMode = 'month' | 'week' | 'day';
 type DatePickerMode = 'month' | 'year' | null;
@@ -39,6 +40,8 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [datePicker, setDatePicker] = useState<DatePickerMode>(null);
+  useNativeBack(summaryOpen, () => setSummaryOpen(false), 80);
+  useNativeBack(Boolean(datePicker), () => setDatePicker(null), 50);
   const noahHighlightSet = useMemo(() => new Set(noahHighlightDates), [noahHighlightDates]);
 
   const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
@@ -172,7 +175,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
       {mode !== 'day' && <button className="calendar-selected-preview" onClick={() => setSummaryOpen(true)}><span>{format(selectedDate, "EEE d MMM", { locale: es })}</span><strong>{activeItems.events.length + activeItems.reminders.length + activeItems.rows.length} elementos</strong><ChevronRight size={18} /></button>}
 
-      {summaryOpen && <div className="calendar-summary-backdrop" onClick={() => setSummaryOpen(false)}><section className="calendar-summary-sheet" onClick={(event) => event.stopPropagation()}><div className="calendar-summary-handle" /><button className="calendar-summary-close" onClick={() => setSummaryOpen(false)}><X size={19} /></button><DaySummary date={selectedDate} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={(event) => { setSummaryOpen(false); onOpenEvent(event); }} onToggleReminder={onToggleReminder} onOpenReminders={() => { setSummaryOpen(false); onOpenReminders(); }} onOpenSheetRow={(id) => { setSummaryOpen(false); onOpenSheetRow(id); }} onCreateEvent={(date) => { setSummaryOpen(false); onCreateEvent(date); }} /></section></div>}
+      {summaryOpen && <div className="calendar-summary-backdrop" onClick={() => setSummaryOpen(false)}><section className="calendar-summary-sheet" onClick={(event) => event.stopPropagation()}><div className="calendar-summary-handle" /><button className="calendar-summary-close" onClick={() => setSummaryOpen(false)} aria-label="Volver al calendario"><ChevronLeft size={22} /></button><DaySummary date={selectedDate} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={(event) => { setSummaryOpen(false); onOpenEvent(event); }} onToggleReminder={onToggleReminder} onOpenReminders={() => { setSummaryOpen(false); onOpenReminders(); }} onOpenSheetRow={(id) => { setSummaryOpen(false); onOpenSheetRow(id); }} onCreateEvent={(date) => { setSummaryOpen(false); onCreateEvent(date); }} /></section></div>}
     </section>
   );
 }

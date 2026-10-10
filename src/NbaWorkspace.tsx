@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNativeBack } from './navigationBack';
 
 type NbaBookOdds = { provider: string; away: number; home: number };
 type NbaGame = {
@@ -105,6 +106,7 @@ async function fetchNbaSnapshot(date: string): Promise<NbaSnapshot> {
 }
 
 export default function NbaWorkspace({ onBack }: Props) {
+  useNativeBack(true, onBack, 40);
   const today = format(new Date(), 'yyyy-MM-dd');
   const [snapshot, setSnapshot] = useState<NbaSnapshot | null>(() => {
     const cached = readCachedSnapshot();

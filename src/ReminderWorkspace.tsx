@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db, uid } from './db';
+import { useNativeBack } from './navigationBack';
 import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';
 import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from './types';
 
@@ -39,6 +40,7 @@ function dueText(item: ReminderItem) {
 
 export default function ReminderWorkspace({ items, events, onChanged, onAssistant }: Props) {
   const [editor, setEditor] = useState<ReminderItem | null | undefined>(undefined);
+  useNativeBack(editor !== undefined, () => setEditor(undefined), 90);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => notificationSupport() ? Notification.permission : 'unsupported');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [testingNotification, setTestingNotification] = useState(false);
@@ -207,7 +209,7 @@ function ReminderEditor({ item, events, onClose, onSaved, onDelete }: { item: Re
     <div className="reminder-editor-backdrop" onClick={onClose}>
       <section className="reminder-editor" onClick={(event) => event.stopPropagation()}>
         <div className="assistant-handle" />
-        <div className="reminder-editor-head"><div><p className="eyebrow">{item ? 'EDITAR' : 'NUEVO'}</p><h3>{item ? item.title : 'Recordatorio'}</h3></div><button onClick={onClose}><X size={19} /></button></div>
+        <div className="reminder-editor-head"><div><p className="eyebrow">{item ? 'EDITAR' : 'NUEVO'}</p><h3>{item ? item.title : 'Recordatorio'}</h3></div><button onClick={onClose} aria-label="Volver a recordatorios"><ArrowLeft size={20} /></button></div>
         <div className="reminder-form">
           <label><span>TÍTULO</span><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Ej. confirmar audio" /></label>
           <div className="reminder-form-grid"><label><span>FECHA</span><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label><span>HORA</span><input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label></div>

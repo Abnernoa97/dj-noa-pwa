@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import CalendarWorkspace from './CalendarWorkspace';
@@ -148,6 +150,16 @@ function calendarSeriesSteps(created: number, total: number, monthLabel: string,
 
 export default function App() {
   const [view, setView] = useState<AppView>('home');
+  const viewRef = useRef<AppView>('home');
+  const viewHistoryRef = useRef<AppView[]>([]);
+
+  const navigateTo = (next: AppView) => {
+    if (next === viewRef.current) return;
+    viewHistoryRef.current.push(viewRef.current);
+    if (viewHistoryRef.current.length > 40) viewHistoryRef.current.shift();
+    viewRef.current = next;
+    setView(next);
+  };
   const [mlbOpen, setMlbOpen] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
@@ -162,6 +174,27 @@ export default function App() {
   const [noahCalendarDates, setNoahCalendarDates] = useState<string[]>([]);
   const noahRef = useRef<NoahVoiceHandle>(null);
   const noahActivityTimerRef = useRef<number | null>(null);
+
+  const closeEventEditor = () => {
+    setEventEditorOpen(false);
+    setSelectedEvent(null);
+    setEventCreateDate(null);
+  };
+
+  const goBack = () => {
+    if (eventEditorOpen) { closeEventEditor(); return; }
+    if (eventHubId) { setEventHubId(null); return; }
+    if (mlbOpen) { setMlbOpen(false); return; }
+    if (viewRef.current !== 'home') {
+      const previous = viewHistoryRef.current.pop() || 'home';
+      viewRef.current = previous;
+      setNoahCalendarDates([]);
+      setView(previous);
+    }
+  };
+
+  useNativeBack(view !== 'home' || mlbOpen || Boolean(eventHubId) || eventEditorOpen, goBack, 10);
+  useSystemBack();
 
   const refresh = async () => {
     const [eventData, reminderData, sheetData] = await Promise.all([
@@ -313,7 +346,7 @@ export default function App() {
         showNoahActivity({ phase: 'working', title: `Pasando a ${name}`, detail: 'Cambiando de contexto', scope: 'NAVEGACIÓN' });
         setEventHubId(null);
         if (action.section === 'calendar') setMonth(startOfMonth(new Date()));
-        setView(action.section);
+        navigateTo(action.section);
         await sleep(180);
         showNoahActivity({ phase: 'done', title: name, detail: 'Listo', scope: 'NAVEGACIÓN' });
         return { ok: true, message: `Perfecto, pasamos a ${name}.` };
@@ -322,7 +355,7 @@ export default function App() {
       if (action.type === 'open_events') {
         showNoahActivity({ phase: 'working', ...label });
         setEventHubId(null);
-        setView('events');
+        navigateTo('events');
         await sleep(150);
         showNoahActivity({ phase: 'done', title: 'Eventos', detail: 'Agenda lista', scope: 'EVENTOS' });
         return { ok: true, message: 'Aquí están tus eventos.' };
@@ -360,11 +393,11 @@ export default function App() {
         setSheetRows((current) => [row, ...current]);
         await sleep(160);
         if (action.surface === 'calendar' && row.calendarDate) {
-          setView('calendar');
+          navigateTo('calendar');
           setMonth(startOfMonth(parseISO(row.calendarDate)));
           setNoahCalendarDates([row.calendarDate]);
         } else {
-          setView('sheet');
+          navigateTo('sheet');
           setSelectedSheetRowId(row.id);
         }
         showNoahActivity({
@@ -395,7 +428,7 @@ export default function App() {
         }
 
         setEventHubId(null);
-        setView('calendar');
+        navigateTo('calendar');
         setMonth(startOfMonth(start));
         setNoahCalendarDates([]);
         showNoahActivity({
@@ -528,11 +561,11 @@ export default function App() {
         });
         setEventHubId(null);
         if (calendarSurface) {
-          setView('calendar');
+          navigateTo('calendar');
           setMonth(startOfMonth(parseISO(action.event.date)));
           setNoahCalendarDates([action.event.date]);
         } else {
-          setView('events');
+          navigateTo('events');
         }
         await sleep(150);
 
@@ -637,14 +670,14 @@ export default function App() {
         const row = await syncFinanceForEvent(target, action.finance);
         await sleep(150);
         if (action.surface === 'calendar') {
-          setView('calendar');
+          navigateTo('calendar');
           setMonth(startOfMonth(parseISO(target.date)));
           setNoahCalendarDates([target.date]);
         } else if (action.surface === 'events') {
-          setView('events');
+          navigateTo('events');
           setEventHubId(target.id);
         } else {
-          setView('sheet');
+          navigateTo('sheet');
           setSelectedSheetRowId(row.id);
         }
         showNoahActivity({
@@ -663,7 +696,7 @@ export default function App() {
 
       if (action.type === 'open_event') {
         showNoahActivity({ phase: 'working', title: 'Abriendo ficha', detail: target.title, scope: 'EVENTOS' });
-        setView('events');
+        navigateTo('events');
         setEventHubId(target.id);
         await sleep(160);
         showNoahActivity({ phase: 'done', title: target.title, detail: 'Ficha abierta', scope: 'EVENTOS' });
@@ -674,7 +707,7 @@ export default function App() {
         const entries = patchEntries(action.patch);
         const linkedRows = sheetRows.filter((row) => row.eventId === target.id);
         showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: target.title, scope: linkedRows.length && action.patch.date ? 'MATRIZ' : 'EVENTOS', steps: progressSteps(entries, 'update', 0) });
-        setView('events');
+        navigateTo('events');
         setEventHubId(target.id);
         await sleep(200);
 
@@ -706,7 +739,7 @@ export default function App() {
           { id: 'delete-links', label: 'Revisando vínculos', state: 'pending' },
           { id: 'delete-final', label: 'Eliminando', state: 'pending' }
         ];
-        setView('events');
+        navigateTo('events');
         setEventHubId(target.id);
         showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps });
         await sleep(220);
@@ -776,13 +809,18 @@ export default function App() {
 
   const openSheetRow = (rowId?: string) => {
     setSelectedSheetRowId(rowId || null);
-    setView('sheet');
+    navigateTo('sheet');
   };
 
   return (
     <div className="app-shell ios-shell">
       <div className="background-photo" aria-hidden="true" />
       <div className="background-shade" aria-hidden="true" />
+      {view !== 'home' && !mlbOpen && !eventHubId && !eventEditorOpen && (
+        <button type="button" className="ios-global-back" aria-label="Volver a la pantalla anterior" onClick={() => void performNativeBack()}>
+          <ChevronLeft size={23} strokeWidth={2.3} /><span>Volver</span>
+        </button>
+      )}
 
       <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div></header>
 
@@ -803,20 +841,20 @@ export default function App() {
             onToggleReminder={toggleReminder}
           />}
           {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
-          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} noahHighlightDates={noahCalendarDates} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => setView('reminders')} onOpenSheetRow={openSheetRow} />}
+          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} noahHighlightDates={noahCalendarDates} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => navigateTo('reminders')} onOpenSheetRow={openSheetRow} />}
           {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={startNoah} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
           {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={startNoah} />}
         </>}
       </main>
 
-      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setNoahCalendarDates([]); setView(next); }} />
+      <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setNoahCalendarDates([]); navigateTo(next); }} />
       <NoahVoice ref={noahRef} events={events} sheetRows={sheetRows} section={mlbOpen ? 'mlb' : view} onEventAction={executeNoahEventAction} />
       <NoahImageIntake onApply={executeNoahImageActions} />
       <NoahActionOverlay activity={noahActivity} />
 
-      {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); setView('calendar'); }} onOpenReminders={() => { setEventHubId(null); setView('reminders'); }} onOpenSheet={() => { setEventHubId(null); setView('sheet'); }} onToggleReminder={toggleReminder} />}
+      {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); navigateTo('calendar'); }} onOpenReminders={() => { setEventHubId(null); navigateTo('reminders'); }} onOpenSheet={() => { setEventHubId(null); navigateTo('sheet'); }} onToggleReminder={toggleReminder} />}
 
-      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={() => { setEventEditorOpen(false); setSelectedEvent(null); setEventCreateDate(null); }} onSave={saveEvent} />}
+      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={closeEventEditor} onSave={saveEvent} />}
     </div>
   );
 }

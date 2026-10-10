@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react';
 import { DatabaseBackup, Download, ShieldCheck, Upload, X } from 'lucide-react';
 import { downloadDjNoaBackup, restoreDjNoaBackup } from './dataBackup';
+import { useNativeBack } from './navigationBack';
 
 export default function DataSafetyPanel() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
+  useNativeBack(open, () => { if (!busy) setOpen(false); }, 140);
 
   const exportBackup = async () => {
     setBusy(true);

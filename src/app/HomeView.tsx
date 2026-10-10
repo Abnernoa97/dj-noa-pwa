@@ -3,6 +3,7 @@ import { CalendarDays, CalendarCheck2, ChevronRight, CheckCircle2, FileSpreadshe
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import NbaWorkspace from '../NbaWorkspace';
+import { useNativeBack } from '../navigationBack';
 import type { AppView, EventItem, ReminderItem } from '../types';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
@@ -37,6 +38,7 @@ export default function HomeView({
   onToggleReminder
 }: Props) {
   const [nbaOpen, setNbaOpen] = useState(false);
+  useNativeBack(nbaOpen, () => setNbaOpen(false), 50);
   if (nbaOpen) return <NbaWorkspace onBack={() => setNbaOpen(false)} />;
 
   const openImageIntake = () => document.querySelector<HTMLButtonElement>('.noah-image-trigger')?.click();

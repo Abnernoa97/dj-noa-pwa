@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from './db';
+import { useNativeBack } from './navigationBack';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
@@ -119,6 +120,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   const [status, setStatus] = useState<'all' | SheetStatus>('all');
   const [sort, setSort] = useState<SortMode>('newest');
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  useNativeBack(Boolean(selectedRowId), () => setSelectedRowId(null), 90);
   const [selectionIds, setSelectionIds] = useState<Set<string>>(() => new Set());
   const [photos, setPhotos] = useState<PhotoView[]>([]);
   const [fieldsOpen, setFieldsOpen] = useState(false);
