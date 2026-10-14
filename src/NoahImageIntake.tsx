@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, ImagePlus, LoaderCircle, Sparkles, X } from 'lucide-react';
 import { db } from './db';
+import { normalizedEventIdentity, isValidEventDate } from './eventIntegrity';
+import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from './noahImageReconcile';
 import { useNativeBack } from './navigationBack';
 import type { NoahChatAction } from './noahExcel';
 import type { SheetColumn, SheetValue } from './types';
@@ -33,6 +35,8 @@ type AnalysisPayload = {
   draftEvents: DraftEvent[];
   pendingExcelAmounts?: number;
   eventActions: NoahChatAction[];
+  visualItems?: PhotoVisualItem[];
+  actionReview?: Array<{ sources: string[]; confidence: 'high' | 'medium' | 'low' }>;
 };
 
 type Props = {
@@ -329,8 +333,25 @@ export default function NoahImageIntake({ onApply }: Props) {
 
       failed.forEach((name) => warningSet.add(`No pude leer “${name}”. Las demás imágenes sí fueron procesadas.`));
 
-      const actions = [...actionMap.values()];
-      const drafts = [...draftMap.values()];
+      const structured = payloads.length > 0 && payloads.every(({payload}) => Array.isArray(payload.visualItems));
+      const reconciled = structured ? reconcilePhotoReads(payloads.map(({payload, fileName}) => ({
+        fileName, visualItems: payload.visualItems || []
+      })), events) : null;
+      const independent = [...actionMap.values()].filter((action) => action.type !== 'create_event');
+      const planned: ReviewAction[] = reconciled
+        ? [...reconciled.actions, ...independent.map((action) => ({
+          action, sources: [], confidence: 'medium' as const
+        }))]
+        : [...actionMap.values()].map((action) => ({
+          action, sources: [], confidence: 'medium' as const
+        }));
+      // A low-confidence or unidentified action is never preapproved.
+      // Only cross-checked, high-confidence event proposals start selected.
+      const actions = planned.map((proposal) => proposal.action);
+      if (reconciled) reconciled.warnings.forEach((warning) => warningSet.add(warning));
+      if (!structured) warningSet.add('La lectura visual todavía usa el formato anterior. No se combinaron campos entre fotografías.');
+      if (failed.length) warningSet.add('Las fotografías con error NO se usaron para completar datos de las demás.');
+      const drafts = [...draftMap.values()].filter((draft) => draft.monthDay);
       const findings = [...findingMap.values()];
       const normalized: AnalysisPayload = {
         text: files.length === 1
@@ -341,12 +362,15 @@ export default function NoahImageIntake({ onApply }: Props) {
         findings,
         draftEvents: drafts,
         pendingExcelAmounts,
-        eventActions: actions
+        eventActions: actions,
+        actionReview: planned.map(({sources, confidence}) => ({sources, confidence}))
       };
 
       setAnalysis(normalized);
-      setSelected(new Set(actions.map((_, index) => index)));
-      setSelectedDrafts(new Set(drafts.map((_, index) => index)));
+      setSelected(new Set(planned.map((proposal, index) =>
+        reconciled && proposal.confidence === 'high' && proposal.action.type === 'create_event' ? index : -1
+      ).filter((index) => index >= 0)));
+      setSelectedDrafts(new Set());
     } catch (reason) {
       const message = String((reason as Error)?.message || '');
       if (message === 'format') setError('Usa solamente fotos JPG, PNG o WEBP.');
@@ -386,6 +410,24 @@ export default function NoahImageIntake({ onApply }: Props) {
     if (!actions.length) {
       setError('No hay acciones seleccionadas para guardar.');
       return;
+    }
+    // A new event could have been saved elsewhere while Noah was analyzing:
+    // repeat deduplication immediately before writing.
+    const currentEvents = await db.events.toArray();
+    const existingKeys = new Set(currentEvents.map((item) => normalizedEventIdentity(item.title, item.date)));
+    const proposedKeys = new Set<string>();
+    for (const action of actions) {
+      if (action.type !== 'create_event') continue;
+      if (!isValidEventDate(action.event.date)) {
+        setError('Encontré una fecha inválida. No guardé ningún cambio.');
+        return;
+      }
+      const key = normalizedEventIdentity(action.event.title, action.event.date);
+      if (existingKeys.has(key) || proposedKeys.has(key)) {
+        setError('Un evento ya existe o aparece repetido en esta importación. Revisa las propuestas antes de guardar.');
+        return;
+      }
+      proposedKeys.add(key);
     }
 
     setApplying(true);
@@ -521,9 +563,14 @@ export default function NoahImageIntake({ onApply }: Props) {
               })}
               {analysis.eventActions.length ? analysis.eventActions.map((action, index) => {
                 const checked = selected.has(index);
+                const review = analysis.actionReview?.[index];
                 return <button type="button" className={checked ? 'selected' : ''} key={index} onClick={() => toggle(index)}>
                   <span className="noah-image-check">{checked ? <Check size={15} /> : null}</span>
-                  <div><small>{actionKind(action)}</small><strong>{actionLabel(action)}</strong></div>
+                  <div><small>{actionKind(action)} · {review?.confidence === 'high' ? 'CONFIANZA ALTA' : 'REVISAR DATOS'}</small>
+                    <strong>{actionLabel(action)}</strong>
+                    {action.type === 'create_event' && <em>{[action.event.callTime ? 'Llamada ' + action.event.callTime : '', action.event.soundcheckTime ? 'Sonido ' + action.event.soundcheckTime : '', action.event.showTime ? 'Show ' + action.event.showTime : '', action.event.venue || '', action.finance ? action.finance.amount + ' ' + action.finance.currency : ''].filter(Boolean).join(' · ')}</em>}
+                    {review?.sources.length ? <em>Fuentes: {review.sources.join(', ')}</em> : null}
+                  </div>
                 </button>;
               }) : analysis.draftEvents.length ? null : <div className="noah-image-empty">No encontré acciones suficientemente claras para guardar.</div>}
             </div>
