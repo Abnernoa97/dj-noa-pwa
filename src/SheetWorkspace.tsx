@@ -217,7 +217,19 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   }), [filtered]);
 
   const patchRow = async (row: SheetRow, patch: Partial<SheetRow>) => {
-    await db.sheetRows.update(row.id, { ...patch, updatedAt: new Date().toISOString() });
+    const changes = { ...patch };
+    if ('eventId' in patch && patch.eventId !== row.eventId) {
+      const previous = events.find((event) => event.id === row.eventId);
+      const next = events.find((event) => event.id === patch.eventId);
+      // Attach only an inherited event date; never replace an explicit
+      // payment or deposit date belonging to this Excel movement.
+      if (next && (!row.calendarDate || row.calendarDate === previous?.date)) {
+        changes.calendarDate = next.date;
+      } else if (!next && !row.calendarDate && previous) {
+        changes.calendarDate = previous.date;
+      }
+    }
+    await db.sheetRows.update(row.id, { ...changes, updatedAt: new Date().toISOString() });
     await onChanged();
   };
 
@@ -392,7 +404,10 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     for (const item of raw) {
       const get = (...names: string[]) => { const match = Object.keys(item).find((key) => names.includes(normalize(key))); return match ? item[match] : ''; };
       const eventText = String(get('evento') || '').trim();
-      const event = events.find((entry) => normalize(entry.title) === normalize(eventText));
+      // An Excel file containing a common event name must not link to the
+      // wrong occurrence when the name appears on several dates.
+      const matchingEvents = events.filter((entry) => normalize(entry.title) === normalize(eventText));
+      const event = matchingEvents.length === 1 ? matchingEvents[0] : undefined;
       const statusText = normalize(String(get('estado') || 'pending'));
       const rowStatus: SheetStatus = statusText.includes('pag') ? 'paid' : statusText.includes('info') ? 'info' : 'pending';
       const values: Record<string, SheetValue> = {};
@@ -402,7 +417,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
         const value = item[header];
         values[column.key] = typeof value === 'number' || typeof value === 'boolean' ? value : String(value ?? '');
       }
-      imported.push({ id: uid(), label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
+      imported.push({ id: uid(), label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, calendarDate: event?.date, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
     }
     if (imported.length) await db.sheetRows.bulkAdd(imported);
     await loadColumns();

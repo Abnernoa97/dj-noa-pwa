@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { liveQuery } from 'dexie';
 import { ChevronLeft } from 'lucide-react';
 import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
@@ -13,6 +14,7 @@ import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from '
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
+import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from './eventMutations';
 import { scheduleReminderNotifications } from './reminderNotifications';
 import type { AppView, EventItem, ReminderItem, SheetRow } from './types';
 import {
@@ -45,10 +47,6 @@ function sortEvents(items: EventItem[]) {
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-}
-
-function normalizedEventTitle(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function financeText(finance: NoahFinanceInput) {
@@ -207,7 +205,23 @@ export default function App() {
     setSheetRows(sheetData);
   };
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    // All screens observe the same IndexedDB truth, including edits performed
+    // by Noah's Excel module and another tab on the same device.
+    const subscription = liveQuery(() => Promise.all([
+      db.events.orderBy('date').toArray(),
+      db.reminders.orderBy('createdAt').reverse().toArray(),
+      db.sheetRows.orderBy('createdAt').reverse().toArray()
+    ])).subscribe({
+      next: ([eventData, reminderData, sheetData]) => {
+        setEvents(eventData);
+        setReminders(reminderData);
+        setSheetRows(sheetData);
+      },
+      error: () => { void refresh(); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   useEffect(() => scheduleReminderNotifications(reminders), [reminders]);
   useEffect(() => () => {
     if (noahActivityTimerRef.current !== null) window.clearTimeout(noahActivityTimerRef.current);
@@ -253,83 +267,6 @@ export default function App() {
     setSelectedEvent(event || null);
     setEventCreateDate(event ? null : createDate || null);
     setEventEditorOpen(true);
-  };
-
-  const financeRowData = (event: EventItem, finance: NoahFinanceInput, existing?: SheetRow) => ({
-    label: finance.label || event.title,
-    category: finance.category || 'Evento',
-    amount: finance.amount,
-    currency: finance.currency,
-    status: finance.status || 'pending' as const,
-    financialType: finance.financialType || 'income' as const,
-    eventId: event.id,
-    calendarDate: event.date,
-    notes: finance.notes ?? existing?.notes,
-    description: finance.description ?? existing?.description,
-    values: existing?.values || {},
-    updatedAt: new Date().toISOString()
-  });
-
-  const syncBlankExcelForEvent = async (event: EventItem) => {
-    const existing = sheetRows.find((row) => row.eventId === event.id);
-    if (existing) return existing;
-
-    const now = new Date().toISOString();
-    const row: SheetRow = {
-      id: uid(),
-      label: event.title,
-      category: 'Evento',
-      amount: 0,
-      currency: 'MXN',
-      status: 'info',
-      financialType: 'neutral',
-      eventId: event.id,
-      calendarDate: event.date,
-      values: {},
-      createdAt: now,
-      updatedAt: now
-    };
-    await db.sheetRows.add(row);
-    setSheetRows((current) => [row, ...current]);
-    return row;
-  };
-
-  const syncFinanceForEvent = async (event: EventItem, finance: NoahFinanceInput) => {
-    const existing = sheetRows.find((row) => row.eventId === event.id && row.financialType !== 'neutral') || sheetRows.find((row) => row.eventId === event.id);
-    if (existing) {
-      const patch = financeRowData(event, finance, existing);
-      await db.sheetRows.update(existing.id, patch);
-      const updated = { ...existing, ...patch } as SheetRow;
-      setSheetRows((current) => current.map((row) => row.id === existing.id ? updated : row));
-      return updated;
-    }
-
-    const now = new Date().toISOString();
-    const row: SheetRow = {
-      id: uid(),
-      ...financeRowData(event, finance),
-      createdAt: now
-    };
-    await db.sheetRows.add(row);
-    setSheetRows((current) => [row, ...current]);
-    return row;
-  };
-
-  const deleteEventWithRelations = async (eventId: string) => {
-    const event = await db.events.get(eventId);
-    const now = new Date().toISOString();
-    await db.transaction('rw', [db.events, db.eventPhotos, db.reminders, db.sheetRows], async () => {
-      await db.eventPhotos.where('eventId').equals(eventId).delete();
-      const linkedReminders = await db.reminders.where('eventId').equals(eventId).toArray();
-      const linkedRows = await db.sheetRows.where('eventId').equals(eventId).toArray();
-      await Promise.all(linkedReminders.map((item) => db.reminders.update(item.id, { eventId: undefined, updatedAt: now })));
-      await Promise.all(linkedRows.map((row) => db.sheetRows.update(row.id, { eventId: undefined, calendarDate: row.calendarDate || event?.date, updatedAt: now })));
-      await db.events.delete(eventId);
-    });
-    setEvents((current) => current.filter((item) => item.id !== eventId));
-    setReminders((current) => current.map((item) => item.eventId === eventId ? { ...item, eventId: undefined, updatedAt: now } : item));
-    setSheetRows((current) => current.map((row) => row.eventId === eventId ? { ...row, eventId: undefined, calendarDate: row.calendarDate || event?.date, updatedAt: now } : row));
-    if (eventHubId === eventId) setEventHubId(null);
   };
 
   const executeNoahEventAction = async (action: NoahEventAction): Promise<NoahEventActionResult> => {
@@ -440,7 +377,6 @@ export default function App() {
         });
         await sleep(160);
 
-        const existingKeys = new Set(events.map((event) => `${normalizedEventTitle(event.title)}|${event.date}`));
         const monthGroups = new Map<string, string[]>();
         for (const date of dates) {
           const key = date.slice(0, 7);
@@ -459,62 +395,36 @@ export default function App() {
           setMonth(monthDate);
           setNoahCalendarDates(groupDates);
 
-          const batch: EventItem[] = [];
-          for (const date of groupDates) {
-            const duplicateKey = `${normalizedEventTitle(action.event.title)}|${date}`;
-            if (existingKeys.has(duplicateKey)) {
-              skipped += 1;
-              continue;
-            }
-            existingKeys.add(duplicateKey);
-            const now = new Date().toISOString();
-            const showTime = action.event.showTime ?? action.event.time ?? '';
-            batch.push({
-              id: uid(),
-              title: action.event.title.trim(),
-              date,
-              time: showTime,
-              callTime: action.event.callTime,
-              soundcheckTime: action.event.soundcheckTime,
-              showTime,
-              venue: action.event.venue,
-              address: action.event.address,
-              details: action.event.details,
-              dressCode: action.event.dressCode,
-              contactName: action.event.contactName,
-              contactPhone: action.event.contactPhone,
-              mapUrl: action.event.mapUrl,
-              notes: action.event.notes,
-              status: action.event.status || 'confirmed',
-              createdAt: now,
-              updatedAt: now
-            });
+          const drafts = groupDates.map((date) => ({
+            title: action.event.title.trim(),
+            date,
+            time: action.event.showTime ?? action.event.time ?? '',
+            callTime: action.event.callTime,
+            soundcheckTime: action.event.soundcheckTime,
+            showTime: action.event.showTime ?? action.event.time ?? '',
+            venue: action.event.venue,
+            address: action.event.address,
+            details: action.event.details,
+            dressCode: action.event.dressCode,
+            contactName: action.event.contactName,
+            contactPhone: action.event.contactPhone,
+            mapUrl: action.event.mapUrl,
+            notes: action.event.notes,
+            status: action.event.status || 'confirmed' as const
+          }));
+          // Each month is a single transaction: event + Excel or neither.
+          const batchResult = await createEventsWithRelations(drafts, {
+            finance: action.finance,
+            createExcelConcept: !action.finance,
+            skipDuplicates: true
+          });
+          created += batchResult.created.length;
+          skipped += batchResult.skipped;
+          if (batchResult.created.length) {
+            setEvents((current) => sortEvents([...current, ...batchResult.created]));
           }
-
-          if (batch.length) {
-            await db.events.bulkAdd(batch);
-            created += batch.length;
-            setEvents((current) => sortEvents([...current, ...batch]));
-            if (action.finance) {
-              const rows: SheetRow[] = batch.map((event) => ({
-                id: uid(),
-                label: action.finance?.label || event.title,
-                category: action.finance?.category || 'Evento',
-                amount: action.finance!.amount,
-                currency: action.finance!.currency,
-                status: action.finance?.status || 'pending',
-                financialType: action.finance?.financialType || 'income',
-                eventId: event.id,
-                calendarDate: event.date,
-                notes: action.finance?.notes,
-                description: action.finance?.description,
-                values: {},
-                createdAt: event.createdAt,
-                updatedAt: event.updatedAt
-              }));
-              await db.sheetRows.bulkAdd(rows);
-              setSheetRows((current) => [...rows.reverse(), ...current]);
-            }
+          if (batchResult.sheetRows.length) {
+            setSheetRows((current) => [...batchResult.sheetRows, ...current]);
           }
 
           showNoahActivity({
@@ -571,7 +481,7 @@ export default function App() {
 
         const now = new Date().toISOString();
         const showTime = action.event.showTime ?? action.event.time ?? '';
-        const item: EventItem = {
+        let item: EventItem = {
           id: uid(),
           title: action.event.title.trim(),
           date: action.event.date,
@@ -595,13 +505,23 @@ export default function App() {
         if (action.finance) {
           showNoahActivity({ phase: 'working', title: 'Construyendo matriz', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 1) });
         }
-        await db.events.add(item);
+        const result = await createEventWithRelations(item, {
+          finance: action.finance,
+          createExcelConcept: Boolean(action.createExcelConcept) || Boolean(action.finance),
+          skipDuplicates: true
+        });
+        if (result.skipped || !result.event) {
+          showNoahActivity({ phase: 'done', title: 'Evento existente', detail: `${item.title} · ${item.date}`, scope });
+          return { ok: true, message: 'El evento ya existe en esa fecha. No dupliqué sus registros.' };
+        }
+        item = result.event;
         setEvents((current) => sortEvents([...current, item]));
+        if (result.row) setSheetRows((current) => [result.row!, ...current]);
         await sleep(130);
 
         if (action.finance) {
           showNoahActivity({ phase: 'working', title: 'Sincronizando Excel', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 2) });
-          await syncFinanceForEvent(item, action.finance);
+          // Finance was committed together with the event in one transaction.
           await sleep(130);
           showNoahActivity({ phase: 'working', title: 'Vinculando todo', detail: item.title, scope: 'MATRIZ', steps: matrixSteps(item.title, item.date, action.finance, 3) });
           await sleep(120);
@@ -618,7 +538,7 @@ export default function App() {
               { id: 'photo-money', label: 'Monto', value: 'Pendiente', state: 'pending' }
             ]
           });
-          await syncBlankExcelForEvent(item);
+          // The empty Excel concept was committed with the event.
           await sleep(130);
         }
 
@@ -667,7 +587,7 @@ export default function App() {
             { id: 'finance-link', label: 'Vínculo por eventId', state: 'pending' }
           ]
         });
-        const row = await syncFinanceForEvent(target, action.finance);
+        const row = await syncEventFinance(target.id, action.finance);
         await sleep(150);
         if (action.surface === 'calendar') {
           navigateTo('calendar');
@@ -711,23 +631,10 @@ export default function App() {
         setEventHubId(target.id);
         await sleep(200);
 
-        let currentTarget = target;
-        for (let index = 0; index < entries.length; index += 1) {
-          const [key, value] = entries[index];
-          showNoahActivity({ phase: 'working', title: 'Actualizando evento', detail: currentTarget.title, scope: linkedRows.length && key === 'date' ? 'MATRIZ' : 'EVENTOS', steps: progressSteps(entries, 'update', index + 1) });
-          const patch: Partial<EventItem> & { updatedAt: string } = { [key]: value, updatedAt: new Date().toISOString() } as Partial<EventItem> & { updatedAt: string };
-          if (key === 'showTime') patch.time = String(value || '');
-          await db.events.update(target.id, patch);
-          currentTarget = { ...currentTarget, ...patch };
-          setEvents((current) => sortEvents(current.map((event) => event.id === target.id ? currentTarget : event)));
-
-          if (key === 'date' && typeof value === 'string' && linkedRows.length) {
-            const updatedAt = new Date().toISOString();
-            await Promise.all(linkedRows.map((row) => db.sheetRows.update(row.id, { calendarDate: value, updatedAt })));
-            setSheetRows((current) => current.map((row) => row.eventId === target.id ? { ...row, calendarDate: value, updatedAt } : row));
-          }
-          await sleep(220);
-        }
+        // Apply all fields and inherited dates in a single transaction.
+        const currentTarget = await updateEventWithRelations(target.id, action.patch);
+        setEvents((current) => sortEvents(current.map((event) => event.id === target.id ? currentTarget : event)));
+        await refresh();
 
         showNoahActivity({ phase: 'done', title: 'Evento actualizado', detail: currentTarget.title, scope: linkedRows.length && action.patch.date ? 'MATRIZ' : 'EVENTOS', steps: progressSteps(entries, 'update', entries.length + 2, true) });
         return { ok: true, message: linkedRows.length && action.patch.date ? 'Listo, moví el evento y mantuve Excel sincronizado.' : 'Listo, quedó actualizado.' };
@@ -746,6 +653,8 @@ export default function App() {
         showNoahActivity({ phase: 'working', title: 'Eliminando evento', detail: target.title, scope: 'EVENTOS', steps: steps.map((step, index) => ({ ...step, state: index === 0 ? 'done' : index === 1 ? 'active' : 'pending' })) });
         await sleep(220);
         await deleteEventWithRelations(target.id);
+        if (eventHubId === target.id) setEventHubId(null);
+        await refresh();
         showNoahActivity({ phase: 'done', title: 'Evento eliminado', detail: target.title, scope: 'EVENTOS', steps: steps.map((step) => ({ ...step, state: 'done' })) });
         return { ok: true, message: 'Listo, quedó eliminado.' };
       }
@@ -779,9 +688,8 @@ export default function App() {
   };
 
   const saveEvent = async (draft: EventDraft) => {
-    const now = new Date().toISOString();
-    if (selectedEvent) await db.events.update(selectedEvent.id, { ...draft, updatedAt: now });
-    else await db.events.add({ ...draft, id: uid(), createdAt: now, updatedAt: now });
+    if (selectedEvent) await updateEventWithRelations(selectedEvent.id, draft);
+    else await createEventWithRelations(draft, { createExcelConcept: true });
     setEventEditorOpen(false);
     setSelectedEvent(null);
     setEventCreateDate(null);
