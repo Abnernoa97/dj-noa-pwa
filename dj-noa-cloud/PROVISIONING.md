@@ -1,6 +1,6 @@
 # DJ NOA CLOUD — Fase 2A: aprovisionamiento independiente
 
-**Estado: credenciales y cuentas pendientes.** Este documento no crea cuentas por sí mismo y no autoriza compartir las cuentas, tokens o datos de HAVANA CLOUD.
+**Estado: aprovisionamiento pendiente.** Decisión aprobada: utilizar la cuenta Cloudflare donde ya se encuentra **DJ NOA PWA**, con un Worker y recursos de almacenamiento distintos. Esto **no** autoriza compartir bases de datos, namespaces, OAuth, Google Drive, sesiones, tokens, bindings ni archivos con HAVANA CLOUD. Compartir una cuenta Cloudflare no equivale a permitir sincronizaciones cruzadas.
 
 ## 1. Repositorio independiente
 
@@ -8,18 +8,21 @@ Crear un repositorio **privado** con nombre sugerido `dj-noa-cloud` bajo la cuen
 
 El código preparado está dentro de `dj-noa-pwa/dj-noa-cloud/`. Cuando exista el nuevo repositorio, se trasladará **solo el código de esa carpeta**, con los ajustes necesarios para una raíz independiente, sin copiar otros datos, claves, historial de usuario ni referencias de HAVANA CLOUD. No hacer un fork del repositorio HAVANA CLOUD.
 
-No ejecutar un despliegue de este Worker desde la cuenta Cloudflare de HAVANA CLOUD ni modificar su configuración.
+Desplegar solo después de identificar el **account ID del DJ NOA PWA existente** y comprobar que el nuevo Worker pertenece a esa cuenta. No tocar la configuración de ningún Worker de HAVANA CLOUD ni enlazar servicios/recursos de dicha nube. Los Workers pueden compartir cuenta y continuar totalmente aislados a nivel de recursos.
 
-## 2. Cuenta Cloudflare separada
+## 2. Misma cuenta Cloudflare de DJ NOA; Worker y recursos separados
 
-Crear una cuenta Cloudflare exclusivamente para DJ NOA CLOUD. Es imprescindible comprobar el **account ID nuevo** desde su propio dashboard antes de configurar un Worker, sin incluirlo en archivos compartidos innecesariamente.
+**No abrir otra cuenta de Cloudflare para DJ NOA CLOUD.** Utilizar el **account ID de DJ NOA PWA** una vez comprobado directamente en el dashboard de Cloudflare. No inventar el ID ni copiarlo desde recursos de HAVANA CLOUD. Las aplicaciones pueden compartir cuenta sin compartir datos, siempre que cada Worker reciba únicamente sus propios bindings y credenciales.
+
+Las URLs conocidas `dj-noa-pwa.soloaplicaciones97.workers.dev` y `havana-nice-cloud.soloaplicaciones97.workers.dev` indican que probablemente están en la misma cuenta; confirmar ambos account IDs antes de publicar. Esta decisión **no supone independencia administrativa ni de facturación** respecto a HAVANA CLOUD si se confirma esa coincidencia.
 
 - Worker previsto: `dj-noa-cloud-private`
 - Binding Durable Object: `DJ_NOA_CLOUD_REGISTRY`
 - Clase DO: `DJNoaCloudRegistry`
 - SQLite privado, sin migraciones del Worker de HAVANA CLOUD ni del Worker DJ NOA
 - Dominio HTTPS exclusivo de DJ NOA CLOUD, que no sea la URL de ninguna otra aplicación
-- Los límites de uso, gastos y secretos pertenecerán exclusivamente a esa cuenta
+- Los límites de uso y la facturación se comparten por cuenta Cloudflare; las métricas y los secretos deben mantenerse por Worker y por recurso.
+- No crear service bindings a HAVANA CLOUD ni enlazar sus Durable Objects, R2, D1 o KV. Cada recurso de DJ NOA CLOUD necesita un identificador único y control de acceso independiente.
 
 La configuración actual mantiene `workers_dev: false` y **no contiene routes**: está preparada para un entorno sin publicación involuntaria. Un despliegue válido necesitará una ruta/dominio propios tras verificar la cuenta correcta.
 
@@ -60,7 +63,7 @@ Ninguna de estas variables debe contener datos pertenecientes a HAVANA CLOUD.
 
 - GitHub principal DJ NOA: `Abnernoa97/dj-noa-pwa`, fuente existente no modificada salvo archivos de preparación del cloud y pruebas
 - Nuevo servicio GitHub: pendiente de creación
-- Nueva cuenta Cloudflare: pendiente de creación
+- Cuenta Cloudflare: **reutilizar la que aloja DJ NOA PWA**, pendiente de confirmar account ID y permisos de despliegue; no se crea otra
 - Cuenta Drive/cliente OAuth: pendiente de conexión
 - HAVANA CLOUD: **sin acceso ni sincronización**
 - Cloudflare Worker principal DJ NOA: **sin rutas ni imports a `dj-noa-cloud/`**
@@ -71,4 +74,4 @@ Ninguna de estas variables debe contener datos pertenecientes a HAVANA CLOUD.
 El CI verifica:
 `npm run typecheck:cloud`, `npm run test:cloud`, `npm run test:ai`, `npm run build`, y `wrangler deploy --dry-run` para ambos Workers.
 
-**Una compilación correcta no prueba la existencia de cuentas independientes ni la publicación real del Worker.** Esas comprobaciones deben realizarse después del aprovisionamiento externo.
+**Una compilación correcta no demuestra aislamiento efectivo ni publicación real.** Antes de desplegar, comprobar el account ID, que el Worker y su Durable Object sean nuevos, que no haya bindings a otros proyectos, y que los secretos y las sesiones sean exclusivos. Las cuotas y facturación no quedarán separadas dentro de una misma cuenta Cloudflare.

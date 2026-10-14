@@ -23,6 +23,25 @@ test('cloud names are isolated from the two established applications', () => {
   assert.notEqual(DJ_NOA_CLOUD_MEDIA_CACHE, 'hn-cloud-private-photos-v1');
 });
 
+test('sharing DJ NOA Cloudflare account never grants cross-project data bindings', () => {
+  const cloud = JSON.parse(source('dj-noa-cloud/wrangler.jsonc'));
+  const dj = JSON.parse(source('wrangler.jsonc'));
+  const provisioning = source('dj-noa-cloud/PROVISIONING.md');
+  assert.notEqual(cloud.name, dj.name);
+  assert.equal(cloud.durable_objects.bindings.length, 1);
+  assert.equal(cloud.durable_objects.bindings[0].name, 'DJ_NOA_CLOUD_REGISTRY');
+  assert.equal(cloud.durable_objects.bindings[0].class_name, 'DJNoaCloudRegistry');
+  assert.ok(!('script_name' in cloud.durable_objects.bindings[0]));
+  assert.ok(!('services' in cloud));
+  assert.ok(!('kv_namespaces' in cloud));
+  assert.ok(!('d1_databases' in cloud));
+  assert.ok(!('r2_buckets' in cloud));
+  assert.ok(!('account_id' in cloud), 'Never guess or hardcode a Cloudflare account ID');
+  assert.match(provisioning, /account ID de DJ NOA PWA/);
+  assert.match(provisioning, /No abrir otra cuenta de Cloudflare/);
+  assert.doesNotMatch(JSON.stringify(cloud).toLowerCase(), /havana|hn-cloud/);
+});
+
 test('remote media ids cannot cross cloud namespaces or traverse paths', () => {
   const key = makeDJNoaCloudKey('account-1', 'file_2026');
   assert.equal(key, DJ_NOA_CLOUD_REMOTE_PREFIX + 'account-1/file_2026');
