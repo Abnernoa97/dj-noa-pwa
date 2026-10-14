@@ -179,6 +179,9 @@ REGLAS ABSOLUTAS:
 - No conviertas "$" a MXN o USD si la moneda no está explícita.
 - Distingue llamada, prueba de sonido y show. Una hora genérica NO es automáticamente la hora del show.
 - Solo marca amountRole=fee si es explícitamente el precio total del evento; un anticipo no es el total.
+- Para pagos y anticipos crea un item de kind=payment, amountRole=deposit o payment, con fecha propia en dateISO. No confundas la fecha del anticipo con la del show.
+- eventTitle y eventDateISO se completan SOLO si están explícitos en el documento, nunca infieras por nombres parecidos.
+- No marques paymentStatus=paid si el documento solo promete o solicita un anticipo; exige constancia de cobro.
 - No relaciones bloques de otra foto ni inventes un título para un dato aislado.
 - No consideres que falta venue/lugar si el propio título del bloque ya es un lugar o establecimiento.
 - No agregues advertencias por campos opcionales que simplemente no aparecen.
@@ -207,7 +210,10 @@ RESPONDE SOLO JSON VÁLIDO:
       "showTime24":"HH:mm o null, solo si figura show",
       "amount":null,
       "currency":"MXN|USD|null, nunca inferir $",
-      "amountRole":"fee|deposit|expense|unknown, fee solo para honorarios/total del evento",
+      "amountRole":"fee|deposit|payment|expense|unknown, fee solo para honorarios/total del evento",
+      "paymentStatus":"paid|pending|unknown, paid solo con prueba explícita de recibido",
+      "eventTitle":"título explícito del evento asociado a un pago o null",
+      "eventDateISO":"fecha YYYY-MM-DD del evento asociado al pago o null; NO es la fecha del anticipo",
       "venue":"texto exacto si existe",
       "address":"texto exacto si existe",
       "details":"otros datos del mismo bloque",
@@ -370,8 +376,6 @@ export async function handleNoahImage(request: Request, env: Env) {
         const value = cleanString(item[key], 5);
         return value && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : undefined;
       };
-      const amount = typeof item.amount === 'number' && Number.isFinite(item.amount) && item.amount >= 0 &&
-        item.amount <= 1e9 && item.amountRole === 'fee' ? item.amount : undefined;
       return {
         kind: cleanString(item.kind, 20) || 'other',
         title: cleanString(item.title, 180),
@@ -387,8 +391,15 @@ export async function handleNoahImage(request: Request, env: Env) {
         details: cleanString(item.details, 500),
         evidence: cleanString(item.evidence, 360),
         confidence: item.confidence === 'low' ? 'low' : item.confidence === 'medium' ? 'medium' : 'high',
-        amount,
-        currency: item.currency === 'MXN' || item.currency === 'USD' ? item.currency : undefined
+        amount: typeof item.amount === 'number' && Number.isFinite(item.amount) &&
+          item.amount >= 0 && item.amount <= 1e9 &&
+          ['fee', 'deposit', 'payment'].includes(String(item.amountRole)) ? item.amount : undefined,
+        currency: item.currency === 'MXN' || item.currency === 'USD' ? item.currency : undefined,
+        amountRole: ['fee', 'deposit', 'payment', 'expense'].includes(String(item.amountRole)) ? item.amountRole : undefined,
+        paymentStatus: item.paymentStatus === 'paid' ? 'paid' : 'pending',
+        eventTitle: cleanString(item.eventTitle, 180),
+        eventDateISO: vision.yearVisible === true && /^\d{4}-\d{2}-\d{2}$/.test(String(item.eventDateISO || ''))
+          ? String(item.eventDateISO) : null
       };
     });
     const visualGrounding = JSON.stringify({

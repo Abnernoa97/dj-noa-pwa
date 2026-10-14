@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Check, ImagePlus, LoaderCircle, Sparkles, X }
 import { db } from './db';
 import { normalizedEventIdentity, isValidEventDate } from './eventIntegrity';
 import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from './noahImageReconcile';
+import type { VisionSource } from './noahVisionCommit';
 import { useNativeBack } from './navigationBack';
 import type { NoahChatAction } from './noahExcel';
 import type { SheetColumn, SheetValue } from './types';
@@ -25,6 +26,7 @@ type DraftEvent = {
   address?: string;
   notes?: string;
   confidence: 'high' | 'medium' | 'low';
+  sources?: string[];
 };
 
 type AnalysisPayload = {
@@ -36,11 +38,11 @@ type AnalysisPayload = {
   pendingExcelAmounts?: number;
   eventActions: NoahChatAction[];
   visualItems?: PhotoVisualItem[];
-  actionReview?: Array<{ sources: string[]; confidence: 'high' | 'medium' | 'low' }>;
+  actionReview?: Array<{ sources: string[]; confidence: 'high' | 'medium' | 'low'; financeSources?: string[] }>;
 };
 
 type Props = {
-  onApply: (actions: NoahChatAction[]) => Promise<void>;
+  onApply: (proposals: ReviewAction[], sources: VisionSource[]) => Promise<void>;
 };
 
 function hasCellValue(value: SheetValue | undefined) {
@@ -168,6 +170,7 @@ async function requestImageAnalysis(
 
 export default function NoahImageIntake({ onApply }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const visionSources = useRef<VisionSource[]>([]);
   const [open, setOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -185,6 +188,7 @@ export default function NoahImageIntake({ onApply }: Props) {
     previews.forEach((preview) => {
       if (preview.url.startsWith('blob:')) URL.revokeObjectURL(preview.url);
     });
+    visionSources.current = [];
     setOpen(false);
     setAnalyzing(false);
     setApplying(false);
@@ -201,6 +205,7 @@ export default function NoahImageIntake({ onApply }: Props) {
   const analyze = async (incomingFiles: File[]) => {
     const files = incomingFiles.slice(0, 5);
     if (!files.length) return;
+    visionSources.current = [];
 
     setOpen(true);
     setAnalyzing(true);
@@ -259,7 +264,7 @@ export default function NoahImageIntake({ onApply }: Props) {
         }))
       };
 
-      const payloads: Array<{ payload: AnalysisPayload; fileName: string }> = [];
+      const payloads: Array<{ payload: AnalysisPayload; fileName: string; sourceId: string }> = [];
       const failed: string[] = [];
 
       for (let index = 0; index < files.length; index += 1) {
@@ -272,7 +277,9 @@ export default function NoahImageIntake({ onApply }: Props) {
           ));
           const imageDataUrl = await compressImage(file);
           const payload = await requestImageAnalysis(imageDataUrl, file.name, context);
-          payloads.push({ payload, fileName: file.name });
+          const sourceId = `Foto ${index + 1} · ${file.name}`;
+          payloads.push({ payload, fileName: file.name, sourceId });
+          visionSources.current.push({ sourceId, file, rawText: String(payload.rawText || '') });
           setPreviews((current) => current.map((preview, previewIndex) =>
             previewIndex === index ? { ...preview, state: 'done' } : preview
           ));
@@ -334,24 +341,21 @@ export default function NoahImageIntake({ onApply }: Props) {
       failed.forEach((name) => warningSet.add(`No pude leer “${name}”. Las demás imágenes sí fueron procesadas.`));
 
       const structured = payloads.length > 0 && payloads.every(({payload}) => Array.isArray(payload.visualItems));
-      const reconciled = structured ? reconcilePhotoReads(payloads.map(({payload, fileName}) => ({
-        fileName, visualItems: payload.visualItems || []
+      const reconciled = structured ? reconcilePhotoReads(payloads.map(({payload, sourceId}) => ({
+        fileName: sourceId, visualItems: payload.visualItems || []
       })), events) : null;
-      const independent = [...actionMap.values()].filter((action) => action.type !== 'create_event');
-      const planned: ReviewAction[] = reconciled
-        ? [...reconciled.actions, ...independent.map((action) => ({
-          action, sources: [], confidence: 'medium' as const
-        }))]
-        : [...actionMap.values()].map((action) => ({
-          action, sources: [], confidence: 'medium' as const
-        }));
+      // Never execute old, unlinked AI plans: every action must carry a
+      // source from the new structured OCR, especially financial movements.
+      const planned: ReviewAction[] = reconciled ? reconciled.actions : [];
       // A low-confidence or unidentified action is never preapproved.
       // Only cross-checked, high-confidence event proposals start selected.
       const actions = planned.map((proposal) => proposal.action);
       if (reconciled) reconciled.warnings.forEach((warning) => warningSet.add(warning));
-      if (!structured) warningSet.add('La lectura visual todavía usa el formato anterior. No se combinaron campos entre fotografías.');
+      if (!structured) warningSet.add('El servidor devolvió el formato anterior de Visión. Actualízalo antes de guardar; no se harán cambios sin fotografías vinculadas.');
       if (failed.length) warningSet.add('Las fotografías con error NO se usaron para completar datos de las demás.');
-      const drafts = [...draftMap.values()].filter((draft) => draft.monthDay);
+      const drafts: DraftEvent[] = reconciled ? reconciled.yearless.map((draft) => ({
+        ...draft, dateText: draft.monthDay, dateISO: null, monthDay: draft.monthDay, sources: draft.sources
+      })) : [];
       const findings = [...findingMap.values()];
       const normalized: AnalysisPayload = {
         text: files.length === 1
@@ -363,7 +367,7 @@ export default function NoahImageIntake({ onApply }: Props) {
         draftEvents: drafts,
         pendingExcelAmounts,
         eventActions: actions,
-        actionReview: planned.map(({sources, confidence}) => ({sources, confidence}))
+        actionReview: planned.map(({sources, confidence, financeSources}) => ({sources, confidence, financeSources}))
       };
 
       setAnalysis(normalized);
@@ -383,7 +387,11 @@ export default function NoahImageIntake({ onApply }: Props) {
 
   const apply = async () => {
     if (!analysis || applying) return;
-    const actions = analysis.eventActions.filter((_, index) => selected.has(index));
+    const proposals: ReviewAction[] = analysis.eventActions.flatMap((action, index) => selected.has(index)
+      ? [{ action, sources: analysis.actionReview?.[index]?.sources || [],
+           confidence: analysis.actionReview?.[index]?.confidence || 'medium',
+           financeSources: analysis.actionReview?.[index]?.financeSources }]
+      : []);
     const year = Number(documentYear);
     const selectedPending = analysis.draftEvents.filter((_, index) => selectedDrafts.has(index));
     if (selectedPending.length && (!Number.isInteger(year) || year < 2000 || year > 2100)) {
@@ -392,7 +400,7 @@ export default function NoahImageIntake({ onApply }: Props) {
     }
     for (const draft of selectedPending) {
       if (!draft.monthDay) continue;
-      actions.push({
+      proposals.push({ action: {
         type: 'create_event',
         surface: 'calendar',
         createExcelConcept: true,
@@ -405,9 +413,9 @@ export default function NoahImageIntake({ onApply }: Props) {
           notes: draft.notes,
           status: 'confirmed'
         }
-      });
+      }, sources: draft.sources || [], confidence: draft.confidence });
     }
-    if (!actions.length) {
+    if (!proposals.length) {
       setError('No hay acciones seleccionadas para guardar.');
       return;
     }
@@ -416,7 +424,7 @@ export default function NoahImageIntake({ onApply }: Props) {
     const currentEvents = await db.events.toArray();
     const existingKeys = new Set(currentEvents.map((item) => normalizedEventIdentity(item.title, item.date)));
     const proposedKeys = new Set<string>();
-    for (const action of actions) {
+    for (const { action } of proposals) {
       if (action.type !== 'create_event') continue;
       if (!isValidEventDate(action.event.date)) {
         setError('Encontré una fecha inválida. No guardé ningún cambio.');
@@ -434,7 +442,7 @@ export default function NoahImageIntake({ onApply }: Props) {
     setError('');
     setOpen(false);
     try {
-      await onApply(actions);
+      await onApply(proposals, visionSources.current);
       reset();
     } catch {
       setOpen(true);
@@ -551,6 +559,7 @@ export default function NoahImageIntake({ onApply }: Props) {
               />
             </div> : null}
 
+            <p className="noah-image-storage-note">Las fotografías originales seleccionadas se guardarán localmente en DJ NOA, junto a sus eventos o movimientos. Ocupan espacio en este dispositivo. Solo se guardan al confirmar.</p>
             <div className="noah-image-plan">
               <div className="noah-image-section-title">PLAN · {selected.size + selectedDrafts.size}/{analysis.eventActions.length + analysis.draftEvents.length}</div>
               {analysis.draftEvents.map((draft, index) => {
@@ -570,6 +579,7 @@ export default function NoahImageIntake({ onApply }: Props) {
                     <strong>{actionLabel(action)}</strong>
                     {action.type === 'create_event' && <em>{[action.event.callTime ? 'Llamada ' + action.event.callTime : '', action.event.soundcheckTime ? 'Sonido ' + action.event.soundcheckTime : '', action.event.showTime ? 'Show ' + action.event.showTime : '', action.event.venue || '', action.finance ? action.finance.amount + ' ' + action.finance.currency : ''].filter(Boolean).join(' · ')}</em>}
                     {review?.sources.length ? <em>Fuentes: {review.sources.join(', ')}</em> : null}
+                    {action.type === 'create_sheet_row' && <em>Fecha del pago: {action.row.calendarDate || 'Sin fecha'} · Evento: {action.row.eventTitle || 'Sin referencia'} ({action.row.eventDateISO || 'sin fecha'})</em>}
                   </div>
                 </button>;
               }) : analysis.draftEvents.length ? null : <div className="noah-image-empty">No encontré acciones suficientemente claras para guardar.</div>}

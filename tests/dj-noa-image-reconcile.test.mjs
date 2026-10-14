@@ -76,20 +76,58 @@ test('existing events are never silently modified by new photographs', () => {
 
 test('financial values require an explicit currency and incompatible fees are blocked', () => {
   const noCurrency = reconcilePhotoReads([
-    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'$'}))
+    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'}))
   ], []);
   assert.equal(noCurrency.actions.length, 1);
   assert.equal(noCurrency.actions[0].action.finance, undefined);
 
   const withFee = reconcilePhotoReads([
-    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'USD'}))
+    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'USD',amountRole:'fee'}))
   ], []);
   assert.equal(withFee.actions[0].action.finance.currency, 'USD');
   assert.equal(withFee.actions[0].action.finance.amount, 1000);
 
   const incompatible = reconcilePhotoReads([
-    read('a.jpg',event('Flora Farms','2026-11-20',{amount:1000,currency:'USD'})),
-    read('b.jpg',event('Flora Farms','2026-11-20',{amount:1400,currency:'USD'}))
+    read('a.jpg',event('Flora Farms','2026-11-20',{amount:1000,currency:'USD',amountRole:'fee'})),
+    read('b.jpg',event('Flora Farms','2026-11-20',{amount:1400,currency:'USD',amountRole:'fee'}))
+  ], []);
+  assert.equal(incompatible.actions.length, 0);
+  assert.ok(incompatible.conflicts[0].fields.includes('amount/currency'));
+});
+
+test('unrelated events and low-confidence sources are not automatically merged', () => {
+  const x = reconcilePhotoReads([
+    read('a.jpg',event('Flora Farms','2026-11-20',{venue:'Flora Farms'})),
+    read('b.jpg',event('Prim 30','2026-11-20',{venue:'Prim 30',confidence:'low'}))
+  ],[]);
+  assert.equal(x.actions.length,2);
+  assert.equal(x.actions.find(a=>a.action.event.title==='Prim 30').confidence,'low');
+});
+
+test('Noah image UI applies verified cross-photo preview and rechecks duplicates before saving', () => {
+  const ui = readFileSync(new URL('../src/NoahImageIntake.tsx',import.meta.url),'utf8');
+  const server = readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
+  assert.match(ui, /reconcilePhotoReads\(/);
+  assert.match(ui, /currentEvents = await db\.events\.toArray\(\)/);
+  assert.match(ui, /Fuentes:/);
+  assert.match(ui, /slice\(0, 5\)/);
+  assert.match(server, /visualItems,/);
+  assert.match(server, /amountRole === 'fee'/);
+});
+,amountRole:'fee'}))
+  ], []);
+  assert.equal(noCurrency.actions.length, 1);
+  assert.equal(noCurrency.actions[0].action.finance, undefined);
+
+  const withFee = reconcilePhotoReads([
+    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'USD',amountRole:'fee'}))
+  ], []);
+  assert.equal(withFee.actions[0].action.finance.currency, 'USD');
+  assert.equal(withFee.actions[0].action.finance.amount, 1000);
+
+  const incompatible = reconcilePhotoReads([
+    read('a.jpg',event('Flora Farms','2026-11-20',{amount:1000,currency:'USD',amountRole:'fee'})),
+    read('b.jpg',event('Flora Farms','2026-11-20',{amount:1400,currency:'USD',amountRole:'fee'}))
   ], []);
   assert.equal(incompatible.actions.length, 0);
   assert.ok(incompatible.conflicts[0].fields.includes('amount/currency'));

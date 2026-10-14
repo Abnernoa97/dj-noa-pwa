@@ -520,7 +520,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
           <section className="sheet-detail-card">
             <div className="sheet-detail-section-title"><div><span>FOTOS</span><small>{photos.length ? `${photos.length} guardada${photos.length === 1 ? '' : 's'}` : 'Solo en este dispositivo'}</small></div><button onClick={() => photoRef.current?.click()}><Camera size={16} /> Añadir</button></div>
             <input ref={photoRef} className="sheet-file-input" type="file" accept="image/*" multiple onChange={(event) => { void addPhoto(event.target.files); event.currentTarget.value = ''; }} />
-            {photos.length ? <div className="sheet-photo-grid">{photos.map((photo) => <figure key={photo.id}><img src={photo.url} alt={photo.name} /><button onClick={() => void deletePhoto(photo)}><Trash2 size={14} /></button></figure>)}</div> : <button className="sheet-photo-empty" onClick={() => photoRef.current?.click()}><Camera size={20} /><span>Añadir fotos a esta línea</span></button>}
+            {photos.length ? <div className="sheet-photo-grid">{photos.map((photo) => <figure key={photo.id}><img src={photo.url} alt={photo.name} />{photo.sourceKind === 'noah-vision' && <figcaption title={photo.sourceEvidence || undefined}>NOAH · Comprobante<details><summary>Texto leído</summary><p>{photo.sourceEvidence || 'Sin transcripción disponible'}</p></details></figcaption>}<button onClick={() => void deletePhoto(photo)}><Trash2 size={14} /></button></figure>)}</div> : <button className="sheet-photo-empty" onClick={() => photoRef.current?.click()}><Camera size={20} /><span>Añadir fotos a esta línea</span></button>}
           </section>
 
           <section className="sheet-detail-card">

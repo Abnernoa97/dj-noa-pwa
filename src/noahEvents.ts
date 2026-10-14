@@ -49,7 +49,7 @@ export type NoahEventAction =
       finance?: NoahFinanceInput;
     }
   | { type: 'sync_event_finance'; eventId: string; finance: NoahFinanceInput; surface?: NoahActionSurface }
-  | { type: 'create_sheet_row'; row: NoahFinanceInput & { label?: string; calendarDate?: string }; surface?: NoahActionSurface }
+  | { type: 'create_sheet_row'; row: NoahFinanceInput & { label?: string; calendarDate?: string; eventTitle?: string; eventDateISO?: string }; surface?: NoahActionSurface }
   | { type: 'update_event'; eventId: string; patch: NoahEventPatch }
   | { type: 'delete_event'; eventId: string }
   | { type: 'open_event'; eventId: string }

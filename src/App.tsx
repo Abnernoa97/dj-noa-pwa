@@ -9,8 +9,10 @@ import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorks
 import MlbWorkspace from './MlbWorkspace';
 import NoahActionOverlay from './NoahActionOverlay';
 import NoahImageIntake from './NoahImageIntake';
+import { commitNoahVision, type VisionSource } from './noahVisionCommit';
+import type { ReviewAction } from './noahImageReconcile';
 import NoahVoice, { type NoahVoiceHandle } from './NoahVoice';
-import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from './noahExcel';
+
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
@@ -681,24 +683,16 @@ export default function App() {
     }
   };
 
-  const executeNoahImageActions = async (actions: NoahChatAction[]) => {
-    let blankExcelCount = 0;
-    for (const action of actions) {
-      const result = isNoahSheetAction(action)
-        ? await executeNoahSheetAction(action)
-        : await executeNoahEventAction(action);
-      if (!result.ok) throw new Error(result.message || 'action_failed');
-      if (action.type === 'create_event' && action.createExcelConcept && !action.finance) blankExcelCount += 1;
-    }
+  const executeNoahImageActions = async (proposals: ReviewAction[], sources: VisionSource[]) => {
+    // One guarded transaction binds original source photos, event records
+    // and separate payment/advance rows, or none of them if it fails.
+    const saved = await commitNoahVision(proposals, sources);
     await refresh();
-    if (blankExcelCount > 0) {
-      showNoahActivity({
-        phase: 'done',
-        title: 'Todo organizado',
-        detail: blankExcelCount === 1 ? 'Queda pendiente el monto de Excel' : `Quedan pendientes ${blankExcelCount} montos de Excel`,
-        scope: 'MATRIZ'
-      });
-    }
+    showNoahActivity({
+      phase: 'done', title: 'Fotografías y datos organizados',
+      detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${saved.eventPhotoCount + saved.paymentPhotoCount} referencias de fotos`,
+      scope: 'MATRIZ'
+    });
   };
 
   const saveEvent = async (draft: EventDraft) => {

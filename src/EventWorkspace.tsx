@@ -370,7 +370,7 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
         <section className="event-hub-card">
           <div className="event-hub-section-head"><div><Camera size={16} /><span>FOTOS</span></div><button onClick={() => photoRef.current?.click()}>Añadir</button></div>
           <input ref={photoRef} className="event-hub-file" type="file" accept="image/*" multiple onChange={(e) => { void addPhotos(e.target.files); e.currentTarget.value = ''; }} />
-          {photos.length ? <div className="event-hub-photos">{photos.map((photo) => <figure key={photo.id}><img src={photo.url} alt={photo.name} /><button onClick={() => void deletePhoto(photo)} aria-label="Eliminar foto"><Trash2 size={13} /></button></figure>)}</div> : <button className="event-hub-photo-empty" onClick={() => photoRef.current?.click()}><Camera size={20} /><span>Añadir fotos del evento</span></button>}
+          {photos.length ? <div className="event-hub-photos">{photos.map((photo) => <figure key={photo.id}><img src={photo.url} alt={photo.name} />{photo.sourceKind === 'noah-vision' && <figcaption title={photo.sourceEvidence || undefined}>NOAH · Evidencia original<details><summary>Texto leído</summary><p>{photo.sourceEvidence || 'Sin transcripción disponible'}</p></details></figcaption>}<button onClick={() => void deletePhoto(photo)} aria-label="Eliminar foto"><Trash2 size={13} /></button></figure>)}</div> : <button className="event-hub-photo-empty" onClick={() => photoRef.current?.click()}><Camera size={20} /><span>Añadir fotos del evento</span></button>}
         </section>
 
         <section className="event-hub-card">

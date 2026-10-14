@@ -19,9 +19,13 @@ export type PhotoVisualItem = {
   confidence?: 'high' | 'medium' | 'low';
   amount?: number;
   currency?: string;
+  amountRole?: string;
+  paymentStatus?: string;
+  eventTitle?: string;
+  eventDateISO?: string | null;
 };
 export type SourceRead = { fileName: string; visualItems: PhotoVisualItem[] };
-export type ReviewAction = { action: NoahChatAction; sources: string[]; confidence: 'high' | 'medium' | 'low' };
+export type ReviewAction = { action: NoahChatAction; sources: string[]; confidence: 'high' | 'medium' | 'low'; financeSources?: string[] };
 export type PhotoConflict = { identity: string; title: string; date: string; fields: string[]; sources: string[] };
 
 export type ReconciledPhotos = {
@@ -104,7 +108,7 @@ function updateCandidate(target: Candidate, item: PhotoVisualItem, fileName: str
   // A number becomes a proposal only when it belongs to an explicit event
   // block with a fully stated currency; never guess what "$" means.
   if (typeof item.amount === 'number' && Number.isFinite(item.amount) &&
-      item.amount >= 0 && normalizeCurrency(item.currency)) {
+      item.amount >= 0 && item.amountRole === 'fee' && normalizeCurrency(item.currency)) {
     const key = String(item.amount) + '|' + item.currency;
     if (!target.finances.has(key)) target.finances.set(key, new Set());
     target.finances.get(key)!.add(fileName);
@@ -209,7 +213,59 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
     };
     const photoOrder = new Map(reads.map((read, index) => [read.fileName, index]));
     const sources = [...candidate.sources].sort((a, b) => (photoOrder.get(a) ?? 999) - (photoOrder.get(b) ?? 999));
-    actions.push({ action, sources, confidence: candidate.confidence });
+    const financeSources = financeKey
+      ? [...(candidate.finances.get(financeKey) || [])].sort((a, b) => (photoOrder.get(a) ?? 999) - (photoOrder.get(b) ?? 999))
+      : undefined;
+    actions.push({ action, sources, confidence: candidate.confidence, financeSources });
+  }
+  // Deposits and confirmed payments remain independent dated Excel rows.
+  // Never equate a payment's own date with the event's performance date.
+  const proposedPayments = new Set<string>();
+  for (const read of reads.slice(0, 5)) {
+    for (const item of read.visualItems.slice(0, 100)) {
+      if (item.kind !== 'payment' || !['deposit', 'payment'].includes(item.amountRole || '')) continue;
+      const amount = item.amount;
+      const currency = normalizeCurrency(item.currency);
+      const date = String(item.dateISO || '');
+      const eventDate = String(item.eventDateISO || '');
+      const eventTitle = String(item.eventTitle || '').trim();
+      if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 ||
+          !currency || !isValidEventDate(date) || !isValidEventDate(eventDate) || !eventTitle) {
+        warnings.push('Pago/anticipo en ' + read.fileName + ': falta monto, moneda, fecha propia o referencia completa al evento. No lo guardé.');
+        continue;
+      }
+      const eventKey = normalizedEventIdentity(eventTitle, eventDate);
+      if ((!candidates.has(eventKey) || conflicts.some(x => x.identity === eventKey)) && !existing.has(eventKey)) {
+        warnings.push('Pago/anticipo en ' + read.fileName + ': no encontré el evento exacto ' + eventTitle + ' (' + eventDate + ').');
+        continue;
+      }
+      const label = item.amountRole === 'deposit' ? 'Anticipo' : 'Pago';
+      const paymentKey = [eventKey, label, amount, currency, date].join('|');
+      if (proposedPayments.has(paymentKey)) {
+        // When multiple screenshots show the same payment, preserve the
+        // provenance but propose one movement only.
+        const found = actions.find(p => p.action.type === 'create_sheet_row' && (
+          [normalizedEventIdentity(p.action.row.eventTitle || '', p.action.row.eventDateISO || ''),
+            p.action.row.label, p.action.row.amount, p.action.row.currency, p.action.row.calendarDate].join('|') === paymentKey
+        ));
+        if (found && !found.sources.includes(read.fileName)) found.sources.push(read.fileName);
+        continue;
+      }
+      proposedPayments.add(paymentKey);
+      actions.push({
+        action: {
+          type: 'create_sheet_row', surface: 'sheet',
+          row: {
+            eventTitle, eventDateISO: eventDate, calendarDate: date,
+            label, category: label, amount, currency: currency as 'MXN' | 'USD',
+            financialType: 'income', status: item.paymentStatus === 'paid' ? 'paid' : 'pending',
+            description: item.details?.slice(0, 400)
+          }
+        },
+        sources: [read.fileName],
+        confidence: item.confidence || 'medium'
+      });
+    }
   }
   return { actions, yearless: [...yearless.values()], conflicts, warnings };
 }

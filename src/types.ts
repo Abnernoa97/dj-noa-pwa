@@ -28,6 +28,9 @@ export interface EventPhoto {
   type: string;
   blob: Blob;
   createdAt: string;
+  sourceKind?: 'noah-vision';
+  sourceHash?: string;
+  sourceEvidence?: string;
 }
 
 export type ReminderPriority = 'low' | 'normal' | 'high';
@@ -86,6 +89,9 @@ export interface SheetPhoto {
   type: string;
   blob: Blob;
   createdAt: string;
+  sourceKind?: 'noah-vision';
+  sourceHash?: string;
+  sourceEvidence?: string;
 }
 
 export interface SheetColumn {
