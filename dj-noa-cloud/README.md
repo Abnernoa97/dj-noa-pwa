@@ -37,3 +37,10 @@ Esta carpeta prepara el futuro servicio **DJ NOA CLOUD**, independiente tanto de
 Ejecutar `npm run typecheck:cloud` y `npm run test:cloud` desde la raíz del repositorio de DJ NOA. El Build Check incluye estos dos comandos.
 
 **Nota de seguridad:** La cuenta Cloudflare y la cuenta Google **no han sido creadas ni conectadas** por estos archivos. Un archivo de configuración aislado no equivale a una cuenta separada.
+
+## Fase 2A: Google Drive exclusivo (preparación)
+
+La guía de aprovisionamiento se encuentra en [PROVISIONING.md](./PROVISIONING.md).
+La implementación `src/googleDriveOAuth.ts` valida **solo la cuenta de Google autorizada**, construye OAuth con PKCE+state y contiene helpers para canje/renovación de tokens; no se importa en las rutas activas, porque faltan sesión protegida, registro de state de uso único y credenciales de una infraestructura realmente independiente.
+
+Ejecutar `npm run test:cloud` para probar aislamiento de identidad, callbacks, permisos OAuth y rechazo de una cuenta ajena. La integración real de Google Drive **no está habilitada**.

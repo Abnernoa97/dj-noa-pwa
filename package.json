@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
     "typecheck:cloud": "tsc -p dj-noa-cloud/tsconfig.json --noEmit",
-    "test:cloud": "node --test tests/dj-noa-cloud-isolation.test.mjs"
+    "test:cloud": "node --test tests/dj-noa-cloud-*.test.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
