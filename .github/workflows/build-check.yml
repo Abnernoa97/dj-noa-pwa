@@ -19,6 +19,9 @@ jobs:
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run typecheck
+      - run: npm run typecheck:cloud
+      - run: npm run test:cloud
       - run: npm run test:ai
       - run: npm run build
       - run: npx wrangler deploy --dry-run
+      - run: npx wrangler deploy --dry-run --config dj-noa-cloud/wrangler.jsonc
