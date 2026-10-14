@@ -76,7 +76,7 @@ test('existing events are never silently modified by new photographs', () => {
 
 test('financial values require an explicit currency and incompatible fees are blocked', () => {
   const noCurrency = reconcilePhotoReads([
-    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'
+    read('photo.jpg', event('Flora Farms','2026-11-20',{amount:1000,currency:'$',amountRole:'fee'}))
   ], []);
   assert.equal(noCurrency.actions.length, 1);
   assert.equal(noCurrency.actions[0].action.finance, undefined);
