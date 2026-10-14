@@ -1,4 +1,4 @@
-import { isValidEventDate, normalizedEventIdentity } from './eventIntegrity';
+import { isValidEventDate, normalizedEventIdentity } from './eventIntegrity.ts';
 import type { NoahChatAction } from './noahExcel';
 import type { EventItem } from './types';
 
