@@ -28,5 +28,5 @@ export function formatMoneyTotals(
   const { MXN, USD } = groupedMoney(rows, statuses);
   if (USD === 0) return formatMoneyAmount(MXN, 'MXN');
   if (MXN === 0) return formatMoneyAmount(USD, 'USD');
-  return `${formatMoneyAmount(MXN, 'MXN')} · ${formatMoneyAmount(USD, 'USD')}`;
+  return `MXN ${formatMoneyAmount(MXN, 'MXN')} · USD ${formatMoneyAmount(USD, 'USD')}`;
 }
