@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
 import type { EventItem, ReminderItem, SheetRow } from './types';
 import { useNativeBack } from './navigationBack';
+import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
 
 type CalendarMode = 'month' | 'week' | 'day';
 type DatePickerMode = 'month' | 'year' | null;
@@ -22,7 +23,6 @@ type Props = {
   onOpenSheetRow: (rowId?: string) => void;
 };
 
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const MONTH_NAMES = Array.from({ length: 12 }, (_, index) => format(new Date(2026, index, 1), 'MMMM', { locale: es }));
 const YEARS = Array.from({ length: 111 }, (_, index) => 1990 + index);
 
@@ -73,7 +73,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
   const monthEvents = events.filter((event) => event.date.startsWith(visibleMonthKey));
   const monthReminders = reminders.filter((item) => reminderDate(item)?.startsWith(visibleMonthKey));
   const monthRows = sheetRows.filter((row) => sheetDate(row)?.startsWith(visibleMonthKey));
-  const monthFinanceTotal = monthRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const monthFinanceTotal = formatMoneyTotals(monthRows);
 
   const title = mode === 'week'
     ? `${format(weekStart, 'd MMM', { locale: es })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: es })}`
@@ -147,7 +147,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
       <div className="calendar-overview">
         <div><span>EVENTOS</span><strong>{monthEvents.length}</strong></div>
         <div><span>TAREAS</span><strong>{monthReminders.filter((item) => !item.done).length}</strong></div>
-        <div><span>EXCEL</span><strong>{money.format(monthFinanceTotal)}</strong></div>
+        <div><span>EXCEL</span><strong>{monthFinanceTotal}</strong></div>
       </div>
 
       <div className="calendar-legend"><span><i className="event" /> Eventos</span><span><i className="task" /> Tareas</span><span><i className="sheet" /> Excel</span></div>
@@ -182,13 +182,13 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
 
 function DaySummary({ date, events, reminders, rows, onOpenEvent, onToggleReminder, onOpenReminders, onOpenSheetRow, onCreateEvent }: { date: Date; events: EventItem[]; reminders: ReminderItem[]; rows: SheetRow[]; onOpenEvent: (event: EventItem) => void; onToggleReminder: (item: ReminderItem) => Promise<void> | void; onOpenReminders: () => void; onOpenSheetRow: (rowId?: string) => void; onCreateEvent: (date: string) => void }) {
   const dateKey = format(date, 'yyyy-MM-dd');
-  const financeTotal = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const financeTotal = formatMoneyTotals(rows);
   const empty = !events.length && !reminders.length && !rows.length;
 
   return <div className="day-summary">
     <header className="day-summary-head"><div className="day-summary-date"><strong>{format(date, 'dd')}</strong><div><span>{format(date, 'MMMM', { locale: es })}</span><b>{format(date, 'EEEE', { locale: es })}</b></div></div><button onClick={() => onCreateEvent(dateKey)}><Plus size={15} /> Evento</button></header>
 
-    <div className="day-summary-metrics"><div><span>EVENTOS</span><strong>{events.length}</strong></div><div><span>TAREAS</span><strong>{reminders.length}</strong></div><div><span>EXCEL</span><strong>{money.format(financeTotal)}</strong></div></div>
+    <div className="day-summary-metrics"><div><span>EVENTOS</span><strong>{events.length}</strong></div><div><span>TAREAS</span><strong>{reminders.length}</strong></div><div><span>EXCEL</span><strong>{financeTotal}</strong></div></div>
 
     {empty && <div className="day-summary-empty"><span>Este día está limpio.</span><small>Cuando agregues un evento, recordatorio o movimiento relacionado, aparecerá aquí automáticamente.</small></div>}
 
@@ -196,6 +196,6 @@ function DaySummary({ date, events, reminders, rows, onOpenEvent, onToggleRemind
 
     {reminders.length > 0 && <section className="day-summary-section"><div className="day-summary-label"><Bell size={14} /><span>TAREAS Y RECORDATORIOS</span><button onClick={onOpenReminders}>Ver todo</button></div>{reminders.map((item) => <div className={`day-summary-item task-item ${item.done ? 'done' : ''}`} key={item.id}><button className="summary-task-check" onClick={() => void onToggleReminder(item)}>{item.done ? '✓' : ''}</button><button className="summary-copy" onClick={onOpenReminders}><strong>{item.title}</strong><span>{item.dueAt ? format(parseISO(item.dueAt), 'HH:mm') : 'Vinculado al evento'}{item.priority === 'high' ? ' · Alta prioridad' : ''}</span></button></div>)}</section>}
 
-    {rows.length > 0 && <section className="day-summary-section"><div className="day-summary-label"><FileSpreadsheet size={14} /><span>EXCEL RELACIONADO</span><button onClick={() => onOpenSheetRow()}>Ver Excel</button></div>{rows.map((row) => <button className="day-summary-item sheet-item" key={row.id} onClick={() => onOpenSheetRow(row.id)}><span className="summary-copy"><strong>{row.label}</strong><span>{row.category}{row.status === 'paid' ? ' · Pagado' : row.status === 'pending' ? ' · Pendiente' : ''}</span></span><span className="summary-money">{money.format(row.amount)}</span><ChevronRight size={15} /></button>)}</section>}
+    {rows.length > 0 && <section className="day-summary-section"><div className="day-summary-label"><FileSpreadsheet size={14} /><span>EXCEL RELACIONADO</span><button onClick={() => onOpenSheetRow()}>Ver Excel</button></div>{rows.map((row) => <button className="day-summary-item sheet-item" key={row.id} onClick={() => onOpenSheetRow(row.id)}><span className="summary-copy"><strong>{row.label}</strong><span>{row.category}{row.status === 'paid' ? ' · Pagado' : row.status === 'pending' ? ' · Pendiente' : ''}</span></span><span className="summary-money">{formatMoneyAmount(row.amount, row.currency || 'MXN')}</span><ChevronRight size={15} /></button>)}</section>}
   </div>;
 }

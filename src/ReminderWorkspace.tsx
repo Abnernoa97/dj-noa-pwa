@@ -3,6 +3,7 @@ import { ArrowLeft, Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X }
 import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db, uid } from './db';
+import { eventScheduleDueAt, type EventScheduleAnchor } from './eventSchedule';
 import { useNativeBack } from './navigationBack';
 import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';
 import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from './types';
@@ -19,6 +20,8 @@ type Draft = {
   date: string;
   time: string;
   eventId: string;
+  eventScheduleAnchor: EventScheduleAnchor | '';
+  eventScheduleOffsetMinutes: number;
   notes: string;
   priority: ReminderPriority;
   repeat: ReminderRepeat;
@@ -179,19 +182,39 @@ function ReminderEditor({ item, events, onClose, onSaved, onDelete }: { item: Re
     date: parsed ? format(parsed, 'yyyy-MM-dd') : '',
     time: parsed ? format(parsed, 'HH:mm') : '',
     eventId: item?.eventId || '',
+    eventScheduleAnchor: item?.eventScheduleAnchor || '',
+    eventScheduleOffsetMinutes: item?.eventScheduleOffsetMinutes || 0,
     notes: item?.notes || '',
     priority: item?.priority || 'normal',
     repeat: item?.repeat || 'none',
     notificationEnabled: item?.notificationEnabled ?? true
   });
 
+  const [saveError, setSaveError] = useState('');
+  const selectedEvent = events.find((event) => event.id === draft.eventId);
+  const eventDueAt = selectedEvent && draft.eventScheduleAnchor
+    ? eventScheduleDueAt(selectedEvent, draft.eventScheduleAnchor, draft.eventScheduleOffsetMinutes)
+    : null;
+
   const save = async () => {
     if (!draft.title.trim()) return;
+    setSaveError('');
+    if (draft.eventScheduleAnchor && !eventDueAt) {
+      setSaveError('Ese horario no está definido en el evento. Elige otro horario o desactiva el seguimiento.');
+      return;
+    }
     const now = new Date().toISOString();
-    const dueAt = draft.date ? new Date(`${draft.date}T${draft.time || '09:00'}:00`).toISOString() : undefined;
+    const dueAt = draft.eventScheduleAnchor && eventDueAt
+      ? eventDueAt
+      : draft.date ? new Date(`${draft.date}T${draft.time || '09:00'}:00`).toISOString() : undefined;
     const payload = {
       title: draft.title.trim(), dueAt, eventId: draft.eventId || undefined, notes: draft.notes.trim() || undefined,
-      priority: draft.priority, repeat: draft.repeat, notificationEnabled: draft.notificationEnabled, updatedAt: now, lastNotifiedAt: undefined
+      eventScheduleAnchor: draft.eventScheduleAnchor || undefined,
+      eventScheduleOffsetMinutes: draft.eventScheduleAnchor ? draft.eventScheduleOffsetMinutes : undefined,
+      priority: draft.priority,
+      // An anchored task cannot also have an independent recurring cadence.
+      repeat: draft.eventScheduleAnchor ? 'none' as const : draft.repeat,
+      notificationEnabled: draft.notificationEnabled, updatedAt: now, lastNotifiedAt: undefined
     };
     if (item) await db.reminders.update(item.id, payload);
     else await db.reminders.add({ id: uid(), ...payload, done: false, createdAt: now });
@@ -201,7 +224,11 @@ function ReminderEditor({ item, events, onClose, onSaved, onDelete }: { item: Re
   const snooze = async () => {
     if (!item) return;
     const due = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    await db.reminders.update(item.id, { dueAt: due, done: false, lastNotifiedAt: undefined, updatedAt: new Date().toISOString() });
+    // Snoozing is an explicit manual override: detach from event timing.
+    await db.reminders.update(item.id, {
+      dueAt: due, done: false, eventScheduleAnchor: undefined, eventScheduleOffsetMinutes: undefined,
+      lastNotifiedAt: undefined, updatedAt: new Date().toISOString()
+    });
     await onSaved();
   };
 
@@ -212,12 +239,16 @@ function ReminderEditor({ item, events, onClose, onSaved, onDelete }: { item: Re
         <div className="reminder-editor-head"><div><p className="eyebrow">{item ? 'EDITAR' : 'NUEVO'}</p><h3>{item ? item.title : 'Recordatorio'}</h3></div><button onClick={onClose} aria-label="Volver a recordatorios"><ArrowLeft size={20} /></button></div>
         <div className="reminder-form">
           <label><span>TÍTULO</span><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Ej. confirmar audio" /></label>
-          <div className="reminder-form-grid"><label><span>FECHA</span><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label><span>HORA</span><input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label></div>
-          <div className="reminder-form-grid"><label><span>PRIORIDAD</span><select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as ReminderPriority })}><option value="low">Baja</option><option value="normal">Normal</option><option value="high">Alta</option></select></label><label><span>REPETIR</span><select value={draft.repeat} onChange={(e) => setDraft({ ...draft, repeat: e.target.value as ReminderRepeat })}><option value="none">Nunca</option><option value="daily">Diario</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select></label></div>
-          <label><span>EVENTO</span><select value={draft.eventId} onChange={(e) => setDraft({ ...draft, eventId: e.target.value })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label>
+          <div className="reminder-form-grid"><label><span>FECHA</span><input type="date" value={draft.eventScheduleAnchor && eventDueAt ? format(parseISO(eventDueAt), 'yyyy-MM-dd') : draft.date} disabled={Boolean(draft.eventScheduleAnchor)} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label><span>HORA</span><input type="time" value={draft.eventScheduleAnchor && eventDueAt ? format(parseISO(eventDueAt), 'HH:mm') : draft.time} disabled={Boolean(draft.eventScheduleAnchor)} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label></div>
+          <div className="reminder-form-grid"><label><span>PRIORIDAD</span><select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as ReminderPriority })}><option value="low">Baja</option><option value="normal">Normal</option><option value="high">Alta</option></select></label><label><span>REPETIR</span><select value={draft.eventScheduleAnchor ? 'none' : draft.repeat} disabled={Boolean(draft.eventScheduleAnchor)} onChange={(e) => setDraft({ ...draft, repeat: e.target.value as ReminderRepeat })}><option value="none">Nunca</option><option value="daily">Diario</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option></select></label></div>
+          <label><span>EVENTO</span><select value={draft.eventId} onChange={(e) => setDraft({ ...draft, eventId: e.target.value, eventScheduleAnchor: e.target.value ? draft.eventScheduleAnchor : '' })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title} · {event.date}</option>)}</select></label>
+          {draft.eventId && <label><span>SEGUIR HORARIO DEL EVENTO</span><select value={draft.eventScheduleAnchor} onChange={(e) => setDraft({ ...draft, eventScheduleAnchor: e.target.value as Draft['eventScheduleAnchor'], repeat: e.target.value ? 'none' : draft.repeat })}><option value="">No · fecha y hora independientes</option><option value="callTime">Sí · llamada</option><option value="soundcheckTime">Sí · prueba de sonido</option><option value="showTime">Sí · show</option></select></label>}
+          {draft.eventScheduleAnchor && <label><span>AJUSTE RESPECTO AL HORARIO</span><select value={draft.eventScheduleOffsetMinutes} onChange={(e) => setDraft({ ...draft, eventScheduleOffsetMinutes: Number(e.target.value) })}><option value={0}>A la hora exacta</option><option value={-15}>15 minutos antes</option><option value={-30}>30 minutos antes</option><option value={-60}>1 hora antes</option><option value={-120}>2 horas antes</option></select></label>}
+          {draft.eventScheduleAnchor && <p className="reminder-sync-note">{eventDueAt ? `Sincronizado: ${format(parseISO(eventDueAt), "d MMM · HH:mm", { locale: es })}. Cambiará si modificas el evento.` : 'Falta definir esa hora en el evento. No se guardará hasta resolverlo.'}</p>}
           <label><span>NOTAS</span><textarea rows={3} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Información adicional" /></label>
           <label className="reminder-switch"><input type="checkbox" checked={draft.notificationEnabled} onChange={(e) => setDraft({ ...draft, notificationEnabled: e.target.checked })} /><span>Notificación activa</span></label>
         </div>
+        {saveError && <p role="alert" className="reminder-sync-note">{saveError}</p>}
         {item && <button className="reminder-snooze" onClick={() => void snooze()}><Clock3 size={15} /> Posponer 10 min</button>}
         <div className="reminder-editor-actions">
           {item && <button className="delete-event-button" onClick={() => void onDelete(item)}><Trash2 size={16} /> Eliminar</button>}

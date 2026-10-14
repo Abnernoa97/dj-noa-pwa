@@ -1,7 +1,8 @@
 import { db, uid } from './db';
 import { isValidEventDate, linkedRowPatchForEventChange, makePlaceholderRow, normalizedEventIdentity } from './eventIntegrity';
+import { eventLinkedReminderPatch } from './eventSchedule';
 import type { NoahFinanceInput } from './noahEvents';
-import type { EventItem, EventPhoto, ReminderItem, SheetRow } from './types';
+import type { EventItem, ReminderItem, SheetRow } from './types';
 
 export type EventDraftData = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -32,6 +33,8 @@ function financeValues(event: EventItem, finance: NoahFinanceInput, existing?: S
     financialType: finance.financialType || 'income',
     eventId: event.id,
     calendarDate: event.date,
+    calendarDateSource: 'event' as const,
+    syncManaged: true,
     notes: finance.notes ?? existing?.notes,
     description: finance.description ?? existing?.description,
     values: existing?.values || {},
@@ -106,7 +109,7 @@ export async function updateEventWithRelations(
   eventId: string,
   patch: Partial<EventDraftData>
 ): Promise<EventItem> {
-  return db.transaction('rw', [db.events, db.sheetRows], async () => {
+  return db.transaction('rw', [db.events, db.sheetRows, db.reminders], async () => {
     const previous = await db.events.get(eventId);
     if (!previous) throw new Error('event_not_found');
     const next: EventItem = { ...previous, ...patch, id: previous.id, createdAt: previous.createdAt, updatedAt: new Date().toISOString() };
@@ -120,6 +123,17 @@ export async function updateEventWithRelations(
       for (const row of rows) {
         const rowPatch = linkedRowPatchForEventChange(row, previous, next, next.updatedAt);
         if (rowPatch) await db.sheetRows.update(row.id, rowPatch);
+      }
+    }
+    // Every opt-in task follows the canonical event's date/time. Manual
+    // deadlines keep their own dates and are never silently rewritten.
+    if (next.date !== previous.date || next.time !== previous.time ||
+        next.callTime !== previous.callTime || next.soundcheckTime !== previous.soundcheckTime ||
+        next.showTime !== previous.showTime) {
+      const reminders = await db.reminders.where('eventId').equals(eventId).toArray();
+      for (const reminder of reminders) {
+        const reminderPatch = eventLinkedReminderPatch(reminder, previous, next, next.updatedAt);
+        if (reminderPatch) await db.reminders.update(reminder.id, reminderPatch);
       }
     }
     return next;
@@ -137,15 +151,22 @@ export async function syncEventFinance(eventId: string, finance: NoahFinanceInpu
     const rows = await db.sheetRows.where('eventId').equals(eventId).toArray();
     const matches = rows.filter((row) =>
       row.financialType === desired.financialType && row.currency === desired.currency &&
-      row.category === desired.category && row.label === desired.label
+      row.category === desired.category && row.label === desired.label &&
+      row.syncManaged === true && row.status !== 'paid'
     );
     if (matches.length > 1) throw new Error('ambiguous_finance_match');
     const existing = matches[0] || rows.find((row) =>
-      row.financialType === 'neutral' && row.status === 'info' && row.amount === 0 && row.category === 'Evento'
+      row.financialType === 'neutral' && row.status === 'info' && row.amount === 0 &&
+      row.category === 'Evento' && row.label === event.title && row.syncManaged !== false
     );
     if (existing) {
       // Explicit payments can have their own date; preserve it during financial edits.
-      const next = { ...desired, calendarDate: existing.calendarDate || event.date, values: existing.values || {} };
+      const next = {
+        ...desired,
+        calendarDate: existing.calendarDateSource === 'manual' ? existing.calendarDate : event.date,
+        calendarDateSource: existing.calendarDateSource === 'manual' ? 'manual' as const : 'event' as const,
+        values: existing.values || {}
+      };
       await db.sheetRows.update(existing.id, next);
       return { ...existing, ...next };
     }
@@ -178,10 +199,11 @@ export async function deleteEventWithRelations(eventId: string): Promise<void> {
     const now = new Date().toISOString();
     const reminders: ReminderItem[] = await db.reminders.where('eventId').equals(eventId).toArray();
     const rows: SheetRow[] = await db.sheetRows.where('eventId').equals(eventId).toArray();
-    await Promise.all(reminders.map((reminder) => db.reminders.update(reminder.id, { eventId: undefined, updatedAt: now })));
+    await Promise.all(reminders.map((reminder) => db.reminders.update(reminder.id, { eventId: undefined, eventScheduleAnchor: undefined, eventScheduleOffsetMinutes: undefined, updatedAt: now })));
     await Promise.all(rows.map((row) => db.sheetRows.update(row.id, {
       eventId: undefined,
       calendarDate: row.calendarDate || event.date,
+      calendarDateSource: 'manual',
       updatedAt: now
     })));
     await db.eventPhotos.where('eventId').equals(eventId).delete();

@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Bell, CalendarDays, Camera, Check, FileSpreadsheet, MapPin, Navigation, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { db, uid } from './db';
+import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
 import { useNativeBack } from './navigationBack';
 import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from './types';
 
@@ -29,8 +30,6 @@ type EventsViewProps = {
 };
 
 type PhotoView = EventPhoto & { url: string };
-
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 
 function showTime(event: EventItem) {
   return event.showTime || event.time || '';
@@ -279,9 +278,9 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
   const linkedReminders = useMemo(() => reminders.filter((item) => item.eventId === event.id).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')), [reminders, event.id]);
   const linkedRows = useMemo(() => sheetRows.filter((row) => row.eventId === event.id), [sheetRows, event.id]);
   const pendingTasks = linkedReminders.filter((item) => !item.done).length;
-  const total = linkedRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const paid = linkedRows.filter((row) => row.status === 'paid').reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const pendingAmount = linkedRows.filter((row) => row.status === 'pending').reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const total = formatMoneyTotals(linkedRows);
+  const paid = formatMoneyTotals(linkedRows, ['paid']);
+  const pendingAmount = formatMoneyTotals(linkedRows, ['pending']);
 
   const loadPhotos = async () => {
     const stored = await db.eventPhotos.where('eventId').equals(event.id).sortBy('createdAt');
@@ -334,7 +333,7 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
 
         <section className="event-hub-metrics">
           <button onClick={onOpenReminders}><span>TAREAS</span><strong>{pendingTasks}</strong><small>pendientes</small></button>
-          <button onClick={onOpenSheet}><span>GASTOS</span><strong>{money.format(total)}</strong><small>{linkedRows.length} movimientos</small></button>
+          <button onClick={onOpenSheet}><span>GASTOS</span><strong>{total}</strong><small>{linkedRows.length} movimientos</small></button>
           <button onClick={() => photoRef.current?.click()}><span>FOTOS</span><strong>{photos.length}</strong><small>guardadas</small></button>
         </section>
 
@@ -364,8 +363,8 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
 
         <section className="event-hub-card">
           <div className="event-hub-section-head"><div><FileSpreadsheet size={16} /><span>EXCEL / GASTOS</span></div><button onClick={onOpenSheet}>Abrir Excel</button></div>
-          <div className="event-hub-finance"><div><span>TOTAL</span><strong>{money.format(total)}</strong></div><div><span>PAGADO</span><strong>{money.format(paid)}</strong></div><div><span>PENDIENTE</span><strong>{money.format(pendingAmount)}</strong></div></div>
-          {linkedRows.length ? <div className="event-hub-row-list">{linkedRows.slice(0, 5).map((row) => <button key={row.id} onClick={onOpenSheet}><span>{row.label}</span><strong>{money.format(row.amount)}</strong><small>{row.category} · {row.status === 'paid' ? 'Pagado' : row.status === 'pending' ? 'Pendiente' : 'Info'}</small></button>)}</div> : <div className="event-hub-empty">No hay movimientos de Excel vinculados.</div>}
+          <div className="event-hub-finance"><div><span>TOTAL</span><strong>{total}</strong></div><div><span>PAGADO</span><strong>{paid}</strong></div><div><span>PENDIENTE</span><strong>{pendingAmount}</strong></div></div>
+          {linkedRows.length ? <div className="event-hub-row-list">{linkedRows.slice(0, 5).map((row) => <button key={row.id} onClick={onOpenSheet}><span>{row.label}</span><strong>{formatMoneyAmount(row.amount, row.currency || 'MXN')}</strong><small>{row.category} · {row.status === 'paid' ? 'Pagado' : row.status === 'pending' ? 'Pendiente' : 'Info'}</small></button>)}</div> : <div className="event-hub-empty">No hay movimientos de Excel vinculados.</div>}
         </section>
 
         <section className="event-hub-card">

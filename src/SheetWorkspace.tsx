@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from './db';
+import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
 import { useNativeBack } from './navigationBack';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
@@ -211,23 +212,31 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   }, [rows, search, category, status, sort, events]);
 
   const totals = useMemo(() => ({
-    all: filtered.reduce((sum, row) => sum + Number(row.amount || 0), 0),
-    paid: filtered.filter((row) => row.status === 'paid').reduce((sum, row) => sum + Number(row.amount || 0), 0),
-    pending: filtered.filter((row) => row.status === 'pending').reduce((sum, row) => sum + Number(row.amount || 0), 0)
+    all: formatMoneyTotals(filtered),
+    paid: formatMoneyTotals(filtered, ['paid']),
+    pending: formatMoneyTotals(filtered, ['pending'])
   }), [filtered]);
 
   const patchRow = async (row: SheetRow, patch: Partial<SheetRow>) => {
     const changes = { ...patch };
     if ('eventId' in patch && patch.eventId !== row.eventId) {
-      const previous = events.find((event) => event.id === row.eventId);
       const next = events.find((event) => event.id === patch.eventId);
-      // Attach only an inherited event date; never replace an explicit
-      // payment or deposit date belonging to this Excel movement.
-      if (next && (!row.calendarDate || row.calendarDate === previous?.date)) {
+      if (next && row.calendarDateSource !== 'manual') {
         changes.calendarDate = next.date;
-      } else if (!next && !row.calendarDate && previous) {
-        changes.calendarDate = previous.date;
+        changes.calendarDateSource = 'event';
+      } else if (!next) {
+        // Preserve current date on unlink; it becomes an independent date.
+        changes.calendarDateSource = 'manual';
       }
+    }
+    if ('calendarDate' in patch && patch.calendarDateSource !== 'event') {
+      // Editing a date is always an explicit override, even if it happens to
+      // equal the current event date.
+      changes.calendarDateSource = 'manual';
+    }
+    if ('amount' in patch || 'label' in patch || 'category' in patch ||
+        'status' in patch || 'currency' in patch || 'financialType' in patch) {
+      changes.syncManaged = false;
     }
     await db.sheetRows.update(row.id, { ...changes, updatedAt: new Date().toISOString() });
     await onChanged();
@@ -370,7 +379,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     const XLSX = await import('xlsx');
     const data = filtered.map((row) => {
       const event = events.find((item) => item.id === row.eventId);
-      const record: Record<string, SheetValue | number> = { Concepto: row.label, Categoría: row.category, Monto: row.amount, Estado: row.status, Evento: event?.title || '', Descripción: row.description || '', Notas: row.notes || '' };
+      const record: Record<string, SheetValue | number> = { Concepto: row.label, Categoría: row.category, Monto: row.amount, Moneda: row.currency || 'MXN', Estado: row.status, Evento: event?.title || '', 'ID Evento': row.eventId || '', Fecha: row.calendarDate || '', Descripción: row.description || '', Notas: row.notes || '' };
       for (const column of columns) record[column.name] = formulaValue(column, row, columns) as SheetValue | number;
       return record;
     });
@@ -388,7 +397,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
     if (!raw.length) return;
     const headers = Object.keys(raw[0]);
-    const core = new Set(['concepto', 'categoria', 'categoría', 'monto', 'estado', 'evento', 'descripcion', 'descripción', 'notas']);
+    const core = new Set(['concepto', 'categoria', 'categoría', 'monto', 'moneda', 'estado', 'evento', 'id evento', 'fecha', 'descripcion', 'descripción', 'notas']);
     const existingByName = new Map(columns.map((item) => [normalize(item.name), item]));
     const customHeaders = headers.filter((header) => !core.has(normalize(header)));
     const nextColumns = [...columns];
@@ -407,7 +416,10 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
       // An Excel file containing a common event name must not link to the
       // wrong occurrence when the name appears on several dates.
       const matchingEvents = events.filter((entry) => normalize(entry.title) === normalize(eventText));
-      const event = matchingEvents.length === 1 ? matchingEvents[0] : undefined;
+      const explicitEventId = String(get('id evento') || '').trim();
+      const verifiedById = explicitEventId ? events.find((entry) => entry.id === explicitEventId) : undefined;
+      const event = verifiedById && (!eventText || normalize(verifiedById.title) === normalize(eventText))
+        ? verifiedById : matchingEvents.length === 1 ? matchingEvents[0] : undefined;
       const statusText = normalize(String(get('estado') || 'pending'));
       const rowStatus: SheetStatus = statusText.includes('pag') ? 'paid' : statusText.includes('info') ? 'info' : 'pending';
       const values: Record<string, SheetValue> = {};
@@ -417,7 +429,11 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
         const value = item[header];
         values[column.key] = typeof value === 'number' || typeof value === 'boolean' ? value : String(value ?? '');
       }
-      imported.push({ id: uid(), label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, calendarDate: event?.date, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
+      const rawDate = String(get('fecha') || '').trim();
+      const explicitDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : undefined;
+      const rawCurrency = String(get('moneda') || 'MXN').trim().toUpperCase();
+      const currency = rawCurrency === 'USD' ? 'USD' as const : 'MXN' as const;
+      imported.push({ id: uid(), currency, label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, calendarDate: explicitDate || event?.date, calendarDateSource: explicitDate ? 'manual' : event ? 'event' : undefined, syncManaged: false, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
     }
     if (imported.length) await db.sheetRows.bulkAdd(imported);
     await loadColumns();
@@ -447,7 +463,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
 
       <input ref={fileRef} className="sheet-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); event.currentTarget.value = ''; }} />
 
-      <div className="sheet-mini-summary"><span>Total <b>{money.format(totals.all)}</b></span><span>Pagado <b>{money.format(totals.paid)}</b></span><span>Pendiente <b>{money.format(totals.pending)}</b></span></div>
+      <div className="sheet-mini-summary"><span>Total <b>{totals.all}</b></span><span>Pagado <b>{totals.paid}</b></span><span>Pendiente <b>{totals.pending}</b></span></div>
 
       <div className="sheet-classic-tools">
         <label><Search size={13} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar" /></label>
@@ -474,7 +490,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
               onContextMenu={(contextEvent) => contextEvent.preventDefault()}
               onClick={() => handleRowClick(row)}
               aria-pressed={selectionCount > 0 ? isSelected : undefined}
-            ><span className="excel-row-number">{isSelected ? <Check size={14} /> : index + 1}</span><span>{row.label}</span><span>{row.category}</span><span className="excel-money">{money.format(row.amount)}</span><span className={`excel-status ${row.status}`}>{shortStatus(row.status)}</span><span>{event?.title || '—'}</span></button>;
+            ><span className="excel-row-number">{isSelected ? <Check size={14} /> : index + 1}</span><span>{row.label}</span><span>{row.category}</span><span className="excel-money">{formatMoneyAmount(row.amount, row.currency || 'MXN')}</span><span className={`excel-status ${row.status}`}>{shortStatus(row.status)}</span><span>{event?.title || '—'}</span></button>;
           }) : <div className="excel-empty">Sin filas</div>}
         </div>
       </div>
@@ -486,9 +502,19 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
           <section className="sheet-detail-card sheet-detail-primary">
             <label className="sheet-wide"><span>Nombre / concepto</span><input value={selectedRow.label} onChange={(e) => void patchRow(selectedRow, { label: e.target.value })} placeholder="Ej. Evento concretado" /></label>
             <label><span>Monto</span><input type="number" inputMode="decimal" value={selectedRow.amount} onChange={(e) => void patchRow(selectedRow, { amount: numberValue(e.target.value) })} /></label>
+            <label><span>Moneda</span><select value={selectedRow.currency || 'MXN'} onChange={(e) => void patchRow(selectedRow, { currency: e.target.value as 'MXN' | 'USD' })}><option value="MXN">MXN · Peso mexicano</option><option value="USD">USD · Dólar estadounidense</option></select></label>
             <label className="sheet-category-field"><span>Categoría / tipo</span><input value={selectedRow.category} onChange={(e) => void patchRow(selectedRow, { category: e.target.value })} placeholder="Escribe cualquier categoría" /><div className="sheet-category-presets">{categoryChoices.map((item) => <button type="button" className={normalize(selectedRow.category) === normalize(item) ? 'active' : ''} key={item} onClick={() => void patchRow(selectedRow, { category: item })}>{item}</button>)}</div></label>
             <label><span>Estado</span><select value={selectedRow.status} onChange={(e) => void patchRow(selectedRow, { status: e.target.value as SheetStatus })}><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select></label>
-            <label><span>Evento vinculado</span><select value={selectedRow.eventId || ''} onChange={(e) => void patchRow(selectedRow, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label>
+            <label><span>Evento vinculado</span><select value={selectedRow.eventId || ''} onChange={(e) => void patchRow(selectedRow, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title} · {event.date}</option>)}</select></label>
+            <label><span>Fecha del movimiento</span><input type="date" value={selectedRow.calendarDate || ''} onChange={(e) => void patchRow(selectedRow, { calendarDate: e.target.value || undefined })} /></label>
+            {selectedRow.eventId && <label><span>Sincronizar fecha</span><select value={selectedRow.calendarDateSource || (selectedRow.calendarDate === events.find((event) => event.id === selectedRow.eventId)?.date ? 'event' : 'manual')} onChange={(e) => {
+              const follow = e.target.value === 'event';
+              const linked = events.find((event) => event.id === selectedRow.eventId);
+              void patchRow(selectedRow, {
+                calendarDateSource: follow ? 'event' : 'manual',
+                ...(follow && linked ? { calendarDate: linked.date } : {})
+              });
+            }}><option value="event">Seguir fecha del evento</option><option value="manual">Mantener fecha propia (anticipo, pago, etc.)</option></select></label>}
           </section>
 
           <section className="sheet-detail-card">

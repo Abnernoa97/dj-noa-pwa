@@ -14,6 +14,8 @@ import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from '
 import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
+import { normalizedEventIdentity } from './eventIntegrity';
+import { formatMoneyTotals } from './moneyIntegrity';
 import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from './eventMutations';
 import { scheduleReminderNotifications } from './reminderNotifications';
 import type { AppView, EventItem, ReminderItem, SheetRow } from './types';
@@ -236,7 +238,7 @@ export default function App() {
     });
   }, [events]);
 
-  const total = useMemo(() => sheetRows.filter((row) => (row.currency || 'MXN') === 'MXN').reduce((sum, row) => sum + Number(row.amount || 0), 0), [sheetRows]);
+  const total = useMemo(() => formatMoneyTotals(sheetRows), [sheetRows]);
   const openReminders = reminders.filter((item) => !item.done).length;
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
@@ -300,6 +302,15 @@ export default function App() {
 
       if (action.type === 'create_sheet_row') {
         const now = new Date().toISOString();
+        // Only an exact, unique name+date match may auto-link a financial
+        // movement. A similar venue, date alone, or repeated event is not enough.
+        const date = action.row.calendarDate;
+        const title = (action.row.label || '').trim();
+        const possibleEvents = date && title
+          ? events.filter((candidate) => candidate.date === date &&
+              normalizedEventIdentity(candidate.title, candidate.date) === normalizedEventIdentity(title, date))
+          : [];
+        const uniqueEvent = possibleEvents.length === 1 ? possibleEvents[0] : undefined;
         const row: SheetRow = {
           id: uid(),
           label: action.row.label || 'Movimiento',
@@ -308,7 +319,10 @@ export default function App() {
           currency: action.row.currency,
           status: action.row.status || 'pending',
           financialType: action.row.financialType || 'neutral',
+          eventId: uniqueEvent?.id,
           calendarDate: action.row.calendarDate,
+          calendarDateSource: date ? 'manual' : undefined,
+          syncManaged: false,
           notes: action.row.notes,
           description: action.row.description,
           values: {},
@@ -348,7 +362,7 @@ export default function App() {
             { id: 'sheet-save', label: 'Guardado', state: 'done' }
           ]
         });
-        return { ok: true, message: 'Listo, quedó en Excel.' };
+        return { ok: true, message: uniqueEvent ? 'Listo, quedó en Excel y vinculado al evento.' : 'Listo, quedó en Excel.' };
       }
 
       if (action.type === 'create_calendar_series') {

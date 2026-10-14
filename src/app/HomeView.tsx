@@ -6,13 +6,11 @@ import NbaWorkspace from '../NbaWorkspace';
 import { useNativeBack } from '../navigationBack';
 import type { AppView, EventItem, ReminderItem } from '../types';
 
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-
 type Props = {
   todayEventCount: number;
   upcoming: EventItem | undefined;
   eventCount: number;
-  total: number;
+  total: string;
   openReminders: number;
   focusReminders: ReminderItem[];
   onVoice: () => void;
@@ -87,7 +85,7 @@ export default function HomeView({
         </button>
         <button onClick={() => onView('sheet')} className="ios-home-metric">
           <span className="ios-home-metric-heading"><FileSpreadsheet size={18} /> RESUMEN</span>
-          <div className="ios-home-metric-list"><span>{eventCount} eventos</span><span>{openReminders} tareas</span><span>{money.format(total)} balance</span></div>
+          <div className="ios-home-metric-list"><span>{eventCount} eventos</span><span>{openReminders} tareas</span><span>{total} balance</span></div>
         </button>
       </div>
 

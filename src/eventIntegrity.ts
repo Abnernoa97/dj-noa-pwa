@@ -24,7 +24,8 @@ export function linkedRowPatchForEventChange(
   updatedAt: string
 ): Partial<SheetRow> | null {
   const patch: Partial<SheetRow> = {};
-  if (next.date !== previous.date && (!row.calendarDate || row.calendarDate === previous.date)) {
+  if (next.date !== previous.date && row.calendarDateSource !== 'manual' &&
+      (row.calendarDateSource === 'event' || !row.calendarDate || row.calendarDate === previous.date)) {
     patch.calendarDate = next.date;
   }
   // Change only the automatically generated empty Excel concept. Never rename an
@@ -49,6 +50,7 @@ export function makePlaceholderRow(event: EventItem, id: string): SheetRow {
     financialType: 'neutral',
     eventId: event.id,
     calendarDate: event.date,
+    calendarDateSource: 'event',
     values: {},
     createdAt: event.createdAt,
     updatedAt: event.updatedAt

@@ -39,6 +39,9 @@ export interface ReminderItem {
   dueAt?: string;
   done: boolean;
   eventId?: string;
+  /** Opt-in to follow an event call, soundcheck or show when edited. */
+  eventScheduleAnchor?: 'callTime' | 'soundcheckTime' | 'showTime';
+  eventScheduleOffsetMinutes?: number;
   notes?: string;
   priority?: ReminderPriority;
   repeat?: ReminderRepeat;
@@ -65,6 +68,10 @@ export interface SheetRow {
   financialType?: FinancialType;
   eventId?: string;
   calendarDate?: string;
+  /** Event-inherited or user-entered date; no guessing once set. */
+  calendarDateSource?: 'event' | 'manual';
+  /** Only automatic finance concepts can be rewritten by Noah. */
+  syncManaged?: boolean;
   notes?: string;
   description?: string;
   values?: Record<string, SheetValue>;
