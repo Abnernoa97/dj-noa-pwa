@@ -94,5 +94,5 @@ test('source photos and all records commit atomically, originals and extracted t
   assert.match(ui,/await onApply\(proposals, visionSources\.current\)/);
   assert.match(app,/await commitNoahVision\(proposals, sources\)/);
   assert.match(worker,/eventDateISO:/);
-  assert.match(ui,/review\?\.sources\.join/);
+  assert.match(ui,/review\.sources\.join/);
 });
