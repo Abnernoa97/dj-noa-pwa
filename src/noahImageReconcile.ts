@@ -74,7 +74,9 @@ function monthDay(value: unknown): string {
   for (let index = 0; index < tokens.length; index++) {
     const month = months[tokens[index]];
     if (!month) continue;
-    const before = Number(tokens[index - 1]);
+    const preceding = tokens[index - 1] === 'de' || tokens[index - 1] === 'del'
+      ? tokens[index - 2] : tokens[index - 1];
+    const before = Number(preceding);
     const after = Number(tokens[index + 1]);
     const day = before >= 1 && before <= 31 ? before : after >= 1 && after <= 31 ? after : 0;
     if (day) return String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
@@ -205,7 +207,9 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
         finance: { amount: Number(number), currency: currency as 'MXN' | 'USD', financialType: 'income' }
       } : {})
     };
-    actions.push({ action, sources: [...candidate.sources], confidence: candidate.confidence });
+    const photoOrder = new Map(reads.map((read, index) => [read.fileName, index]));
+    const sources = [...candidate.sources].sort((a, b) => (photoOrder.get(a) ?? 999) - (photoOrder.get(b) ?? 999));
+    actions.push({ action, sources, confidence: candidate.confidence });
   }
   return { actions, yearless: [...yearless.values()], conflicts, warnings };
 }
