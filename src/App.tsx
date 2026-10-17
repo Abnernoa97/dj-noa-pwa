@@ -687,7 +687,9 @@ export default function App() {
     // One guarded transaction binds original source photos, event records
     // and separate payment/advance rows, or none of them if it fails.
     const saved = await commitNoahVision(proposals, sources);
-    await refresh();
+    // The write has already committed. A subsequent UI refresh failure must
+    // never be presented as a rollback (or invite a duplicate retry).
+    try { await refresh(); } catch { /* liveQuery will retry on the next change */ }
     showNoahActivity({
       phase: 'done', title: 'Fotografías y datos organizados',
       detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${saved.eventPhotoCount + saved.paymentPhotoCount} referencias de fotos`,
