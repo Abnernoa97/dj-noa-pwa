@@ -1,6 +1,7 @@
 import { db, uid } from './db';
 import { createEventWithRelations } from './eventMutations';
 import { isValidEventDate, normalizedEventIdentity } from './eventIntegrity';
+import { assertNoahVisionStorageCapacity } from './noahStorageBudget';
 import type { ReviewAction } from './noahImageReconcile';
 import type { EventPhoto, SheetPhoto, SheetRow } from './types';
 
@@ -15,12 +16,13 @@ function validateSourceIds(proposals: ReviewAction[], sources: VisionSource[]): 
     ids.add(source.sourceId);
   }
   for (const proposal of proposals) {
-    if (!proposal.sources.length || proposal.sources.some((id) => !ids.has(id))) throw new Error('missing_vision_evidence');
+    if (!proposal.sources.length || proposal.sources.some((id) => !ids.has(id)) ||
+        proposal.financeSources?.some((id) => !ids.has(id))) throw new Error('missing_vision_evidence');
     if (proposal.action.type !== 'create_event' && proposal.action.type !== 'create_sheet_row') {
       throw new Error('unsupported_vision_action');
     }
   }
-  return new Set(proposals.flatMap((proposal) => proposal.sources));
+  return new Set(proposals.flatMap((proposal) => [...proposal.sources, ...(proposal.financeSources || [])]));
 }
 
 async function hashSource(file: File): Promise<string> {
@@ -39,6 +41,14 @@ export async function commitNoahVision(
 ): Promise<{ eventCount: number; movementCount: number; eventPhotoCount: number; paymentPhotoCount: number }> {
   if (!proposals.length || proposals.length > 100) throw new Error('invalid_vision_batch');
   const usedSourceIds = validateSourceIds(proposals, sources);
+  const sizes = new Map(sources.map((source) => [source.sourceId, source.file.size]));
+  const estimatedBytes = proposals.reduce((sum, proposal) => {
+    const ids = [...proposal.sources, ...(proposal.action.type === 'create_event' ? proposal.financeSources || [] : [])];
+    return sum + ids.reduce((subtotal, id) => subtotal + (sizes.get(id) || 0), 0);
+  }, 0);
+  // Browser quota estimates are advisory; the IndexedDB transaction still
+  // provides the final all-or-nothing protection if a write runs out of space.
+  await assertNoahVisionStorageCapacity(estimatedBytes);
   const prepared: PreparedSource[] = [];
   for (const source of sources) {
     if (!usedSourceIds.has(source.sourceId)) continue;
@@ -70,6 +80,21 @@ export async function commitNoahVision(
     const eventPhotos: EventPhoto[] = [];
     const sheetPhotos: SheetPhoto[] = [];
     const existingPhotoHashes = new Map<string, Set<string>>();
+    const sheetPhotoHashes = new Map<string, Set<string>>();
+    const addSheetEvidence = (rowId: string, source: PreparedSource) => {
+      let hashes = sheetPhotoHashes.get(rowId);
+      if (!hashes) {
+        hashes = new Set<string>();
+        sheetPhotoHashes.set(rowId, hashes);
+      }
+      if (hashes.has(source.hash)) return;
+      hashes.add(source.hash);
+      sheetPhotos.push({
+        id: uid(), rowId, name: source.file.name, type: source.file.type,
+        blob: source.file, createdAt: now, sourceKind: 'noah-vision',
+        sourceHash: source.hash, sourceEvidence: source.rawText.slice(0, 12000)
+      });
+    };
 
     const ensureNoDuplicatePhotos = async (eventId: string) => {
       if (!existingPhotoHashes.has(eventId)) {
@@ -107,11 +132,7 @@ export async function commitNoahVision(
         for (const sourceId of financeSources) {
           const source = byId.get(sourceId);
           if (!source) throw new Error('missing_finance_evidence');
-          sheetPhotos.push({
-            id: uid(), rowId: row.id, name: source.file.name, type: source.file.type,
-            blob: source.file, createdAt: now, sourceKind: 'noah-vision',
-            sourceHash: source.hash, sourceEvidence: source.rawText.slice(0, 12000)
-          });
+          addSheetEvidence(row.id, source);
         }
       }
     }
@@ -145,11 +166,7 @@ export async function commitNoahVision(
       movementCount++;
       for (const sourceId of sourceIds) {
         const source = byId.get(sourceId)!;
-        sheetPhotos.push({
-          id: uid(), rowId: movement.id, name: source.file.name, type: source.file.type,
-          blob: source.file, createdAt: now, sourceKind: 'noah-vision',
-          sourceHash: source.hash, sourceEvidence: source.rawText.slice(0, 12000)
-        });
+        addSheetEvidence(movement.id, source);
       }
     }
 

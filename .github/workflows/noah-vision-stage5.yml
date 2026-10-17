@@ -1,0 +1,38 @@
+name: Noah Vision Stage 5 Checks
+
+on:
+  push:
+    branches:
+      - stage5-noah-vision-integrity-20261017
+  pull_request:
+    paths:
+      - 'src/noahVisionCommit.ts'
+      - 'src/noahImageReconcile.ts'
+      - 'src/noahStorageBudget.ts'
+      - 'src/NoahImageIntake.tsx'
+      - 'src/App.tsx'
+      - 'tests/noah-vision-stage5.test.mjs'
+      - '.github/workflows/noah-vision-stage5.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:ai
+      - run: npm run build
+      - name: Install isolated IndexedDB test emulator (CI only)
+        run: npm install --no-save --package-lock=false --ignore-scripts fake-indexeddb@6
+      - name: Bundle IndexedDB integration test
+        run: ./node_modules/.bin/esbuild integration-tests/stage5-idb.test.mjs --bundle --platform=node --format=cjs --outfile=.noah-stage5-idb-test.cjs
+      - name: Verify atomicity, persistence and deduplication
+        run: node --test .noah-stage5-idb-test.cjs

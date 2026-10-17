@@ -444,10 +444,15 @@ export default function NoahImageIntake({ onApply }: Props) {
     try {
       await onApply(proposals, visionSources.current);
       reset();
-    } catch {
+    } catch (reason) {
       setOpen(true);
       setApplying(false);
-      setError('Una de las acciones no pudo completarse. No se continuó con el resto.');
+      const issue = reason as Error;
+      const storageFailure = issue?.message === 'vision_storage_low' ||
+        issue?.name === 'QuotaExceededError' || issue?.name === 'QuotaError';
+      setError(storageFailure
+        ? 'No hay espacio local suficiente para estas fotografías. No se guardó ningún cambio. Libera espacio en el teléfono e inténtalo de nuevo.'
+        : 'No se pudo completar el guardado. La transacción se canceló sin guardar cambios parciales. Revisa las propuestas e inténtalo de nuevo.');
     }
   };
 
