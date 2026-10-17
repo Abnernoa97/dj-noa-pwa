@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { db } from '../../src/db.ts';
-import { commitNoahVision } from '../../src/noahVisionCommit.ts';
+import { db } from '../src/db.ts';
+import { commitNoahVision } from '../src/noahVisionCommit.ts';
 
 const eventDate = '2026-12-12';
 const title = 'Stage 5 IndexedDB Fixture';
