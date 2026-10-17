@@ -1,0 +1,32 @@
+name: Noah Vision Stage 5 Checks
+
+on:
+  push:
+    branches:
+      - stage5-noah-vision-integrity-20261017
+  pull_request:
+    paths:
+      - 'src/noahVisionCommit.ts'
+      - 'src/noahImageReconcile.ts'
+      - 'src/noahStorageBudget.ts'
+      - 'src/NoahImageIntake.tsx'
+      - 'src/App.tsx'
+      - 'tests/noah-vision-stage5.test.mjs'
+      - '.github/workflows/noah-vision-stage5.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:ai
+      - run: npm run build
