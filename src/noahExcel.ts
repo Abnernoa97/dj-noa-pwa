@@ -171,7 +171,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
       label: action.label.trim().slice(0, 180) || 'Registro',
       category: 'General',
       status: 'pending',
-      currency: 'MXN',
+      currency: 'USD',
       values,
       ...financialPatch(columns, values),
       createdAt: now,
