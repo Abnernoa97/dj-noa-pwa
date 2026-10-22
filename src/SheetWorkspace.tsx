@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, RotateCw, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from './db';
 import { formatMoneyAmount } from './moneyIntegrity';
 import { portfolioUsdSettlement } from './financialOverview';
@@ -18,6 +18,8 @@ type Props = {
   onAssistant: () => void;
   openRowId?: string | null;
   onOpenRowHandled?: () => void;
+  landscapePortrait?: boolean;
+  onLandscapeRequest?: () => void;
 };
 
 type SortMode = 'newest' | 'oldest' | 'amount-desc' | 'amount-asc' | 'label';
@@ -114,7 +116,7 @@ function shortStatus(status: SheetStatus) {
   return 'Pend.';
 }
 
-export default function SheetWorkspace({ rows, events, onChanged, onAssistant, openRowId, onOpenRowHandled }: Props) {
+export default function SheetWorkspace({ rows, events, onChanged, onAssistant, openRowId, onOpenRowHandled, landscapePortrait = false, onLandscapeRequest }: Props) {
   const [columns, setColumns] = useState<SheetColumn[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -467,6 +469,8 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
           <button className="sheet-selection-delete" type="button" onClick={() => void deleteSelectedRows()}><Trash2 size={17} /><span>Eliminar</span></button>
         </div>
       </div>}
+
+      {landscapePortrait && <div className="excel-landscape-hint" role="status"><span>Gira el teléfono para ver Excel en horizontal y todas las columnas.</span><button type="button" onClick={onLandscapeRequest} aria-label="Intentar girar Excel a horizontal"><RotateCw size={16} /> Horizontal</button></div>}
 
       <input ref={fileRef} className="sheet-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); event.currentTarget.value = ''; }} />
 
