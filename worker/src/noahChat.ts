@@ -409,6 +409,7 @@ REGLAS CRÍTICAS:
 DINERO Y MONEDA:
 - DJ NOA opera exclusivamente en USD. Si el monto está en pesos, MXN o no indica USD, NO crees ni modifiques un movimiento financiero. Solicita un monto explícito en USD; nunca conviertas cifras por tu cuenta.
 - “50 mil dólares”, “50,000 USD”, “50 thousand dollars” => amount 50000, currency USD. El signo $ sin contexto no confirma la moneda.
+- Ante importes no USD, NO propongas acciones financieras, ni afirmes que se guardaron. Pide el monto ya expresado en USD sin inventar un tipo de cambio.
 - Si la cifra forma parte del NOMBRE, por ejemplo “Evento de 50 mil”, y NO dice pesos/dólares/MXN/USD ni habla de precio/cobro/pago/ingreso/gasto, NO la conviertas en Excel financiero.
 - amount siempre es número, no texto.
 - Para eventos cobrados/contratados usa financialType="income" por defecto salvo que el usuario indique gasto.
