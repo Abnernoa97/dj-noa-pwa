@@ -366,7 +366,7 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
           <div className="event-hub-section-head"><div><FileSpreadsheet size={16} /><span>EXCEL / GASTOS</span></div><button onClick={onOpenSheet}>Abrir Excel</button></div>
           <div className="event-hub-finance"><div><span>CONTRATADO USD</span><strong>{moneyUsd(settlement.contracted)}</strong></div><div><span>RECIBIDO USD</span><strong>{moneyUsd(settlement.received)}</strong></div><div><span>POR COBRAR USD</span><strong>{moneyUsd(settlement.pending)}</strong></div></div>
           {settlement.excludedLegacy > 0 && <p className="event-hub-notes">Los importes anteriores se conservan sin conversión y no se incluyen en estos cálculos.</p>}
-          {linkedRows.length ? <div className="event-hub-row-list">{linkedRows.slice(0, 5).map((row) => <button key={row.id} onClick={onOpenSheet}><span>{row.label}</span><strong>{formatMoneyAmount(row.amount, row.currency || 'USD')}</strong><small>{row.category} · {row.status === 'paid' ? 'Pagado' : row.status === 'pending' ? 'Pendiente' : 'Info'}</small></button>)}</div> : <div className="event-hub-empty">No hay movimientos de Excel vinculados.</div>}
+          {linkedRows.length ? <div className="event-hub-row-list">{linkedRows.slice(0, 5).map((row) => <button key={row.id} onClick={onOpenSheet}><span>{row.label}</span><strong>{formatMoneyAmount(row.amount, row.currency || 'MXN')}</strong><small>{row.category} · {row.status === 'paid' ? 'Pagado' : row.status === 'pending' ? 'Pendiente' : 'Info'}</small></button>)}</div> : <div className="event-hub-empty">No hay movimientos de Excel vinculados.</div>}
         </section>
 
         <section className="event-hub-card">
