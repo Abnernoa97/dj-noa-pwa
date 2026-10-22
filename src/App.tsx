@@ -689,7 +689,7 @@ export default function App() {
     const saved = await commitNoahVision(proposals, sources);
     await refresh();
     showNoahActivity({
-      phase: 'done', title: 'Fotografías y datos organizados',
+      phase: 'done', title: 'Datos organizados desde fotografías',
       detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${sources.length} fotos analizadas (sin guardar imágenes)`,
       scope: 'MATRIZ'
     });
