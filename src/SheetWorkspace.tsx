@@ -6,7 +6,6 @@ import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
 import { useNativeBack } from './navigationBack';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
 const LONG_PRESS_MS = 480;
 const LONG_PRESS_MOVE_TOLERANCE = 10;
@@ -102,9 +101,9 @@ function formulaValue(column: SheetColumn, row: SheetRow, columns: SheetColumn[]
   return parseFormula(column.formula, vars);
 }
 
-function displayValue(column: SheetColumn, value: SheetValue | number | null) {
+function displayValue(column: SheetColumn, value: SheetValue | number | null, currency: 'MXN' | 'USD' = 'MXN') {
   if (value === null || value === undefined || value === '') return '';
-  if (column.type === 'currency' || column.type === 'formula') return money.format(numberValue(value));
+  if (column.type === 'currency' || column.type === 'formula') return formatMoneyAmount(numberValue(value), currency) + ' ' + currency;
   return String(value);
 }
 
@@ -531,7 +530,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
           <section className="sheet-detail-card">
             <button className="sheet-custom-toggle" onClick={() => setFieldsOpen((current) => !current)}><div><Columns3 size={17} /><span>Campos personalizados</span></div><b>{fieldsOpen ? '−' : '+'}</b></button>
             {fieldsOpen && <div className="sheet-custom-content">
-              {columns.map((column) => <div className="sheet-custom-field" key={column.id}><label><span>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</span>{column.type === 'formula' ? <div className="sheet-formula-value">{displayValue(column, formulaValue(column, selectedRow, columns))}</div> : <input type={column.type === 'number' || column.type === 'currency' ? 'number' : column.type === 'date' ? 'date' : 'text'} value={String(selectedRow.values?.[column.key] ?? '')} onChange={(e) => { const value: SheetValue = column.type === 'number' || column.type === 'currency' ? numberValue(e.target.value) : e.target.value; void patchCustom(selectedRow, column, value); }} />}</label><button onClick={() => void deleteColumn(column)} aria-label={`Eliminar ${column.name}`}><Trash2 size={14} /></button></div>)}
+              {columns.map((column) => <div className="sheet-custom-field" key={column.id}><label><span>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</span>{column.type === 'formula' ? <div className="sheet-formula-value">{displayValue(column, formulaValue(column, selectedRow, columns), selectedRow.currency || 'MXN')}</div> : <input type={column.type === 'number' || column.type === 'currency' ? 'number' : column.type === 'date' ? 'date' : 'text'} value={String(selectedRow.values?.[column.key] ?? '')} onChange={(e) => { const value: SheetValue = column.type === 'number' || column.type === 'currency' ? numberValue(e.target.value) : e.target.value; void patchCustom(selectedRow, column, value); }} />}</label><button onClick={() => void deleteColumn(column)} aria-label={`Eliminar ${column.name}`}><Trash2 size={14} /></button></div>)}
               <div className="sheet-new-field"><input value={draftColumn.name} onChange={(e) => setDraftColumn((current) => ({ ...current, name: e.target.value }))} placeholder="Nuevo campo" /><select value={draftColumn.type} onChange={(e) => setDraftColumn((current) => ({ ...current, type: e.target.value as SheetColumn['type'] }))}><option value="text">Texto</option><option value="number">Número</option><option value="currency">Moneda</option><option value="date">Fecha</option><option value="formula">Fórmula</option></select>{draftColumn.type === 'formula' && <input value={draftColumn.formula} onChange={(e) => setDraftColumn((current) => ({ ...current, formula: e.target.value }))} placeholder="=amount*0.16" />}<button disabled={!draftColumn.name.trim()} onClick={() => void addColumn()}><Plus size={15} /> Añadir campo</button></div>
             </div>}
           </section>
