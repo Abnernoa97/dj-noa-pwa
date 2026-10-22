@@ -575,7 +575,7 @@ export async function handleNoahChat(request: Request, env: Env) {
             label: cleanString(row.label, 180),
             category: cleanString(row.category, 120),
             amount: cleanAmount(row.amount),
-            currency: cleanCurrency(row.currency) || 'USD',
+            currency: cleanCurrency(row.currency),
             status: cleanSheetStatus(row.status),
             financialType: cleanFinancialType(row.financialType),
             eventId: cleanString(row.eventId, 120),
