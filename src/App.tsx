@@ -690,7 +690,7 @@ export default function App() {
     await refresh();
     showNoahActivity({
       phase: 'done', title: 'Fotografías y datos organizados',
-      detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${saved.eventPhotoCount + saved.paymentPhotoCount} referencias de fotos`,
+      detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${sources.length} fotos analizadas (sin guardar imágenes)`,
       scope: 'MATRIZ'
     });
   };
