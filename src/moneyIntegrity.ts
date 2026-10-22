@@ -14,17 +14,16 @@ export function groupedMoney(
   return result;
 }
 
-export function formatMoneyAmount(amount: number, currency: CurrencyCode = 'MXN'): string {
+export function formatMoneyAmount(amount: number, currency: CurrencyCode = 'USD'): string {
+  if (currency !== 'USD') return 'Importe histórico sin convertir';
   return new Intl.NumberFormat('es-MX', {
     style: 'currency', currency, maximumFractionDigits: 0
   }).format(amount);
 }
 
-/** Never combine balances that have different currency units. */
+/** USD-only visible totals. MXN values remain in storage but NEVER become dollars. */
 export function formatMoneyBuckets(totals: Record<CurrencyCode, number>): string {
-  const used = (['MXN', 'USD'] as const).filter((currency) => totals[currency] !== 0);
-  if (!used.length) return formatMoneyAmount(0, 'MXN') + ' MXN';
-  return used.map((currency) => formatMoneyAmount(totals[currency], currency) + ' ' + currency).join(' · ');
+  return formatMoneyAmount(totals.USD, 'USD') + ' USD';
 }
 
 export type ExcelFinancialTotals = {
@@ -68,5 +67,8 @@ export function formatMoneyTotals(
   rows: Pick<SheetRow, 'amount' | 'currency' | 'status'>[],
   statuses?: SheetStatus[]
 ): string {
-  return formatMoneyBuckets(groupedMoney(rows, statuses));
+  const selected = statuses ? rows.filter(row => statuses.includes(row.status)) : rows;
+  const count = selected.filter(row => row.currency !== 'USD' && Number(row.amount) !== 0).length;
+  return formatMoneyBuckets(groupedMoney(selected)) +
+    (count ? ` · ${count} importe${count === 1 ? '' : 's'} histórico${count === 1 ? '' : 's'} excluido${count === 1 ? '' : 's'}` : '');
 }
