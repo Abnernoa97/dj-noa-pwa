@@ -91,3 +91,30 @@ test('manual attachments already in IndexedDB remain intact after a Vision impor
     assert.equal((await db.eventPhotos.get('manual-attachment'))?.name, 'manual.jpg');
   } finally { await db.delete(); }
 });
+
+test('rejects foreign-currency photo finance without saving any new records', async () => {
+  await fresh();
+  try {
+    const event = create();
+    event.action.finance = { amount: 10000, currency: 'MXN', financialType: 'income' };
+    await assert.rejects(commitNoahVision([event], [source(1)]), /usd_only_finance/);
+    assert.equal(await db.events.count(), 0);
+    assert.equal(await db.sheetRows.count(), 0);
+  } finally { await db.delete(); }
+});
+
+test('preserves pre-existing historical amounts while new USD entries are saved', async () => {
+  await fresh();
+  try {
+    await db.sheetRows.add({
+      id: 'historic-finance', label: 'Legacy amount', category: 'General',
+      amount: 125000, currency: 'MXN', status: 'paid',
+      financialType: 'income', createdAt: '2026-01-01', values: {}
+    });
+    await commitNoahVision([create()], [source(1)]);
+    const original = await db.sheetRows.get('historic-finance');
+    assert.equal(original.amount, 125000);
+    assert.equal(original.currency, 'MXN');
+    assert.equal(await db.sheetRows.count(), 2);
+  } finally { await db.delete(); }
+});
