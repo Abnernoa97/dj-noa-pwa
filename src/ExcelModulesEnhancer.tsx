@@ -157,7 +157,7 @@ export default function ExcelModulesEnhancer() {
       amount: 0,
       status: 'pending',
       financialType: 'neutral',
-      currency: 'MXN',
+      currency: 'USD',
       description: '',
       notes: '',
       values: {},
