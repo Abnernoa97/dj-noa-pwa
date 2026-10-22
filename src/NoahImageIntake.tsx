@@ -246,12 +246,12 @@ export default function NoahImageIntake({ onApply }: Props) {
           status: event.status
         })),
         sheetColumns: columnSnapshot(currentColumns),
-        sheetRows: rows.slice(0, 120).map((row) => ({
+        sheetRows: rows.filter((row) => row.currency === 'USD').slice(0, 120).map((row) => ({
           id: row.id,
           label: row.label,
           category: row.category,
           amount: row.amount,
-          currency: row.currency || 'MXN',
+          currency: 'USD',
           financialType: row.financialType,
           calendarDate: row.calendarDate,
           cells: currentColumns
