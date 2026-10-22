@@ -54,7 +54,7 @@ export async function commitNoahVision(
       const row = action.row;
       if (!row.eventTitle?.trim() || !isValidEventDate(row.eventDateISO || '') ||
           !isValidEventDate(row.calendarDate || '') ||
-          (row.currency !== 'MXN' && row.currency !== 'USD') ||
+          row.currency !== 'USD' ||
           !Number.isFinite(row.amount) || row.amount <= 0) {
         throw new Error('ambiguous_vision_payment');
       }
@@ -102,6 +102,7 @@ export async function commitNoahVision(
         id: uid(), label, category: proposal.category || 'Anticipo',
         amount: proposal.amount, currency: proposal.currency,
         status: proposal.status || 'pending', financialType: 'income',
+        financialRole: (label === 'Anticipo' ? 'deposit' : 'payment'),
         eventId: event.id, calendarDate: proposal.calendarDate,
         calendarDateSource: 'manual', syncManaged: false,
         notes: proposal.notes, description: proposal.description,
