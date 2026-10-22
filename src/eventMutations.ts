@@ -23,7 +23,7 @@ function validateEventDraft(draft: EventDraftData) {
 
 function financeValues(event: EventItem, finance: NoahFinanceInput, existing?: SheetRow): Omit<SheetRow, 'id' | 'createdAt'> {
   if (!Number.isFinite(finance.amount) || finance.amount < 0) throw new Error('invalid_finance_amount');
-  if (finance.currency !== 'MXN' && finance.currency !== 'USD') throw new Error('invalid_finance_currency');
+  if (finance.currency !== 'USD') throw new Error('usd_only_finance');
   return {
     label: finance.label?.trim() || event.title,
     category: finance.category?.trim() || 'Evento',
@@ -31,6 +31,7 @@ function financeValues(event: EventItem, finance: NoahFinanceInput, existing?: S
     currency: finance.currency,
     status: finance.status || 'pending',
     financialType: finance.financialType || 'income',
+    financialRole: finance.financialType === 'expense' ? undefined : 'fee',
     eventId: event.id,
     calendarDate: event.date,
     calendarDateSource: 'event' as const,
