@@ -21,7 +21,7 @@ test('Excel grid totals keep MXN and USD separate in every calculated category',
   assert.deepEqual(result.MXN, { income: 10100, expense: 2500, investment: 1000, balance: 6600 });
   assert.deepEqual(result.USD, { income: 1800, expense: 500, investment: 100, balance: 1200 });
   const display = formatMoneyBuckets({ MXN: result.MXN.balance, USD: result.USD.balance });
-  assert.match(display, /MXN/);
+  assert.doesNotMatch(display, /MXN/);
   assert.match(display, /USD/);
   assert.doesNotMatch(display, /7[,.]?800/);
 });
@@ -29,8 +29,9 @@ test('Excel grid totals keep MXN and USD separate in every calculated category',
 test('legacy rows with no currency explicitly belong to MXN, without altering stored values', () => {
   const rows = [row('legacy', undefined, {}, 7000), row('dollar', 'USD', {}, 1200)];
   assert.deepEqual(groupedMoney(rows), { MXN: 7000, USD: 1200 });
-  assert.match(formatMoneyTotals(rows), /MXN/);
+  assert.doesNotMatch(formatMoneyTotals(rows), /MXN/);
   assert.match(formatMoneyTotals(rows), /USD/);
+  assert.match(formatMoneyTotals(rows), /histórico/);
 });
 
 test('financial summary groups income and expenses by currency and ignores neutral balances', () => {
@@ -46,13 +47,13 @@ test('financial summary groups income and expenses by currency and ignores neutr
   assert.deepEqual(result.USD, { income: 2000, expense: 300, neutral: 9000, balance: 1700 });
 });
 
-test('Excel complement uses shared buckets, with an editable currency per row', () => {
+test('Excel complement displays USD settlements with historical rows safely locked', () => {
   const sheet = readFileSync(new URL('../src/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
   const details = readFileSync(new URL('../src/SheetWorkspace.tsx', import.meta.url), 'utf8');
-  assert.match(sheet, /groupedExcelTotals\(rows, columns, effectiveCellValue\)/);
+  assert.match(sheet, /portfolioUsdSettlement\(rows\)/);
   assert.match(sheet, /className="excel-grid-currency"/);
-  assert.match(sheet, /summaryValue\('balance'\)/);
+  assert.match(sheet, /summaryValue\(overview\.contracted\)/);
   assert.doesNotMatch(sheet, /money\.format\(totals\.balance\)/);
-  assert.match(details, /selectedRow\.currency \|\| 'MXN'/);
+  assert.match(details, /selectedRow\.currency === 'USD'/);
   assert.match(details, /formatMoneyAmount\(numberValue\(value\), currency\)/);
 });
