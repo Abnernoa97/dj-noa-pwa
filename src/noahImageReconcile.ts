@@ -108,7 +108,7 @@ function updateCandidate(target: Candidate, item: PhotoVisualItem, fileName: str
   // A number becomes a proposal only when it belongs to an explicit event
   // block with a fully stated currency; never guess what "$" means.
   if (typeof item.amount === 'number' && Number.isFinite(item.amount) &&
-      item.amount >= 0 && item.amountRole === 'fee' && normalizeCurrency(item.currency)) {
+      item.amount >= 0 && item.amountRole === 'fee' && normalizeCurrency(item.currency) === 'USD') {
     const key = String(item.amount) + '|' + item.currency;
     if (!target.finances.has(key)) target.finances.set(key, new Set());
     target.finances.get(key)!.add(fileName);
@@ -207,7 +207,7 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
         ...(eventFields.address ? { address: eventFields.address } : {}),
         ...(candidate.notes.size ? { notes: [...candidate.notes].join('\n').slice(0, 900) } : {})
       },
-      ...(financeKey && normalizeCurrency(currency) ? {
+      ...(financeKey && normalizeCurrency(currency) === 'USD' ? {
         finance: { amount: Number(number), currency: currency as 'MXN' | 'USD', financialType: 'income' }
       } : {})
     };
@@ -229,6 +229,10 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
       const date = String(item.dateISO || '');
       const eventDate = String(item.eventDateISO || '');
       const eventTitle = String(item.eventTitle || '').trim();
+      if (currency && currency !== 'USD') {
+        warnings.push('Pago/anticipo en ' + read.fileName + ': el monto no está en USD. Se omite sin conversión.');
+        continue;
+      }
       if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 ||
           !currency || !isValidEventDate(date) || !isValidEventDate(eventDate) || !eventTitle) {
         warnings.push('Pago/anticipo en ' + read.fileName + ': falta monto, moneda, fecha propia o referencia completa al evento. No lo guardé.');
