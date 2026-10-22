@@ -4,9 +4,8 @@ import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from './db';
+import { formatMoneyBuckets, groupedExcelTotals } from './moneyIntegrity';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from './types';
-
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 
 const BEHAVIOR_LABEL: Record<SheetColumnBehavior, string> = {
   income: 'Ingreso · suma',
@@ -142,22 +141,12 @@ export default function ExcelModulesEnhancer() {
     return preferred?.id === column.id ? row.amount : '';
   };
 
-  const totals = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let investment = 0;
-    for (const row of rows) {
-      for (const column of columns) {
-        const behavior = behaviorOf(column);
-        if (behavior === 'neutral') continue;
-        const value = numberValue(effectiveCellValue(row, column));
-        if (behavior === 'income') income += value;
-        if (behavior === 'expense') expense += value;
-        if (behavior === 'investment') investment += value;
-      }
-    }
-    return { income, expense, investment, balance: income - expense - investment };
-  }, [rows, columns]);
+  const totals = useMemo(() => groupedExcelTotals(rows, columns, effectiveCellValue), [rows, columns]);
+
+  const summaryValue = (field: 'balance' | 'income' | 'expense') => formatMoneyBuckets({
+    MXN: field === 'expense' ? totals.MXN.expense + totals.MXN.investment : totals.MXN[field],
+    USD: field === 'expense' ? totals.USD.expense + totals.USD.investment : totals.USD[field]
+  });
 
   const addRow = async () => {
     const now = new Date().toISOString();
@@ -168,6 +157,7 @@ export default function ExcelModulesEnhancer() {
       amount: 0,
       status: 'pending',
       financialType: 'neutral',
+      currency: 'MXN',
       description: '',
       notes: '',
       values: {},
@@ -271,17 +261,17 @@ export default function ExcelModulesEnhancer() {
   };
 
   const editingColumn = columns.find((column) => column.id === editingColumnId) || null;
-  const minimumWidth = Math.max(360, 42 + 138 + columns.length * 112 + 46);
-  const gridTemplateColumns = `42px 138px ${columns.map(() => '112px').join(' ')} 46px`;
+  const minimumWidth = Math.max(380, 42 + 168 + columns.length * 112 + 46);
+  const gridTemplateColumns = `42px 168px ${columns.map(() => '112px').join(' ')} 46px`;
 
   if (!host) return null;
 
   return createPortal(
     <section className="excel-classic-grid" aria-label="Hoja de cálculo personalizada">
       <div className="excel-grid-summary">
-        <div><span>BALANCE</span><strong>{money.format(totals.balance)}</strong></div>
-        <div><span>INGRESOS</span><strong>{money.format(totals.income)}</strong></div>
-        <div><span>SALIDAS</span><strong>{money.format(totals.expense + totals.investment)}</strong></div>
+        <div><span>BALANCE</span><strong>{summaryValue('balance')}</strong></div>
+        <div><span>INGRESOS</span><strong>{summaryValue('income')}</strong></div>
+        <div><span>SALIDAS</span><strong>{summaryValue('expense')}</strong></div>
       </div>
 
       <div className="excel-grid-toolbar">
@@ -329,7 +319,7 @@ export default function ExcelModulesEnhancer() {
 
           {rows.length ? rows.map((row, index) => <div className="excel-grid-row excel-grid-data-row" style={{ gridTemplateColumns }} key={row.id}>
             <button type="button" className="excel-grid-index row-action" onClick={() => void deleteRow(row)} title="Eliminar fila"><span>{index + 1}</span><Trash2 size={11} /></button>
-            <div className="excel-grid-concept excel-grid-cell"><input value={row.label} onChange={(event) => void patchLabel(row, event.target.value)} placeholder="Concepto…" /></div>
+            <div className="excel-grid-concept excel-grid-cell"><input value={row.label} onChange={(event) => void patchLabel(row, event.target.value)} placeholder="Concepto…" /><select className="excel-grid-currency" value={row.currency || 'MXN'} aria-label={`Moneda, fila ${index + 1}`} onChange={(event) => void db.sheetRows.update(row.id, { currency: event.target.value as 'MXN' | 'USD', updatedAt: new Date().toISOString() })}><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
             {columns.map((column) => {
               const behavior = behaviorOf(column);
               const value = effectiveCellValue(row, column);
