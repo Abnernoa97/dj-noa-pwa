@@ -82,9 +82,9 @@ export function portfolioUsdSettlement(rows: SheetRow[]): UsdSettlement {
     }
   }
   return {
-    contracted: ambiguous ? null : contracted,
+    contracted: ambiguous || contractedEvents === 0 ? null : contracted,
     received,
-    pending: ambiguous ? null : pending,
+    pending: ambiguous || contractedEvents === 0 ? null : pending,
     hasContract: contractedEvents > 0,
     ambiguous,
     excludedLegacy: legacyFinancialRowCount(rows)
