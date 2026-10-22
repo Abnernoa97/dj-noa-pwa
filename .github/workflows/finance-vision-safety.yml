@@ -1,0 +1,38 @@
+name: Finance and Vision Safety
+
+on:
+  push:
+    branches:
+      - finance-vision-no-image-storage-20261021
+  pull_request:
+    paths:
+      - 'src/moneyIntegrity.ts'
+      - 'src/finance.ts'
+      - 'src/ExcelModulesEnhancer.tsx'
+      - 'src/SheetWorkspace.tsx'
+      - 'src/noahVisionCommit.ts'
+      - 'tests/**'
+      - 'integration-tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:ai
+      - run: npm run build
+      - name: Install isolated IndexedDB emulator (CI only)
+        run: npm install --no-save --package-lock=false --ignore-scripts fake-indexeddb@6
+      - name: Bundle integration tests
+        run: ./node_modules/.bin/esbuild integration-tests/finance-vision-idb.test.mjs --bundle --platform=node --format=cjs --outfile=.finance-vision-test.cjs
+      - name: Verify atomic records and no image persistence
+        run: node --test .finance-vision-test.cjs
