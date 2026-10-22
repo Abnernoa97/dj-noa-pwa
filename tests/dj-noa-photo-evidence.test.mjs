@@ -9,8 +9,8 @@ const event = (title, dateISO, details={}) => ({
 });
 const payment = (title, dateISO, eventTitle, eventDateISO, details={}) => ({
   kind:'payment', title, dateISO, eventTitle, eventDateISO,
-  confidence:'high', amountRole:'deposit', currency:'MXN', amount:10000,
-  paymentStatus:'paid', evidence:'Anticipo recibido 10000 MXN', ...details
+  confidence:'high', amountRole:'deposit', currency:'USD', amount:10000,
+  paymentStatus:'paid', evidence:'Anticipo recibido 10000 USD', ...details
 });
 
 test('photos of an advance produce a separate row dated when payment occurred',()=>{
@@ -27,7 +27,7 @@ test('photos of an advance produce a separate row dated when payment occurred',(
   assert.equal(p.action.row.calendarDate,'2026-10-14');
   assert.equal(p.action.row.status,'paid');
   assert.equal(p.action.row.amount,10000);
-  assert.equal(p.action.row.currency,'MXN');
+  assert.equal(p.action.row.currency,'USD');
   assert.equal(result.actions[0].action.finance,undefined,'the deposit is not the event fee');
 });
 
@@ -68,7 +68,7 @@ test('a payment for an existing exact event may be reviewed without updating tha
 
 test('event total and deposit are distinct, never interpreted as the same amount',()=>{
   const x=reconcilePhotoReads([
-    image('Foto 1 · evento.jpg',event('Flora Farms','2026-11-20',{amount:25000,currency:'MXN',amountRole:'fee'})),
+    image('Foto 1 · evento.jpg',event('Flora Farms','2026-11-20',{amount:25000,currency:'USD',amountRole:'fee'})),
     image('Foto 2 · anticipo.jpg',payment('Anticipo','2026-10-14','Flora Farms','2026-11-20'))
   ],[]);
   assert.equal(x.actions.length,2);
