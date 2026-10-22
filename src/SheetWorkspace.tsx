@@ -244,7 +244,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   const addRow = async () => {
     const id = uid();
     const now = new Date().toISOString();
-    await db.sheetRows.add({ id, label: 'Nuevo movimiento', category: 'General', amount: 0, status: 'pending', description: '', notes: '', values: {}, createdAt: now, updatedAt: now });
+    await db.sheetRows.add({ id, label: 'Nuevo movimiento', category: 'General', amount: 0, currency: 'USD', status: 'pending', description: '', notes: '', values: {}, createdAt: now, updatedAt: now });
     await onChanged();
     setSelectionIds(new Set());
     setSelectedRowId(id);
