@@ -5,6 +5,7 @@ import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, 
 import type { EventItem, ReminderItem, SheetRow } from './types';
 import { useNativeBack } from './navigationBack';
 import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
+import { portfolioUsdSettlement } from './financialOverview';
 
 type CalendarMode = 'month' | 'week' | 'day';
 type DatePickerMode = 'month' | 'year' | null;
@@ -73,7 +74,8 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
   const monthEvents = events.filter((event) => event.date.startsWith(visibleMonthKey));
   const monthReminders = reminders.filter((item) => reminderDate(item)?.startsWith(visibleMonthKey));
   const monthRows = sheetRows.filter((row) => sheetDate(row)?.startsWith(visibleMonthKey));
-  const monthFinanceTotal = formatMoneyTotals(monthRows);
+  const monthContracted = portfolioUsdSettlement(monthRows).contracted;
+  const monthFinanceTotal = monthContracted === null ? 'Por revisar' : formatMoneyAmount(monthContracted, 'USD') + ' USD';
 
   const title = mode === 'week'
     ? `${format(weekStart, 'd MMM', { locale: es })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: es })}`
@@ -147,7 +149,7 @@ export default function CalendarWorkspace({ month, setMonth, events, reminders, 
       <div className="calendar-overview">
         <div><span>EVENTOS</span><strong>{monthEvents.length}</strong></div>
         <div><span>TAREAS</span><strong>{monthReminders.filter((item) => !item.done).length}</strong></div>
-        <div><span>EXCEL</span><strong>{monthFinanceTotal}</strong></div>
+        <div><span>CONTRATADO USD</span><strong>{monthFinanceTotal}</strong></div>
       </div>
 
       <div className="calendar-legend"><span><i className="event" /> Eventos</span><span><i className="task" /> Tareas</span><span><i className="sheet" /> Excel</span></div>

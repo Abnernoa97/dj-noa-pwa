@@ -9,8 +9,8 @@ const event = (title, dateISO, details={}) => ({
 });
 const payment = (title, dateISO, eventTitle, eventDateISO, details={}) => ({
   kind:'payment', title, dateISO, eventTitle, eventDateISO,
-  confidence:'high', amountRole:'deposit', currency:'MXN', amount:10000,
-  paymentStatus:'paid', evidence:'Anticipo recibido 10000 MXN', ...details
+  confidence:'high', amountRole:'deposit', currency:'USD', amount:10000,
+  paymentStatus:'paid', evidence:'Anticipo recibido 10000 USD', ...details
 });
 
 test('photos of an advance produce a separate row dated when payment occurred',()=>{
@@ -27,7 +27,7 @@ test('photos of an advance produce a separate row dated when payment occurred',(
   assert.equal(p.action.row.calendarDate,'2026-10-14');
   assert.equal(p.action.row.status,'paid');
   assert.equal(p.action.row.amount,10000);
-  assert.equal(p.action.row.currency,'MXN');
+  assert.equal(p.action.row.currency,'USD');
   assert.equal(result.actions[0].action.finance,undefined,'the deposit is not the event fee');
 });
 
@@ -68,7 +68,7 @@ test('a payment for an existing exact event may be reviewed without updating tha
 
 test('event total and deposit are distinct, never interpreted as the same amount',()=>{
   const x=reconcilePhotoReads([
-    image('Foto 1 · evento.jpg',event('Flora Farms','2026-11-20',{amount:25000,currency:'MXN',amountRole:'fee'})),
+    image('Foto 1 · evento.jpg',event('Flora Farms','2026-11-20',{amount:25000,currency:'USD',amountRole:'fee'})),
     image('Foto 2 · anticipo.jpg',payment('Anticipo','2026-10-14','Flora Farms','2026-11-20'))
   ],[]);
   assert.equal(x.actions.length,2);
@@ -80,19 +80,21 @@ test('event total and deposit are distinct, never interpreted as the same amount
   assert.equal(p.action.row.calendarDate,'2026-10-14');
 });
 
-test('source photos and all records commit atomically, originals and extracted text are preserved locally',()=>{
+test('Vision commits only structured records; manual event and sheet photos remain independent',()=>{
   const commit=readFileSync(new URL('../src/noahVisionCommit.ts',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../src/NoahImageIntake.tsx',import.meta.url),'utf8');
   const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
   const worker=readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
-  assert.match(commit,/db\.transaction\('rw', \[db\.events, db\.sheetRows, db\.eventPhotos, db\.sheetPhotos\]/);
-  assert.match(commit,/crypto\.subtle\.digest\('SHA-256'/);
-  assert.match(commit,/sourceEvidence: source\.rawText/);
-  assert.match(commit,/blob: source\.file/);
+  const optimizer=readFileSync(new URL('../src/photoOptimization.ts',import.meta.url),'utf8');
+  assert.match(commit,/db\.transaction\('rw', \[db\.events, db\.sheetRows\]/);
+  assert.doesNotMatch(commit,/db\.eventPhotos|db\.sheetPhotos|blob: source\.file|crypto\.subtle\.digest/);
+  assert.match(commit,/eventPhotoCount: 0, paymentPhotoCount: 0/);
   assert.match(commit,/calendarDateSource: 'manual'/);
   assert.match(ui,/visionSources\.current\.push/);
   assert.match(ui,/await onApply\(proposals, visionSources\.current\)/);
+  assert.match(ui,/las fotos no se añaden al almacenamiento/);
   assert.match(app,/await commitNoahVision\(proposals, sources\)/);
   assert.match(worker,/eventDateISO:/);
   assert.match(ui,/review\.sources\.join/);
+  assert.match(optimizer,/photo\.sourceKind === 'noah-vision'/);
 });

@@ -337,12 +337,12 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
         status: event.status
       }));
       const sheetColumns = sheetColumnSnapshot(currentColumns);
-      const sheetSnapshot = currentRows.slice(0, 120).map((row) => ({
+      const sheetSnapshot = currentRows.filter((row) => row.currency === 'USD').slice(0, 120).map((row) => ({
         id: row.id,
         label: row.label,
         category: row.category,
         amount: row.amount,
-        currency: row.currency || 'MXN',
+        currency: 'USD',
         status: row.status,
         financialType: row.financialType,
         eventId: row.eventId,

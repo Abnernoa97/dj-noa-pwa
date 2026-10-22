@@ -1,4 +1,4 @@
-import type { FinancialType, SheetRow } from './types';
+import type { CurrencyCode, FinancialType, SheetRow } from './types';
 
 function normalize(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -18,18 +18,23 @@ export function rowFinancialType(row: Pick<SheetRow, 'category' | 'financialType
   return row.financialType || financialTypeForCategory(row.category);
 }
 
-export function financialSummary(rows: SheetRow[]) {
-  let income = 0;
-  let expense = 0;
-  let neutral = 0;
+/** Per-currency finance summary; never return a mixed-unit balance. */
+export function financialSummary(rows: SheetRow[]): Record<CurrencyCode, {
+  income: number; expense: number; neutral: number; balance: number
+}> {
+  const blank = () => ({ income: 0, expense: 0, neutral: 0, balance: 0 });
+  const totals = { MXN: blank(), USD: blank() };
   for (const row of rows) {
     const amount = Number(row.amount || 0);
+    if (!Number.isFinite(amount)) continue;
+    const currency = row.currency === 'USD' ? 'USD' : 'MXN';
     const type = rowFinancialType(row);
-    if (type === 'income') income += amount;
-    else if (type === 'expense') expense += amount;
-    else neutral += amount;
+    totals[currency][type] += amount;
   }
-  return { income, expense, neutral, balance: income - expense };
+  for (const currency of ['MXN', 'USD'] as const) {
+    totals[currency].balance = totals[currency].income - totals[currency].expense;
+  }
+  return totals;
 }
 
 export function financialTypeLabel(type: FinancialType) {

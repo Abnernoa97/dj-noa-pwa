@@ -246,12 +246,12 @@ export default function NoahImageIntake({ onApply }: Props) {
           status: event.status
         })),
         sheetColumns: columnSnapshot(currentColumns),
-        sheetRows: rows.slice(0, 120).map((row) => ({
+        sheetRows: rows.filter((row) => row.currency === 'USD').slice(0, 120).map((row) => ({
           id: row.id,
           label: row.label,
           category: row.category,
           amount: row.amount,
-          currency: row.currency || 'MXN',
+          currency: 'USD',
           financialType: row.financialType,
           calendarDate: row.calendarDate,
           cells: currentColumns
@@ -559,7 +559,7 @@ export default function NoahImageIntake({ onApply }: Props) {
               />
             </div> : null}
 
-            <p className="noah-image-storage-note">Las fotografías originales seleccionadas se guardarán localmente en DJ NOA, junto a sus eventos o movimientos. Ocupan espacio en este dispositivo. Solo se guardan al confirmar.</p>
+            <p className="noah-image-storage-note">Las imágenes se usan para analizar información. Al confirmar se guardan únicamente los datos revisados en Eventos, Calendario y Excel; las fotos no se añaden al almacenamiento de DJ NOA.</p>
             <div className="noah-image-plan">
               <div className="noah-image-section-title">PLAN · {selected.size + selectedDrafts.size}/{analysis.eventActions.length + analysis.draftEvents.length}</div>
               {analysis.draftEvents.map((draft, index) => {

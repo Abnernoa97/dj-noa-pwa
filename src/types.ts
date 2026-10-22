@@ -69,6 +69,8 @@ export interface SheetRow {
   currency?: CurrencyCode;
   status: SheetStatus;
   financialType?: FinancialType;
+  /** Optional classification for contract price versus actual cash received. */
+  financialRole?: 'fee' | 'deposit' | 'payment';
   eventId?: string;
   calendarDate?: string;
   /** Event-inherited or user-entered date; no guessing once set. */

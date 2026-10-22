@@ -17,7 +17,8 @@ import ReminderWorkspace from './ReminderWorkspace';
 import SheetWorkspace from './SheetWorkspace';
 import { db, uid } from './db';
 import { normalizedEventIdentity } from './eventIntegrity';
-import { formatMoneyTotals } from './moneyIntegrity';
+import { formatMoneyAmount } from './moneyIntegrity';
+import { portfolioUsdSettlement } from './financialOverview';
 import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from './eventMutations';
 import { scheduleReminderNotifications } from './reminderNotifications';
 import type { AppView, EventItem, ReminderItem, SheetRow } from './types';
@@ -240,7 +241,10 @@ export default function App() {
     });
   }, [events]);
 
-  const total = useMemo(() => formatMoneyTotals(sheetRows), [sheetRows]);
+  const total = useMemo(() => {
+    const value = portfolioUsdSettlement(sheetRows).contracted;
+    return value === null ? 'Por revisar' : formatMoneyAmount(value, 'USD') + ' USD';
+  }, [sheetRows]);
   const openReminders = reminders.filter((item) => !item.done).length;
   const focusReminders = useMemo(() => reminders.filter((item) => !item.done).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999')).slice(0, 3), [reminders]);
   const todayEventCount = useMemo(() => events.filter((item) => item.date === format(new Date(), 'yyyy-MM-dd')).length, [events]);
@@ -303,6 +307,7 @@ export default function App() {
       }
 
       if (action.type === 'create_sheet_row') {
+        if (action.row.currency !== 'USD') return { ok: false, message: 'DJ NOA opera solo en USD. No modifiqué el monto ni lo convertí.' };
         const now = new Date().toISOString();
         // Only an exact, unique name+date match may auto-link a financial
         // movement. A similar venue, date alone, or repeated event is not enough.
@@ -687,10 +692,11 @@ export default function App() {
     // One guarded transaction binds original source photos, event records
     // and separate payment/advance rows, or none of them if it fails.
     const saved = await commitNoahVision(proposals, sources);
-    await refresh();
+    // A refresh error after a successful database transaction is not a failed save.
+    try { await refresh(); } catch { /* liveQuery will update when available */ }
     showNoahActivity({
-      phase: 'done', title: 'Fotografías y datos organizados',
-      detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${saved.eventPhotoCount + saved.paymentPhotoCount} referencias de fotos`,
+      phase: 'done', title: 'Datos organizados desde fotografías',
+      detail: `${saved.eventCount} eventos · ${saved.movementCount} movimientos · ${sources.length} fotos analizadas (sin guardar imágenes)`,
       scope: 'MATRIZ'
     });
   };

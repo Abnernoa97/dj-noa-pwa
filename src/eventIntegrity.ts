@@ -45,7 +45,7 @@ export function makePlaceholderRow(event: EventItem, id: string): SheetRow {
     label: event.title,
     category: 'Evento',
     amount: 0,
-    currency: 'MXN',
+    currency: 'USD',
     status: 'info',
     financialType: 'neutral',
     eventId: event.id,

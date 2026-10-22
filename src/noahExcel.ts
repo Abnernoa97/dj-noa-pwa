@@ -81,6 +81,7 @@ async function recalculateRows(columns: SheetColumn[]) {
   const rows = await db.sheetRows.toArray();
   const now = new Date().toISOString();
   for (const row of rows) {
+    if (row.currency !== 'USD') continue; // Protect archived amounts from recalculation.
     const values = { ...(row.values || {}) };
     const patch = financialPatch(columns, values);
     await db.sheetRows.update(row.id, { ...patch, updatedAt: now });
@@ -171,7 +172,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
       label: action.label.trim().slice(0, 180) || 'Registro',
       category: 'General',
       status: 'pending',
-      currency: 'MXN',
+      currency: 'USD',
       values,
       ...financialPatch(columns, values),
       createdAt: now,
@@ -199,6 +200,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
       db.sheetColumns.orderBy('position').toArray()
     ]);
     if (!row) return { ok: false, message: 'No encontré esa fila.' };
+    if (row.currency !== 'USD') return { ok: false, message: 'Este importe histórico no se modifica ni convierte automáticamente.' };
     if (!column) return { ok: false, message: 'No encontré esa columna.' };
     const values = { ...(row.values || {}) };
     if (action.type === 'clear_sheet_cell') delete values[column.key];

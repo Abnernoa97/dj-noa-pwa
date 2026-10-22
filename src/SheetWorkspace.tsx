@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from './db';
-import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
+import { formatMoneyAmount } from './moneyIntegrity';
+import { portfolioUsdSettlement } from './financialOverview';
 import { useNativeBack } from './navigationBack';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
 
-const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
 const LONG_PRESS_MS = 480;
 const LONG_PRESS_MOVE_TOLERANCE = 10;
@@ -102,9 +102,9 @@ function formulaValue(column: SheetColumn, row: SheetRow, columns: SheetColumn[]
   return parseFormula(column.formula, vars);
 }
 
-function displayValue(column: SheetColumn, value: SheetValue | number | null) {
+function displayValue(column: SheetColumn, value: SheetValue | number | null, currency: 'MXN' | 'USD' = 'MXN') {
   if (value === null || value === undefined || value === '') return '';
-  if (column.type === 'currency' || column.type === 'formula') return money.format(numberValue(value));
+  if (column.type === 'currency' || column.type === 'formula') return formatMoneyAmount(numberValue(value), currency) + ' ' + currency;
   return String(value);
 }
 
@@ -211,13 +211,12 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     });
   }, [rows, search, category, status, sort, events]);
 
-  const totals = useMemo(() => ({
-    all: formatMoneyTotals(filtered),
-    paid: formatMoneyTotals(filtered, ['paid']),
-    pending: formatMoneyTotals(filtered, ['pending'])
-  }), [filtered]);
+  const overview = useMemo(() => portfolioUsdSettlement(filtered), [filtered]);
+  const financialLabel = (amount: number | null) => amount === null
+    ? 'Por revisar' : formatMoneyAmount(amount, 'USD') + ' USD';
 
   const patchRow = async (row: SheetRow, patch: Partial<SheetRow>) => {
+    if (row.currency !== 'USD' && ('amount' in patch || 'currency' in patch || 'values' in patch)) return;
     const changes = { ...patch };
     if ('eventId' in patch && patch.eventId !== row.eventId) {
       const next = events.find((event) => event.id === patch.eventId);
@@ -245,7 +244,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   const addRow = async () => {
     const id = uid();
     const now = new Date().toISOString();
-    await db.sheetRows.add({ id, label: 'Nuevo movimiento', category: 'General', amount: 0, status: 'pending', description: '', notes: '', values: {}, createdAt: now, updatedAt: now });
+    await db.sheetRows.add({ id, label: 'Nuevo movimiento', category: 'General', amount: 0, currency: 'USD', status: 'pending', description: '', notes: '', values: {}, createdAt: now, updatedAt: now });
     await onChanged();
     setSelectionIds(new Set());
     setSelectedRowId(id);
@@ -396,6 +395,15 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     const ws = wb.Sheets[wb.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
     if (!raw.length) return;
+    // Reject an entire file before writing columns or rows: never reinterpret
+    // undocumented/historical currencies as USD.
+    if (raw.some((item) => {
+      const currencyKey = Object.keys(item).find((key) => normalize(key) === 'moneda');
+      return !currencyKey || String(item[currencyKey] || '').trim().toUpperCase() !== 'USD';
+    })) {
+      window.alert('Solo se importan archivos con la columna Moneda = USD en todas las filas. No se guardó ningún dato.');
+      return;
+    }
     const headers = Object.keys(raw[0]);
     const core = new Set(['concepto', 'categoria', 'categoría', 'monto', 'moneda', 'estado', 'evento', 'id evento', 'fecha', 'descripcion', 'descripción', 'notas']);
     const existingByName = new Map(columns.map((item) => [normalize(item.name), item]));
@@ -431,8 +439,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
       }
       const rawDate = String(get('fecha') || '').trim();
       const explicitDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : undefined;
-      const rawCurrency = String(get('moneda') || 'MXN').trim().toUpperCase();
-      const currency = rawCurrency === 'USD' ? 'USD' as const : 'MXN' as const;
+      const currency = 'USD' as const;
       imported.push({ id: uid(), currency, label: String(get('concepto') || 'Movimiento'), category: String(get('categoria') || get('categoría') || 'General'), amount: numberValue(get('monto')), status: rowStatus, eventId: event?.id, calendarDate: explicitDate || event?.date, calendarDateSource: explicitDate ? 'manual' : event ? 'event' : undefined, syncManaged: false, description: String(get('descripcion') || get('descripción') || ''), notes: String(get('notas') || ''), values, createdAt: now, updatedAt: now });
     }
     if (imported.length) await db.sheetRows.bulkAdd(imported);
@@ -463,7 +470,8 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
 
       <input ref={fileRef} className="sheet-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); event.currentTarget.value = ''; }} />
 
-      <div className="sheet-mini-summary"><span>Total <b>{totals.all}</b></span><span>Pagado <b>{totals.paid}</b></span><span>Pendiente <b>{totals.pending}</b></span></div>
+      <div className="sheet-mini-summary"><span>Contratado <b>{financialLabel(overview.contracted)}</b></span><span>Recibido <b>{financialLabel(overview.received)}</b></span><span>Por cobrar <b>{financialLabel(overview.pending)}</b></span></div>
+      {overview.excludedLegacy > 0 && <p className="sheet-table-hint">{overview.excludedLegacy} importe(s) anteriores conservados sin conversión y excluidos de USD.</p>}
 
       <div className="sheet-classic-tools">
         <label><Search size={13} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar" /></label>
@@ -501,8 +509,9 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
         <main className="sheet-detail-content">
           <section className="sheet-detail-card sheet-detail-primary">
             <label className="sheet-wide"><span>Nombre / concepto</span><input value={selectedRow.label} onChange={(e) => void patchRow(selectedRow, { label: e.target.value })} placeholder="Ej. Evento concretado" /></label>
-            <label><span>Monto</span><input type="number" inputMode="decimal" value={selectedRow.amount} onChange={(e) => void patchRow(selectedRow, { amount: numberValue(e.target.value) })} /></label>
-            <label><span>Moneda</span><select value={selectedRow.currency || 'MXN'} onChange={(e) => void patchRow(selectedRow, { currency: e.target.value as 'MXN' | 'USD' })}><option value="MXN">MXN · Peso mexicano</option><option value="USD">USD · Dólar estadounidense</option></select></label>
+            <label><span>Monto USD</span><input type="number" inputMode="decimal" disabled={selectedRow.currency !== 'USD'} value={selectedRow.currency === 'USD' ? selectedRow.amount : ''} placeholder={selectedRow.currency === 'USD' ? '' : 'Importe histórico conservado'} onChange={(e) => void patchRow(selectedRow, { amount: numberValue(e.target.value) })} /></label>
+            <label><span>Moneda de operación</span><strong>{selectedRow.currency === 'USD' ? 'USD · Dólar estadounidense' : 'Registro histórico sin convertir'}</strong></label>
+            {selectedRow.currency === 'USD' && <label><span>Concepto financiero</span><select value={selectedRow.financialRole || ''} onChange={(e) => void patchRow(selectedRow, { financialRole: (e.target.value || undefined) as SheetRow['financialRole'], financialType: e.target.value ? 'income' : selectedRow.financialType })}><option value="">Sin clasificar</option><option value="fee">Honorarios contratados</option><option value="deposit">Anticipo recibido / por recibir</option><option value="payment">Pago recibido / por recibir</option></select></label>}
             <label className="sheet-category-field"><span>Categoría / tipo</span><input value={selectedRow.category} onChange={(e) => void patchRow(selectedRow, { category: e.target.value })} placeholder="Escribe cualquier categoría" /><div className="sheet-category-presets">{categoryChoices.map((item) => <button type="button" className={normalize(selectedRow.category) === normalize(item) ? 'active' : ''} key={item} onClick={() => void patchRow(selectedRow, { category: item })}>{item}</button>)}</div></label>
             <label><span>Estado</span><select value={selectedRow.status} onChange={(e) => void patchRow(selectedRow, { status: e.target.value as SheetStatus })}><option value="pending">Pendiente</option><option value="paid">Pagado</option><option value="info">Info</option></select></label>
             <label><span>Evento vinculado</span><select value={selectedRow.eventId || ''} onChange={(e) => void patchRow(selectedRow, { eventId: e.target.value || undefined })}><option value="">Sin evento</option>{events.map((event) => <option key={event.id} value={event.id}>{event.title} · {event.date}</option>)}</select></label>
@@ -531,7 +540,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
           <section className="sheet-detail-card">
             <button className="sheet-custom-toggle" onClick={() => setFieldsOpen((current) => !current)}><div><Columns3 size={17} /><span>Campos personalizados</span></div><b>{fieldsOpen ? '−' : '+'}</b></button>
             {fieldsOpen && <div className="sheet-custom-content">
-              {columns.map((column) => <div className="sheet-custom-field" key={column.id}><label><span>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</span>{column.type === 'formula' ? <div className="sheet-formula-value">{displayValue(column, formulaValue(column, selectedRow, columns))}</div> : <input type={column.type === 'number' || column.type === 'currency' ? 'number' : column.type === 'date' ? 'date' : 'text'} value={String(selectedRow.values?.[column.key] ?? '')} onChange={(e) => { const value: SheetValue = column.type === 'number' || column.type === 'currency' ? numberValue(e.target.value) : e.target.value; void patchCustom(selectedRow, column, value); }} />}</label><button onClick={() => void deleteColumn(column)} aria-label={`Eliminar ${column.name}`}><Trash2 size={14} /></button></div>)}
+              {columns.map((column) => <div className="sheet-custom-field" key={column.id}><label><span>{column.name}{column.type === 'formula' ? ' ƒ' : ''}</span>{column.type === 'formula' ? <div className="sheet-formula-value">{displayValue(column, formulaValue(column, selectedRow, columns), selectedRow.currency || 'MXN')}</div> : <input type={column.type === 'number' || column.type === 'currency' ? 'number' : column.type === 'date' ? 'date' : 'text'} disabled={selectedRow.currency !== 'USD' && (column.type === 'number' || column.type === 'currency')} value={selectedRow.currency !== 'USD' && (column.type === 'number' || column.type === 'currency') ? '' : String(selectedRow.values?.[column.key] ?? '')} onChange={(e) => { const value: SheetValue = column.type === 'number' || column.type === 'currency' ? numberValue(e.target.value) : e.target.value; void patchCustom(selectedRow, column, value); }} />}</label><button onClick={() => void deleteColumn(column)} aria-label={`Eliminar ${column.name}`}><Trash2 size={14} /></button></div>)}
               <div className="sheet-new-field"><input value={draftColumn.name} onChange={(e) => setDraftColumn((current) => ({ ...current, name: e.target.value }))} placeholder="Nuevo campo" /><select value={draftColumn.type} onChange={(e) => setDraftColumn((current) => ({ ...current, type: e.target.value as SheetColumn['type'] }))}><option value="text">Texto</option><option value="number">Número</option><option value="currency">Moneda</option><option value="date">Fecha</option><option value="formula">Fórmula</option></select>{draftColumn.type === 'formula' && <input value={draftColumn.formula} onChange={(e) => setDraftColumn((current) => ({ ...current, formula: e.target.value }))} placeholder="=amount*0.16" />}<button disabled={!draftColumn.name.trim()} onClick={() => void addColumn()}><Plus size={15} /> Añadir campo</button></div>
             </div>}
           </section>

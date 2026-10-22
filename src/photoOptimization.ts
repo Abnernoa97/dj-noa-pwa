@@ -35,6 +35,8 @@ export async function optimizeStoredPhotos() {
   const [eventPhotos, sheetPhotos] = await Promise.all([db.eventPhotos.toArray(), db.sheetPhotos.toArray()]);
 
   for (const photo of eventPhotos) {
+    // Preserve already imported Noah Vision evidence as it was originally saved.
+    if (photo.sourceKind === 'noah-vision' || photo.sourceHash) continue;
     try {
       const compressed = await compressImageBlob(photo.blob);
       if (compressed) await db.eventPhotos.update(photo.id, { blob: compressed, type: 'image/webp', name: webpName(photo.name) });
@@ -44,6 +46,7 @@ export async function optimizeStoredPhotos() {
   }
 
   for (const photo of sheetPhotos) {
+    if (photo.sourceKind === 'noah-vision' || photo.sourceHash) continue;
     try {
       const compressed = await compressImageBlob(photo.blob);
       if (compressed) await db.sheetPhotos.update(photo.id, { blob: compressed, type: 'image/webp', name: webpName(photo.name) });

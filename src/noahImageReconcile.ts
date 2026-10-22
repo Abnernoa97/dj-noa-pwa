@@ -108,7 +108,7 @@ function updateCandidate(target: Candidate, item: PhotoVisualItem, fileName: str
   // A number becomes a proposal only when it belongs to an explicit event
   // block with a fully stated currency; never guess what "$" means.
   if (typeof item.amount === 'number' && Number.isFinite(item.amount) &&
-      item.amount >= 0 && item.amountRole === 'fee' && normalizeCurrency(item.currency)) {
+      item.amount >= 0 && item.amountRole === 'fee' && normalizeCurrency(item.currency) === 'USD') {
     const key = String(item.amount) + '|' + item.currency;
     if (!target.finances.has(key)) target.finances.set(key, new Set());
     target.finances.get(key)!.add(fileName);
@@ -122,6 +122,15 @@ function updateCandidate(target: Candidate, item: PhotoVisualItem, fileName: str
  */
 export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<EventItem, 'title' | 'date'>[]): ReconciledPhotos {
   const warnings: string[] = [];
+  // Preserve the actual source amount, but never file a non-USD honorarium
+  // into a USD ledger and never silently convert it.
+  for (const read of reads.slice(0, 5)) {
+    for (const item of read.visualItems.slice(0, 100)) {
+      if (item.amountRole === 'fee' && normalizeCurrency(item.currency) === 'MXN') {
+        warnings.push('Honorarios en ' + read.fileName + ': documento con importe anterior/no USD. Se guardarán los datos del evento, pero NO el monto.');
+      }
+    }
+  }
   const candidates = new Map<string, Candidate>();
   const partial: Array<{ item: PhotoVisualItem; fileName: string }> = [];
   const yearless = new Map<string, ReconciledPhotos['yearless'][number]>();
@@ -207,7 +216,7 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
         ...(eventFields.address ? { address: eventFields.address } : {}),
         ...(candidate.notes.size ? { notes: [...candidate.notes].join('\n').slice(0, 900) } : {})
       },
-      ...(financeKey && normalizeCurrency(currency) ? {
+      ...(financeKey && normalizeCurrency(currency) === 'USD' ? {
         finance: { amount: Number(number), currency: currency as 'MXN' | 'USD', financialType: 'income' }
       } : {})
     };
@@ -220,7 +229,7 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
   }
   // Deposits and confirmed payments remain independent dated Excel rows.
   // Never equate a payment's own date with the event's performance date.
-  const proposedPayments = new Set<string>();
+  const proposedPayments = new Map<string, { review: ReviewAction; statuses: Set<'paid' | 'pending'> }>();
   for (const read of reads.slice(0, 5)) {
     for (const item of read.visualItems.slice(0, 100)) {
       if (item.kind !== 'payment' || !['deposit', 'payment'].includes(item.amountRole || '')) continue;
@@ -229,6 +238,10 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
       const date = String(item.dateISO || '');
       const eventDate = String(item.eventDateISO || '');
       const eventTitle = String(item.eventTitle || '').trim();
+      if (currency && currency !== 'USD') {
+        warnings.push('Pago/anticipo en ' + read.fileName + ': el monto no está en USD. Se omite sin conversión.');
+        continue;
+      }
       if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 ||
           !currency || !isValidEventDate(date) || !isValidEventDate(eventDate) || !eventTitle) {
         warnings.push('Pago/anticipo en ' + read.fileName + ': falta monto, moneda, fecha propia o referencia completa al evento. No lo guardé.');
@@ -241,31 +254,49 @@ export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<Ev
       }
       const label = item.amountRole === 'deposit' ? 'Anticipo' : 'Pago';
       const paymentKey = [eventKey, label, amount, currency, date].join('|');
-      if (proposedPayments.has(paymentKey)) {
-        // When multiple screenshots show the same payment, preserve the
-        // provenance but propose one movement only.
-        const found = actions.find(p => p.action.type === 'create_sheet_row' && (
-          [normalizedEventIdentity(p.action.row.eventTitle || '', p.action.row.eventDateISO || ''),
-            p.action.row.label, p.action.row.amount, p.action.row.currency, p.action.row.calendarDate].join('|') === paymentKey
-        ));
-        if (found && !found.sources.includes(read.fileName)) found.sources.push(read.fileName);
+      const statedStatus = item.paymentStatus === 'paid' || item.paymentStatus === 'pending'
+        ? item.paymentStatus : undefined;
+      const previous = proposedPayments.get(paymentKey);
+      if (previous) {
+        // A duplicated receipt may clarify an unknown status, but opposing
+        // explicit statuses must block the movement instead of picking first.
+        if (!previous.review.sources.includes(read.fileName)) previous.review.sources.push(read.fileName);
+        if (statedStatus) previous.statuses.add(statedStatus);
         continue;
       }
-      proposedPayments.add(paymentKey);
-      actions.push({
+      const review: ReviewAction = {
         action: {
           type: 'create_sheet_row', surface: 'sheet',
           row: {
             eventTitle, eventDateISO: eventDate, calendarDate: date,
             label, category: label, amount, currency: currency as 'MXN' | 'USD',
-            financialType: 'income', status: item.paymentStatus === 'paid' ? 'paid' : 'pending',
+            financialType: 'income', status: statedStatus || 'pending',
             description: item.details?.slice(0, 400)
           }
         },
         sources: [read.fileName],
         confidence: item.confidence || 'medium'
+      };
+      proposedPayments.set(paymentKey, {
+        review, statuses: new Set<'paid' | 'pending'>(statedStatus ? [statedStatus] : [])
       });
     }
+  }
+  for (const [paymentKey, { review, statuses }] of proposedPayments) {
+    if (statuses.size > 1) {
+      const payment = review.action;
+      if (payment.type !== 'create_sheet_row') continue;
+      conflicts.push({
+        identity: paymentKey, title: payment.row.label || 'Pago',
+        date: payment.row.calendarDate || '', fields: ['paymentStatus'], sources: review.sources
+      });
+      warnings.push('Estados de pago contradictorios en ' + review.sources.join(', ') + '. No se guardará el movimiento sin aclararlo.');
+      continue;
+    }
+    if (review.action.type === 'create_sheet_row' && statuses.size === 1) {
+      review.action.row.status = [...statuses][0];
+    }
+    actions.push(review);
   }
   return { actions, yearless: [...yearless.values()], conflicts, warnings };
 }

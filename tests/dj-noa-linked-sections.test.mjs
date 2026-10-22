@@ -63,20 +63,21 @@ test('currency sums never merge USD with MXN', () => {
   assert.deepEqual(groupedMoney(rows), { MXN: 15000, USD: 1500 });
   assert.deepEqual(groupedMoney(rows, ['paid']), { MXN: 3000, USD: 1500 });
   const display = formatMoneyTotals(rows);
-  assert.match(display, /15[,\s]?000/);
+  assert.doesNotMatch(display, /15[,\s]?000/);
   assert.match(display, /1[,\s]?500/);
-  assert.match(display, /MX/);
-  assert.match(display, /US/);
+  assert.doesNotMatch(display, /MXN/);
+  assert.match(display, /USD/);
+  assert.match(display, /histórico/);
   assert.ok(formatMoneyAmount(1500, 'USD').length > 1);
 });
 
 test('calendar, event, excel and home share currency-aware summaries', () => {
   for (const path of ['EventWorkspace.tsx', 'CalendarWorkspace.tsx', 'SheetWorkspace.tsx']) {
     const s = readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
-    assert.match(s, /formatMoneyTotals\(/, path);
+    assert.match(s, /UsdSettlement/, path);
   }
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(app, /formatMoneyTotals\(sheetRows\)/);
+  assert.match(app, /portfolioUsdSettlement\(sheetRows\)/);
   const mut = readFileSync(new URL('../src/eventMutations.ts', import.meta.url), 'utf8');
   assert.match(mut, /eventLinkedReminderPatch\(/);
   assert.match(mut, /db\.transaction\('rw', \[db\.events, db\.sheetRows, db\.reminders\]/);
