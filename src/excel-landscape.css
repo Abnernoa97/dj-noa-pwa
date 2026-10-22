@@ -1,0 +1,194 @@
+/* Excel-only mobile landscape viewport. Loaded after the iOS theme so no
+   other tab or dark-mode surface is visually modified. */
+.excel-landscape-hint {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:2px 0 10px;
+  padding:9px 11px;
+  border:1px solid rgba(122,199,161,.25);
+  border-radius:13px;
+  background:rgba(29,73,54,.35);
+  color:#e3f4e9;
+  font-size:12px;
+  line-height:1.35;
+}
+.excel-landscape-hint span {min-width:0;}
+.excel-landscape-hint button {
+  display:inline-flex;
+  flex:0 0 auto;
+  gap:5px;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:0 11px;
+  border:1px solid rgba(129,212,168,.38);
+  border-radius:10px;
+  background:#204937;
+  color:#effdf4;
+  font-size:11px;
+  font-weight:700;
+}
+
+/* The installed PWA is permitted to rotate by its manifest. Only while
+   Excel is active do these compact layout rules apply to short, wide phones.
+   Scroll stays on the table, not on the full document. */
+@media (orientation: landscape) and (max-height: 700px) {
+  body.excel-landscape-scope .ios-shell,
+  body.excel-landscape-scope .app-shell {
+    height:100dvh!important;
+    min-height:100dvh!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  body.excel-landscape-scope .ios-shell .content,
+  body.excel-landscape-scope .ios-shell:has(.sheet-classic) .content {
+    position:absolute!important;
+    inset:max(4px,env(safe-area-inset-top)) 7px calc(47px + env(safe-area-inset-bottom)) 7px!important;
+    height:auto!important;
+    width:auto!important;
+    max-width:none!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  body.excel-landscape-scope .ios-shell .sheet-classic {
+    width:100%!important;
+    max-width:none!important;
+    height:100%!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:5px 9px 8px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    touch-action:pan-y!important;
+    border-radius:12px!important;
+  }
+  body.excel-landscape-scope .ios-shell .ios-global-back {
+    position:fixed!important;
+    top:max(8px,env(safe-area-inset-top))!important;
+    left:12px!important;
+    z-index:60!important;
+    min-height:34px!important;
+    padding:5px 10px!important;
+    font-size:11px!important;
+  }
+  body.excel-landscape-scope .ios-shell .sheet-classic .sheet-classic-head {
+    width:calc(100% - 107px)!important;
+    min-height:38px!important;
+    margin:0 0 6px 107px!important;
+    padding:0!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+  }
+  body.excel-landscape-scope .ios-shell .sheet-classic .sheet-classic-head h2 {
+    font-size:23px!important;
+    line-height:1.1!important;
+    margin:0!important;
+  }
+  body.excel-landscape-scope .ios-shell .sheet-classic .sheet-classic-actions {
+    position:static!important;
+    transform:none!important;
+    gap:5px!important;
+  }
+  body.excel-landscape-scope .ios-shell .sheet-classic .sheet-classic-actions button {
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    border-radius:10px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-modules-mount {
+    margin:0!important;
+    width:100%!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-classic-grid {gap:6px!important;}
+  body.excel-landscape-scope .ios-shell .excel-grid-summary {gap:7px!important;}
+  body.excel-landscape-scope .ios-shell .excel-grid-summary > div {
+    min-height:52px!important;
+    padding:6px 11px!important;
+    border-radius:12px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-summary span {
+    font-size:9px!important;
+    line-height:1.1!important;
+    letter-spacing:.05em!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-summary strong {
+    margin-top:3px!important;
+    font-size:clamp(12px,2vw,16px)!important;
+    line-height:1.2!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-toolbar {
+    min-height:34px!important;
+    flex-wrap:nowrap!important;
+    gap:8px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-toolbar > div:first-child strong {
+    font-size:17px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-toolbar button {
+    height:32px!important;
+    min-width:58px!important;
+    padding:0 10px!important;
+    font-size:11px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-scroll {
+    width:100%!important;
+    max-width:100%!important;
+    max-height:max(106px,calc(100dvh - 232px))!important;
+    overflow-x:auto!important;
+    overflow-y:auto!important;
+    touch-action:pan-x pan-y!important;
+    overscroll-behavior:contain!important;
+    scrollbar-width:thin!important;
+    border-radius:12px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-head {
+    position:sticky!important;
+    top:0!important;
+    z-index:8!important;
+    min-height:40px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-column-head {
+    padding:6px 16px 6px 7px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-column-head strong {
+    font-size:11px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-column-head small {
+    font-size:9px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-data-row {
+    min-height:43px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-cell input,
+  body.excel-landscape-scope .ios-shell .excel-grid-concept.excel-grid-cell input {
+    font-size:12px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-add-row {
+    height:34px!important;
+    min-height:34px!important;
+    font-size:11px!important;
+  }
+  body.excel-landscape-scope .ios-shell .excel-grid-note {display:none!important;}
+  body.excel-landscape-scope .ios-shell .bottom-nav {
+    height:41px!important;
+    width:min(calc(100% - 20px),850px)!important;
+    bottom:max(3px,env(safe-area-inset-bottom))!important;
+    gap:9px!important;
+  }
+  body.excel-landscape-scope .ios-shell .bottom-nav .nav-button {
+    min-height:40px!important;
+    padding:3px 9px!important;
+    border-radius:12px!important;
+  }
+  body.excel-landscape-scope .ios-shell .bottom-nav .nav-button svg {
+    width:17px!important;
+    height:17px!important;
+  }
+  body.excel-landscape-scope .ios-shell .bottom-nav .nav-button span {
+    font-size:9px!important;
+  }
+}
