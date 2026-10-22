@@ -51,7 +51,7 @@ export function groupedExcelTotals(
       const kind = column.behavior || 'neutral';
       if (kind === 'neutral') continue;
       const raw = readCell(row, column);
-      const amount = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[$,\\s]/g, ''));
+      const amount = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[$,\s]/g, ''));
       if (!Number.isFinite(amount)) continue;
       totals[currency][kind] += amount;
     }
