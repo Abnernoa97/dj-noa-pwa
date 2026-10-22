@@ -85,7 +85,7 @@ export default function HomeView({
         </button>
         <button onClick={() => onView('sheet')} className="ios-home-metric">
           <span className="ios-home-metric-heading"><FileSpreadsheet size={18} /> RESUMEN</span>
-          <div className="ios-home-metric-list"><span>{eventCount} eventos</span><span>{openReminders} tareas</span><span>{total} balance</span></div>
+          <div className="ios-home-metric-list"><span>{eventCount} eventos</span><span>{openReminders} tareas</span><span>{total} contratado</span></div>
         </button>
       </div>
 
