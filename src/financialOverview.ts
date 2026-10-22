@@ -74,9 +74,11 @@ export function portfolioUsdSettlement(rows: SheetRow[]): UsdSettlement {
   for (const eventRows of withEvent.values()) {
     const result = eventUsdSettlement(eventRows);
     if (result.ambiguous) { ambiguous = true; continue; }
+    // A received advance remains a real receipt even if the fee was not yet
+    // documented; only the contractual total/remaining balance stays unknown.
+    received += result.received;
     if (result.contracted !== null) {
       contracted += result.contracted;
-      received += result.received;
       pending += result.pending || 0;
       contractedEvents += 1;
     }
