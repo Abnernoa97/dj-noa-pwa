@@ -122,6 +122,15 @@ function updateCandidate(target: Candidate, item: PhotoVisualItem, fileName: str
  */
 export function reconcilePhotoReads(reads: SourceRead[], existingEvents: Pick<EventItem, 'title' | 'date'>[]): ReconciledPhotos {
   const warnings: string[] = [];
+  // Preserve the actual source amount, but never file a non-USD honorarium
+  // into a USD ledger and never silently convert it.
+  for (const read of reads.slice(0, 5)) {
+    for (const item of read.visualItems.slice(0, 100)) {
+      if (item.amountRole === 'fee' && normalizeCurrency(item.currency) === 'MXN') {
+        warnings.push('Honorarios en ' + read.fileName + ': documento con importe anterior/no USD. Se guardarán los datos del evento, pero NO el monto.');
+      }
+    }
+  }
   const candidates = new Map<string, Candidate>();
   const partial: Array<{ item: PhotoVisualItem; fileName: string }> = [];
   const yearless = new Map<string, ReconciledPhotos['yearless'][number]>();
