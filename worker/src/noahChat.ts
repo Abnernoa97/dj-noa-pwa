@@ -90,7 +90,7 @@ function cleanColumnType(value: unknown) {
 
 function cleanCurrency(value: unknown): CurrencyCode | undefined {
   const text = String(value || '').trim().toUpperCase();
-  return text === 'MXN' || text === 'USD' ? text : undefined;
+  return text === 'USD' ? text : undefined;
 }
 
 function cleanAmount(value: unknown) {
@@ -407,8 +407,8 @@ REGLAS CRÍTICAS:
 6. Solo una respuesta hablada breve al final; no narres cada paso.
 
 DINERO Y MONEDA:
-- “50 mil pesos”, “50,000 MXN”, “$50,000” en contexto mexicano => amount 50000, currency MXN.
-- “50 mil dólares”, “50,000 USD”, “50 thousand dollars” => amount 50000, currency USD.
+- DJ NOA opera exclusivamente en USD. Si el monto está en pesos, MXN o no indica USD, NO crees ni modifiques un movimiento financiero. Solicita un monto explícito en USD; nunca conviertas cifras por tu cuenta.
+- “50 mil dólares”, “50,000 USD”, “50 thousand dollars” => amount 50000, currency USD. El signo $ sin contexto no confirma la moneda.
 - Si la cifra forma parte del NOMBRE, por ejemplo “Evento de 50 mil”, y NO dice pesos/dólares/MXN/USD ni habla de precio/cobro/pago/ingreso/gasto, NO la conviertas en Excel financiero.
 - amount siempre es número, no texto.
 - Para eventos cobrados/contratados usa financialType="income" por defecto salvo que el usuario indique gasto.
@@ -575,7 +575,7 @@ export async function handleNoahChat(request: Request, env: Env) {
             label: cleanString(row.label, 180),
             category: cleanString(row.category, 120),
             amount: cleanAmount(row.amount),
-            currency: cleanCurrency(row.currency) || 'MXN',
+            currency: cleanCurrency(row.currency) || 'USD',
             status: cleanSheetStatus(row.status),
             financialType: cleanFinancialType(row.financialType),
             eventId: cleanString(row.eventId, 120),
