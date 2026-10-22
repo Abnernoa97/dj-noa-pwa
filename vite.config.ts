@@ -15,7 +15,7 @@ export default defineConfig({
         theme_color: '#07090c',
         background_color: '#07090c',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any', // Excel locks landscape at runtime; other screens request portrait.
         start_url: '.',
         icons: [
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },

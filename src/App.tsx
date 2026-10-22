@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { ChevronLeft } from 'lucide-react';
 import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
+import { useExcelLandscape } from './useExcelLandscape';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import CalendarWorkspace from './CalendarWorkspace';
@@ -173,6 +174,7 @@ export default function App() {
   const [eventCreateDate, setEventCreateDate] = useState<string | null>(null);
   const [eventHubId, setEventHubId] = useState<string | null>(null);
   const [selectedSheetRowId, setSelectedSheetRowId] = useState<string | null>(null);
+  const { isPortrait: excelPortrait, requestLandscape } = useExcelLandscape(view === 'sheet' && !mlbOpen && !eventEditorOpen && !eventHubId);
   const [noahActivity, setNoahActivity] = useState<NoahActionActivity | null>(null);
   const [noahCalendarDates, setNoahCalendarDates] = useState<string[]>([]);
   const noahRef = useRef<NoahVoiceHandle>(null);
@@ -764,7 +766,7 @@ export default function App() {
           />}
           {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
           {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} noahHighlightDates={noahCalendarDates} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => navigateTo('reminders')} onOpenSheetRow={openSheetRow} />}
-          {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={startNoah} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} />}
+          {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={startNoah} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} landscapePortrait={excelPortrait} onLandscapeRequest={() => { void requestLandscape(); }} />}
           {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={startNoah} />}
         </>}
       </main>

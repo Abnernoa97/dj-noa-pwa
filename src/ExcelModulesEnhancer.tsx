@@ -261,7 +261,7 @@ export default function ExcelModulesEnhancer() {
 
   const editingColumn = columns.find((column) => column.id === editingColumnId) || null;
   const minimumWidth = Math.max(380, 42 + 168 + columns.length * 112 + 46);
-  const gridTemplateColumns = `42px 168px ${columns.map(() => '112px').join(' ')} 46px`;
+  const gridTemplateColumns = `42px 168px ${columns.map(() => 'minmax(112px, 1fr)').join(' ')} 46px`;
 
   if (!host) return null;
 
