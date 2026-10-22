@@ -1,4 +1,4 @@
-import type { CurrencyCode, SheetRow, SheetStatus } from './types';
+import type { CurrencyCode, SheetColumn, SheetRow, SheetStatus } from './types';
 
 export function groupedMoney(
   rows: Pick<SheetRow, 'amount' | 'currency' | 'status'>[],
@@ -20,13 +20,53 @@ export function formatMoneyAmount(amount: number, currency: CurrencyCode = 'MXN'
   }).format(amount);
 }
 
-/** No implicit currency conversion. Mixed currencies are displayed separately. */
+/** Never combine balances that have different currency units. */
+export function formatMoneyBuckets(totals: Record<CurrencyCode, number>): string {
+  const used = (['MXN', 'USD'] as const).filter((currency) => totals[currency] !== 0);
+  if (!used.length) return formatMoneyAmount(0, 'MXN') + ' MXN';
+  return used.map((currency) => formatMoneyAmount(totals[currency], currency) + ' ' + currency).join(' · ');
+}
+
+export type ExcelFinancialTotals = {
+  income: number;
+  expense: number;
+  investment: number;
+  balance: number;
+};
+
+/** Shared calculation for the expanded Excel grid. Row currency applies to
+ * all of its financial columns; neutral fields never contribute to totals.
+ * The caller supplies the same effective cell values displayed in the grid.
+ */
+export function groupedExcelTotals(
+  rows: SheetRow[],
+  columns: SheetColumn[],
+  readCell: (row: SheetRow, column: SheetColumn) => unknown
+): Record<CurrencyCode, ExcelFinancialTotals> {
+  const empty = (): ExcelFinancialTotals => ({ income: 0, expense: 0, investment: 0, balance: 0 });
+  const totals: Record<CurrencyCode, ExcelFinancialTotals> = { MXN: empty(), USD: empty() };
+  for (const row of rows) {
+    const currency = row.currency === 'USD' ? 'USD' : 'MXN'; // pre-currency legacy rows are MXN
+    for (const column of columns) {
+      const kind = column.behavior || 'neutral';
+      if (kind === 'neutral') continue;
+      const raw = readCell(row, column);
+      const amount = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[$,\\s]/g, ''));
+      if (!Number.isFinite(amount)) continue;
+      totals[currency][kind] += amount;
+    }
+  }
+  for (const currency of ['MXN', 'USD'] as const) {
+    const t = totals[currency];
+    t.balance = t.income - t.expense - t.investment;
+  }
+  return totals;
+}
+
+/** No implicit FX conversion, including when only one currency has a balance. */
 export function formatMoneyTotals(
   rows: Pick<SheetRow, 'amount' | 'currency' | 'status'>[],
   statuses?: SheetStatus[]
 ): string {
-  const { MXN, USD } = groupedMoney(rows, statuses);
-  if (USD === 0) return formatMoneyAmount(MXN, 'MXN');
-  if (MXN === 0) return formatMoneyAmount(USD, 'USD');
-  return `${formatMoneyAmount(MXN, 'MXN')} MXN · ${formatMoneyAmount(USD, 'USD')}`;
+  return formatMoneyBuckets(groupedMoney(rows, statuses));
 }
