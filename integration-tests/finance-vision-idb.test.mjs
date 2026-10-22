@@ -49,7 +49,7 @@ test('Vision saves fee and a USD deposit on its own date, with zero stored image
   await fresh();
   try {
     const evt = create();
-    evt.action.finance = { amount: 25000, currency: 'MXN', financialType: 'income' };
+    evt.action.finance = { amount: 25000, currency: 'USD', financialType: 'income' };
     evt.financeSources = ['Foto 1'];
     const saved = await commitNoahVision([evt, deposit()], [source(1), source(2)]);
     assert.deepEqual(saved, { eventCount: 1, movementCount: 1, eventPhotoCount: 0, paymentPhotoCount: 0 });
@@ -57,7 +57,7 @@ test('Vision saves fee and a USD deposit on its own date, with zero stored image
     assert.equal(all.length, 2);
     const fee = all.find(x => x.amount === 25000);
     const payment = all.find(x => x.amount === 7000);
-    assert.equal(fee?.currency, 'MXN');
+    assert.equal(fee?.currency, 'USD');
     assert.equal(payment?.currency, 'USD');
     assert.equal(payment?.calendarDate, '2026-10-15');
     assert.equal(payment?.calendarDateSource, 'manual');
