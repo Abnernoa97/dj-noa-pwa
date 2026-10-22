@@ -39,6 +39,7 @@ import './hard-rock-market.css';
 import './sports-context.css';
 import './sports-realtime.css';
 import './ios-dark-redesign.css';
+import './excel-landscape.css';
 
 let refreshing = false;
 if ('serviceWorker' in navigator) {
