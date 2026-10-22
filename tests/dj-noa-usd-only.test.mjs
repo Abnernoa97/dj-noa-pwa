@@ -23,6 +23,14 @@ test('USD-only contract math never adds advance to the contractual fee', () => {
   assert.equal(portfolioUsdSettlement(rows).contracted, 15000);
 });
 
+test('a received advance remains visible even without a documented contracted fee', () => {
+  const rows = [record('advance', 5000, 'deposit', 'paid')];
+  const result = portfolioUsdSettlement(rows);
+  assert.equal(result.contracted, null);
+  assert.equal(result.received, 5000);
+  assert.equal(result.pending, null);
+});
+
 test('marking the fee paid cannot add paid deposits again', () => {
   const rows = [
     record('fee', 15000, 'fee', 'paid'),
