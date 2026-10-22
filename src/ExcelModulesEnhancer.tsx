@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from './db';
-import { formatMoneyBuckets, groupedExcelTotals } from './moneyIntegrity';
+import { formatMoneyAmount } from './moneyIntegrity';
+import { portfolioUsdSettlement } from './financialOverview';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from './types';
 
 const BEHAVIOR_LABEL: Record<SheetColumnBehavior, string> = {
@@ -141,12 +142,9 @@ export default function ExcelModulesEnhancer() {
     return preferred?.id === column.id ? row.amount : '';
   };
 
-  const totals = useMemo(() => groupedExcelTotals(rows, columns, effectiveCellValue), [rows, columns]);
-
-  const summaryValue = (field: 'balance' | 'income' | 'expense') => formatMoneyBuckets({
-    MXN: field === 'expense' ? totals.MXN.expense + totals.MXN.investment : totals.MXN[field],
-    USD: field === 'expense' ? totals.USD.expense + totals.USD.investment : totals.USD[field]
-  });
+  const overview = useMemo(() => portfolioUsdSettlement(rows), [rows]);
+  const summaryValue = (value: number | null) =>
+    value === null ? 'Por revisar' : formatMoneyAmount(value, 'USD') + ' USD';
 
   const addRow = async () => {
     const now = new Date().toISOString();
@@ -171,6 +169,7 @@ export default function ExcelModulesEnhancer() {
   };
 
   const patchCell = async (row: SheetRow, column: SheetColumn, rawValue: string) => {
+    if (row.currency !== 'USD') return; // Historical amounts are strictly read-only.
     const behavior = behaviorOf(column);
     const value: SheetValue = behavior === 'neutral' ? rawValue : numberValue(rawValue);
     const values = { ...(row.values || {}), [column.key]: value };
@@ -269,9 +268,9 @@ export default function ExcelModulesEnhancer() {
   return createPortal(
     <section className="excel-classic-grid" aria-label="Hoja de cálculo personalizada">
       <div className="excel-grid-summary">
-        <div><span>BALANCE</span><strong>{summaryValue('balance')}</strong></div>
-        <div><span>INGRESOS</span><strong>{summaryValue('income')}</strong></div>
-        <div><span>SALIDAS</span><strong>{summaryValue('expense')}</strong></div>
+        <div><span>CONTRATADO USD</span><strong>{summaryValue(overview.contracted)}</strong></div>
+        <div><span>RECIBIDO USD</span><strong>{summaryValue(overview.received)}</strong></div>
+        <div><span>PENDIENTE USD</span><strong>{summaryValue(overview.pending)}</strong></div>
       </div>
 
       <div className="excel-grid-toolbar">
@@ -319,7 +318,7 @@ export default function ExcelModulesEnhancer() {
 
           {rows.length ? rows.map((row, index) => <div className="excel-grid-row excel-grid-data-row" style={{ gridTemplateColumns }} key={row.id}>
             <button type="button" className="excel-grid-index row-action" onClick={() => void deleteRow(row)} title="Eliminar fila"><span>{index + 1}</span><Trash2 size={11} /></button>
-            <div className="excel-grid-concept excel-grid-cell"><input value={row.label} onChange={(event) => void patchLabel(row, event.target.value)} placeholder="Concepto…" /><select className="excel-grid-currency" value={row.currency || 'MXN'} aria-label={`Moneda, fila ${index + 1}`} onChange={(event) => void db.sheetRows.update(row.id, { currency: event.target.value as 'MXN' | 'USD', updatedAt: new Date().toISOString() })}><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+            <div className="excel-grid-concept excel-grid-cell"><input value={row.label} onChange={(event) => void patchLabel(row, event.target.value)} placeholder="Concepto…" /><span className="excel-grid-currency" title={row.currency === 'USD' ? 'Dólares estadounidenses' : 'Importe histórico excluido del balance USD'}>{row.currency === 'USD' ? 'USD' : 'Archivo'}</span></div>
             {columns.map((column) => {
               const behavior = behaviorOf(column);
               const value = effectiveCellValue(row, column);
@@ -327,7 +326,8 @@ export default function ExcelModulesEnhancer() {
                 <input
                   type={behavior === 'neutral' ? 'text' : 'number'}
                   inputMode={behavior === 'neutral' ? 'text' : 'decimal'}
-                  value={String(value ?? '')}
+                  value={row.currency === 'USD' || behavior === 'neutral' ? String(value ?? '') : ''}
+                  disabled={row.currency !== 'USD' && behavior !== 'neutral'}
                   onChange={(event) => void patchCell(row, column, event.target.value)}
                   placeholder={behavior === 'neutral' ? '—' : '0'}
                   aria-label={`${column.name}, fila ${index + 1}`}
@@ -340,7 +340,7 @@ export default function ExcelModulesEnhancer() {
       </div>
 
       <button type="button" className="excel-grid-add-row" onClick={() => void addRow()}><Plus size={15} /> Nueva fila</button>
-      <p className="excel-grid-note">Toca el nombre de una columna para decidir si suma, resta o solo guarda información.</p>
+      <p className="excel-grid-note">Todos los nuevos importes son USD. Los registros históricos sin conversión quedan conservados y excluidos del balance. Toca el nombre de una columna para configurar su cálculo.</p>
     </section>,
     host
   );
