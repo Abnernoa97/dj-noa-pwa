@@ -47,7 +47,7 @@ test('base Worker owns only health, push, reminders and assets', () => {
 
 
 test('Noah image analysis is grounded in a real multimodal vision pass', () => {
-  const imageWorker = read('worker/src/noahImage.ts');
+  const imageWorker = read('worker/src/noah/noahImage.ts');
   assert.match(imageWorker, /type: 'image_url'/);
   assert.match(imageWorker, /image_url: \{ url: image \}/);
   assert.match(imageWorker, /visionPrompt\(\)/);

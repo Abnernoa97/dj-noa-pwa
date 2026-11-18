@@ -1,8 +1,8 @@
 import baseWorker, { ReminderScheduler } from './index';
 import { handleMlbRequest } from './sports/mlb';
 import { handleNbaRequest } from './sports/nba';
-import { handleNoahChat } from './noahChat';
-import { handleNoahImage } from './noahImage';
+import { handleNoahChat } from './noah/noahChat';
+import { handleNoahImage } from './noah/noahImage';
 import { handleSportsAnalysis } from './sports/sportsAnalysis';
 import { handleSportsContext } from './sports/sportsContext';
 import { handleSportsLive } from './sports/sportsLive';
