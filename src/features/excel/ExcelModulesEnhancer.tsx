@@ -5,8 +5,8 @@ import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../db';
 import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../../domains/sheet/sheetValues';
-import { formatMoneyAmount } from '../../moneyIntegrity';
-import { portfolioUsdSettlement } from '../../financialOverview';
+import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
+import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../types';
 
 const BEHAVIOR_LABEL: Record<SheetColumnBehavior, string> = {

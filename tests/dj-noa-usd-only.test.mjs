@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { eventUsdSettlement, portfolioUsdSettlement } from '../src/financialOverview.ts';
-import { formatMoneyAmount, formatMoneyTotals } from '../src/moneyIntegrity.ts';
+import { eventUsdSettlement, portfolioUsdSettlement } from '../src/domains/finance/financialOverview.ts';
+import { formatMoneyAmount, formatMoneyTotals } from '../src/domains/finance/moneyIntegrity.ts';
 import { reconcilePhotoReads } from '../src/domains/noah/noahImageReconcile.ts';
 
 function record(id, amount, role, status = 'pending', currency = 'USD', eventId = 'event-1') {

@@ -3,8 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Bell, CalendarDays, Camera, Check, FileSpreadsheet, MapPin, Navigation, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../db';
-import { formatMoneyAmount } from '../../moneyIntegrity';
-import { eventUsdSettlement } from '../../financialOverview';
+import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
+import { eventUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../navigationBack';
 import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from '../../types';
 

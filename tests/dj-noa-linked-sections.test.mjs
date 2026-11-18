@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { eventScheduleDueAt, eventLinkedReminderPatch } from '../src/domains/events/eventSchedule.ts';
 import { linkedRowPatchForEventChange } from '../src/domains/events/eventIntegrity.ts';
-import { formatMoneyAmount, formatMoneyTotals, groupedMoney } from '../src/moneyIntegrity.ts';
+import { formatMoneyAmount, formatMoneyTotals, groupedMoney } from '../src/domains/finance/moneyIntegrity.ts';
 
 const event = {
   id: 'event-1', title: 'Flora Farms', date: '2026-11-20',

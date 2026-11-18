@@ -1,4 +1,4 @@
-import type { CurrencyCode, SheetColumn, SheetRow, SheetStatus } from './types';
+import type { CurrencyCode, SheetColumn, SheetRow, SheetStatus } from '../../types';
 
 export function groupedMoney(
   rows: Pick<SheetRow, 'amount' | 'currency' | 'status'>[],

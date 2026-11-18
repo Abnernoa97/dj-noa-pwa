@@ -4,8 +4,8 @@ import { es } from 'date-fns/locale';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
 import type { EventItem, ReminderItem, SheetRow } from '../../types';
 import { useNativeBack } from '../../navigationBack';
-import { formatMoneyAmount, formatMoneyTotals } from '../../moneyIntegrity';
-import { portfolioUsdSettlement } from '../../financialOverview';
+import { formatMoneyAmount, formatMoneyTotals } from '../../domains/finance/moneyIntegrity';
+import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 
 type CalendarMode = 'month' | 'week' | 'day';
 type DatePickerMode = 'month' | 'year' | null;

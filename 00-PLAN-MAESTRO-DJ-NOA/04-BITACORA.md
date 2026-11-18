@@ -68,3 +68,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Referencias actualizadas en `App.tsx` y `main.tsx`; los endpoints, el Worker y los cálculos se mantienen iguales.
 - Añadida prueba estructural de módulos sin copias; publicación y validación de Cloudflare pendientes.
 - P09 en curso hasta revisión de llamadas, caché, y QA de resultados en el teléfono.
+
+## 18/11/2026 · P05-a · Dominio financiero con ruta canónica
+- `finance.ts`, `financialOverview.ts` y `moneyIntegrity.ts` agrupados bajo `src/domains/finance/` sin conservar copias anteriores.
+- Consumo actualizado en Home/App, Excel, Calendario y Eventos; pruebas previas de USD e históricos mantienen sus mismos casos.
+- Sin cambios de fórmula ni de datos. Continúa pendiente revisión de lógica duplicada/ambigüedad, pruebas móviles y cierre de P05.

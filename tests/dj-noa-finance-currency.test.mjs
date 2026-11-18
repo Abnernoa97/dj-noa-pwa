@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { formatMoneyBuckets, formatMoneyTotals, groupedExcelTotals, groupedMoney } from '../src/moneyIntegrity.ts';
-import { financialSummary } from '../src/finance.ts';
+import { formatMoneyBuckets, formatMoneyTotals, groupedExcelTotals, groupedMoney } from '../src/domains/finance/moneyIntegrity.ts';
+import { financialSummary } from '../src/domains/finance/finance.ts';
 
 const col = (name, kind) => ({ id: name, key: name, name, behavior: kind, type: 'currency', position: 0, createdAt: 'now' });
 const cols = [col('income', 'income'), col('expense', 'expense'), col('investment', 'investment'), col('note', 'neutral')];

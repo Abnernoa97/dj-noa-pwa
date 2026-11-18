@@ -1,5 +1,5 @@
-import type { CurrencyCode, FinancialType, SheetRow } from './types';
-import { normalizeText as normalize } from './shared/normalizeText.ts';
+import type { CurrencyCode, FinancialType, SheetRow } from '../../types';
+import { normalizeText as normalize } from '../../shared/normalizeText.ts';
 
 const INCOME_WORDS = ['ganancia', 'ingreso', 'retribucion', 'cobro', 'venta', 'anticipo', 'deposito', 'honorario', 'comision'];
 const EXPENSE_WORDS = ['inversion', 'gasto', 'costo', 'pago', 'compra', 'proveedor', 'transporte', 'audio', 'produccion', 'publicidad'];

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { normalizeText } from '../src/shared/normalizeText.ts';
 import { normalizeSheetText } from '../src/domains/sheet/sheetValues.ts';
-import { financialTypeForCategory } from '../src/finance.ts';
+import { financialTypeForCategory } from '../src/domains/finance/finance.ts';
 
 test('finance, Excel and Noah share one accent-insensitive normalizer without conversion', () => {
   for (const [input, expected] of [
@@ -23,7 +23,7 @@ test('finance, Excel and Noah share one accent-insensitive normalizer without co
 
 test('older normalization implementations cannot creep back into audited modules', () => {
   for (const path of [
-    '../src/finance.ts', '../src/financialOverview.ts', '../src/domains/noah/noahImageReconcile.ts',
+    '../src/domains/finance/finance.ts', '../src/domains/finance/financialOverview.ts', '../src/domains/noah/noahImageReconcile.ts',
     '../src/domains/sheet/sheetValues.ts'
   ]) {
     const source = readFileSync(new URL(path, import.meta.url), 'utf8');

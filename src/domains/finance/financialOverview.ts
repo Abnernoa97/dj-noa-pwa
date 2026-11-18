@@ -1,5 +1,5 @@
-import type { SheetRow } from './types';
-import { normalizeText as normalize } from './shared/normalizeText.ts';
+import type { SheetRow } from '../../types';
+import { normalizeText as normalize } from '../../shared/normalizeText.ts';
 
 /** USD is the sole operational currency. Historical records are preserved verbatim. */
 export function isUsdRow(row: Pick<SheetRow, 'currency'>): boolean {

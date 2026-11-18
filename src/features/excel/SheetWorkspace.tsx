@@ -3,8 +3,8 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, RotateCw, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from '../../db';
 import { normalizeSheetText as normalize, numberValue } from '../../domains/sheet/sheetValues';
-import { formatMoneyAmount } from '../../moneyIntegrity';
-import { portfolioUsdSettlement } from '../../financialOverview';
+import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
+import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../navigationBack';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../types';
 
