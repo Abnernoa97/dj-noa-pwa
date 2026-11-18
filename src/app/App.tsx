@@ -3,7 +3,8 @@ import { liveQuery } from 'dexie';
 import { ChevronLeft } from 'lucide-react';
 import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
 import { useExcelLandscape } from '../features/excel/useExcelLandscape';
-import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
+import { addDays, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
+import { nextReminderOccurrence } from '../domains/reminders/reminderRecurrence';
 import { es } from 'date-fns/locale';
 import CalendarWorkspace from '../features/calendar/CalendarWorkspace';
 import { EventEditor, EventHub, EventsView, type EventDraft } from '../features/events/EventWorkspace';
@@ -38,12 +39,6 @@ import HomeView from './HomeView';
 function safeDate(value?: string) {
   if (!value) return null;
   try { return parseISO(value); } catch { return null; }
-}
-
-function nextReminderDate(dueAt: string, repeat: ReminderItem['repeat']) {
-  const current = parseISO(dueAt);
-  const next = repeat === 'daily' ? addDays(current, 1) : repeat === 'weekly' ? addWeeks(current, 1) : repeat === 'monthly' ? addMonths(current, 1) : current;
-  return next.toISOString();
 }
 
 function sortEvents(items: EventItem[]) {
@@ -622,7 +617,7 @@ export default function App() {
   const toggleReminder = async (item: ReminderItem) => {
     const now = new Date().toISOString();
     if (!item.done && item.repeat && item.repeat !== 'none' && item.dueAt) {
-      const dueAt = nextReminderDate(item.dueAt, item.repeat);
+      const dueAt = nextReminderOccurrence(item.dueAt, item.repeat);
       const patch = { dueAt, done: false, lastCompletedAt: now, lastNotifiedAt: undefined, updatedAt: now };
       await db.reminders.update(item.id, patch);
       setReminders((current) => current.map((entry) => entry.id === item.id ? { ...entry, ...patch } : entry));

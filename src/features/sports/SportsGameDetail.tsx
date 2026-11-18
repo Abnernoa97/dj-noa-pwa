@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Brain, TrendingDown, TrendingUp } from 'lucide-react';
 import { useNativeBack } from '../../app/navigationBack';
+import { odd, impliedProbability as implied, shortTeamName as shortTeam } from './sportsPresentation';
 
 type BookOdds = { provider: string; away: number; home: number };
 type Standing = {
@@ -69,27 +70,12 @@ type LivePayload = {
 
 type OddsPoint = { away?: number; home?: number; at: string };
 
-function odd(value?: number) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
-  return value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`;
-}
-
-function implied(value?: number) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return 0;
-  return value < 0 ? (-value) / ((-value) + 100) : 100 / (value + 100);
-}
-
 function movement(current?: number, previous?: number) {
   if (current === undefined || previous === undefined || current === previous) return null;
   const currentP = implied(current);
   const previousP = implied(previous);
   if (!currentP || !previousP) return null;
   return currentP > previousP ? 'up' : 'down';
-}
-
-function shortTeam(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return parts.length > 1 ? parts.slice(-1)[0] : name;
 }
 
 function eventDate(value: string) {

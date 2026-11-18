@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
-import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
+import { format, isToday, parseISO } from 'date-fns';
+import { nextReminderOccurrence } from '../../domains/reminders/reminderRecurrence';
 import { es } from 'date-fns/locale';
 import { db, uid } from '../../services/storage/db';
 import { eventScheduleDueAt, type EventScheduleAnchor } from '../../domains/events/eventSchedule';
@@ -27,12 +28,6 @@ type Draft = {
   repeat: ReminderRepeat;
   notificationEnabled: boolean;
 };
-
-function nextOccurrence(dueAt: string, repeat: ReminderRepeat) {
-  const current = parseISO(dueAt);
-  const next = repeat === 'daily' ? addDays(current, 1) : repeat === 'weekly' ? addWeeks(current, 1) : repeat === 'monthly' ? addMonths(current, 1) : current;
-  return next.toISOString();
-}
 
 function dueText(item: ReminderItem) {
   if (!item.dueAt) return 'Sin fecha';
@@ -67,7 +62,7 @@ export default function ReminderWorkspace({ items, events, onChanged, onAssistan
     const now = new Date().toISOString();
     const repeat = item.repeat || 'none';
     if (!item.done && repeat !== 'none' && item.dueAt) {
-      await db.reminders.update(item.id, { dueAt: nextOccurrence(item.dueAt, repeat), done: false, lastCompletedAt: now, lastNotifiedAt: undefined, updatedAt: now });
+      await db.reminders.update(item.id, { dueAt: nextReminderOccurrence(item.dueAt, repeat), done: false, lastCompletedAt: now, lastNotifiedAt: undefined, updatedAt: now });
     } else {
       await db.reminders.update(item.id, { done: !item.done, lastCompletedAt: !item.done ? now : item.lastCompletedAt, updatedAt: now });
     }
