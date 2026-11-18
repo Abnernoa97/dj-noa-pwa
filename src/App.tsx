@@ -5,8 +5,8 @@ import { performNativeBack, useNativeBack, useSystemBack } from './navigationBac
 import { useExcelLandscape } from './features/excel/useExcelLandscape';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import CalendarWorkspace from './CalendarWorkspace';
-import { EventEditor, EventHub, EventsView, type EventDraft } from './EventWorkspace';
+import CalendarWorkspace from './features/calendar/CalendarWorkspace';
+import { EventEditor, EventHub, EventsView, type EventDraft } from './features/events/EventWorkspace';
 import MlbWorkspace from './MlbWorkspace';
 import NoahActionOverlay from './NoahActionOverlay';
 import NoahImageIntake from './NoahImageIntake';
@@ -14,14 +14,14 @@ import { commitNoahVision, type VisionSource } from './noahVisionCommit';
 import type { ReviewAction } from './noahImageReconcile';
 import NoahVoice, { type NoahVoiceHandle } from './NoahVoice';
 
-import ReminderWorkspace from './ReminderWorkspace';
+import ReminderWorkspace from './features/tasks/ReminderWorkspace';
 import SheetWorkspace from './features/excel/SheetWorkspace';
 import { db, uid } from './db';
-import { normalizedEventIdentity } from './eventIntegrity';
+import { normalizedEventIdentity } from './domains/events/eventIntegrity';
 import { formatMoneyAmount } from './moneyIntegrity';
 import { portfolioUsdSettlement } from './financialOverview';
-import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from './eventMutations';
-import { scheduleReminderNotifications } from './reminderNotifications';
+import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from './domains/events/eventMutations';
+import { scheduleReminderNotifications } from './features/tasks/reminderNotifications';
 import type { AppView, EventItem, ReminderItem, SheetRow } from './types';
 import {
   eventActionLabel,

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { eventScheduleDueAt, eventLinkedReminderPatch } from '../src/eventSchedule.ts';
-import { linkedRowPatchForEventChange } from '../src/eventIntegrity.ts';
+import { eventScheduleDueAt, eventLinkedReminderPatch } from '../src/domains/events/eventSchedule.ts';
+import { linkedRowPatchForEventChange } from '../src/domains/events/eventIntegrity.ts';
 import { formatMoneyAmount, formatMoneyTotals, groupedMoney } from '../src/moneyIntegrity.ts';
 
 const event = {
@@ -72,16 +72,16 @@ test('currency sums never merge USD with MXN', () => {
 });
 
 test('calendar, event, excel and home share currency-aware summaries', () => {
-  for (const path of ['EventWorkspace.tsx', 'CalendarWorkspace.tsx', 'features/excel/SheetWorkspace.tsx']) {
+  for (const path of ['features/events/EventWorkspace.tsx', 'features/calendar/CalendarWorkspace.tsx', 'features/excel/SheetWorkspace.tsx']) {
     const s = readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
     assert.match(s, /UsdSettlement/, path);
   }
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(app, /portfolioUsdSettlement\(sheetRows\)/);
-  const mut = readFileSync(new URL('../src/eventMutations.ts', import.meta.url), 'utf8');
+  const mut = readFileSync(new URL('../src/domains/events/eventMutations.ts', import.meta.url), 'utf8');
   assert.match(mut, /eventLinkedReminderPatch\(/);
   assert.match(mut, /db\.transaction\('rw', \[db\.events, db\.sheetRows, db\.reminders\]/);
-  const ui = readFileSync(new URL('../src/ReminderWorkspace.tsx', import.meta.url), 'utf8');
+  const ui = readFileSync(new URL('../src/features/tasks/ReminderWorkspace.tsx', import.meta.url), 'utf8');
   assert.match(ui, /SEGUIR HORARIO DEL EVENTO/);
   assert.match(ui, /eventScheduleDueAt\(/);
   const sheet = readFileSync(new URL('../src/features/excel/SheetWorkspace.tsx', import.meta.url), 'utf8');

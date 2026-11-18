@@ -1,4 +1,4 @@
-import type { EventItem, SheetRow } from './types';
+import type { EventItem, SheetRow } from '../../types';
 
 /**
  * Pure relationship rules shared by all DJ NOA writers.

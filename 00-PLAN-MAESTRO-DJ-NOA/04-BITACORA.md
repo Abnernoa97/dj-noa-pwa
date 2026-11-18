@@ -50,3 +50,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - No se duplican los archivos de origen. Se reescribieron rutas en App, entrypoint, auditor y pruebas, y se añadió guard para impedir regresiones de estructura.
 - Se conservan internamente los módulos de cálculo/persistencia y las opciones actuales; **P04 sigue EN CURSO** hasta consolidar las responsabilidades de ambas tablas y QA móvil.
 - Certificación de Cloudflare para esta tanda: pendiente del resultado del build.
+
+## 18/11/2026 · P06-a · Capítulos Eventos, Calendario y Tareas
+- Traslado sin copias de 7 archivos: vistas Eventos/Calendario/Tareas, avisos de Tareas, lógica de identidad, mutaciones transaccionales y horarios vinculados a eventos.
+- Rutas definitivas: `src/features/{events,calendar,tasks}/` y `src/domains/events/`.
+- Actualización de imports de App y Noah, referencias de pruebas, auditor de estructura y guard específico. Sin migración IndexedDB ni cambios funcionales previstos.
+- P06 permanece EN CURSO: aún falta auditar sincronización real entre módulos y QA de teléfonos; publicar únicamente tras Cloudflare SUCCESS.

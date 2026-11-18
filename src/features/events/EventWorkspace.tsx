@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Bell, CalendarDays, Camera, Check, FileSpreadsheet, MapPin, Navigation, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
-import { db, uid } from './db';
-import { formatMoneyAmount } from './moneyIntegrity';
-import { eventUsdSettlement } from './financialOverview';
-import { useNativeBack } from './navigationBack';
-import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from './types';
+import { db, uid } from '../../db';
+import { formatMoneyAmount } from '../../moneyIntegrity';
+import { eventUsdSettlement } from '../../financialOverview';
+import { useNativeBack } from '../../navigationBack';
+import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from '../../types';
 
 export type EventDraft = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;
 

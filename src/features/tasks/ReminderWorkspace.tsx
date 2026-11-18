@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { db, uid } from './db';
-import { eventScheduleDueAt, type EventScheduleAnchor } from './eventSchedule';
-import { useNativeBack } from './navigationBack';
+import { db, uid } from '../../db';
+import { eventScheduleDueAt, type EventScheduleAnchor } from '../../domains/events/eventSchedule';
+import { useNativeBack } from '../../navigationBack';
 import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';
-import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from './types';
+import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from '../../types';
 
 type Props = {
   items: ReminderItem[];

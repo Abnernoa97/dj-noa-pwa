@@ -1,6 +1,6 @@
 import { db, uid } from './db';
-import { createEventWithRelations } from './eventMutations';
-import { isValidEventDate, normalizedEventIdentity } from './eventIntegrity';
+import { createEventWithRelations } from './domains/events/eventMutations';
+import { isValidEventDate, normalizedEventIdentity } from './domains/events/eventIntegrity';
 import type { ReviewAction } from './noahImageReconcile';
 import type { SheetRow } from './types';
 

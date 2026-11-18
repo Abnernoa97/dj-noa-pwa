@@ -6,7 +6,7 @@ import {
   normalizedEventIdentity,
   linkedRowPatchForEventChange,
   makePlaceholderRow
-} from '../src/eventIntegrity.ts';
+} from '../src/domains/events/eventIntegrity.ts';
 
 const event = {
   id: 'event-1', title: 'Feria San Miguel', date: '2026-11-20',
@@ -62,7 +62,7 @@ test('new blank Excel concept uses eventId, date and neutral zero amount', () =>
 
 test('app delegates all event writes to central transactional store', () => {
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  const mut = readFileSync(new URL('../src/eventMutations.ts', import.meta.url), 'utf8');
+  const mut = readFileSync(new URL('../src/domains/events/eventMutations.ts', import.meta.url), 'utf8');
   assert.match(app, /createEventsWithRelations\(/);
   assert.match(app, /createEventWithRelations\(/);
   assert.match(app, /updateEventWithRelations\(/);

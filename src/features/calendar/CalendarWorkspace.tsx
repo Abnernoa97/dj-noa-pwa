@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
-import type { EventItem, ReminderItem, SheetRow } from './types';
-import { useNativeBack } from './navigationBack';
-import { formatMoneyAmount, formatMoneyTotals } from './moneyIntegrity';
-import { portfolioUsdSettlement } from './financialOverview';
+import type { EventItem, ReminderItem, SheetRow } from '../../types';
+import { useNativeBack } from '../../navigationBack';
+import { formatMoneyAmount, formatMoneyTotals } from '../../moneyIntegrity';
+import { portfolioUsdSettlement } from '../../financialOverview';
 
 type CalendarMode = 'month' | 'week' | 'day';
 type DatePickerMode = 'month' | 'year' | null;
