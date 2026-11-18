@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CalendarDays, CalendarCheck2, ChevronRight, CheckCircle2, FileSpreadsheet, ImagePlus, Mic, Plus } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import NbaWorkspace from '../NbaWorkspace';
+import NbaWorkspace from '../features/sports/NbaWorkspace';
 import { useNativeBack } from '../navigationBack';
 import type { AppView, EventItem, ReminderItem } from '../types';
 
