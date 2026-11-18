@@ -1,5 +1,5 @@
 import { json } from '../shared/http';
-import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus } from './shared/espnCore';
+import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus, createTeamView, compareGameStartTime } from './shared/espnCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -74,11 +74,7 @@ function officialStatus(game: AnyRecord) {
   return { status: 'scheduled' as const, statusText: text || 'PROGRAMADO' };
 }
 
-function teamView(value: AnyRecord): TeamView {
-  const team = rec(value.team);
-  const name = str(team.displayName) || str(team.name) || str(team.shortDisplayName) || 'Equipo';
-  return { name, abbreviation: abbr(name, str(team.abbreviation)), logo: str(team.logo) || undefined, score: str(value.score) || undefined };
-}
+const teamView = createTeamView(abbr);
 
 function officialTeamView(value: AnyRecord): TeamView {
   const city = str(value.teamCity);
@@ -245,13 +241,7 @@ async function loadGames(date: string): Promise<GameView[]> {
   return sortGames(schedule);
 }
 
-function sortGames(games: GameView[]) {
-  return [...games].sort((a, b) => {
-    const aTime = new Date(a.startTime).getTime();
-    const bTime = new Date(b.startTime).getTime();
-    return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
-  });
-}
+function sortGames(games: GameView[]) { return [...games].sort(compareGameStartTime); }
 
 function stat(entry: AnyRecord, names: string[]) {
   const stats = list(entry.stats).map(rec);

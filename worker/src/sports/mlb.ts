@@ -1,5 +1,5 @@
 import { json } from '../shared/http';
-import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus } from './shared/espnCore';
+import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus, createTeamView, compareGameStartTime } from './shared/espnCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -57,19 +57,9 @@ async function getJson(url: string): Promise<unknown> {
   return response.json();
 }
 
-function teamView(value: AnyRecord): TeamView {
-  const team = rec(value.team);
-  const name = str(team.displayName) || str(team.name) || str(team.shortDisplayName) || 'Equipo';
-  return { name, abbreviation: abbr(name, str(team.abbreviation)), logo: str(team.logo) || undefined, score: str(value.score) || undefined };
-}
+const teamView = createTeamView(abbr);
 
-function sortGames(games: GameView[]) {
-  return games.sort((a, b) => {
-    const aTime = new Date(a.startTime).getTime();
-    const bTime = new Date(b.startTime).getTime();
-    return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
-  });
-}
+function sortGames(games: GameView[]) { return games.sort(compareGameStartTime); }
 
 function parseEspnGames(payload: unknown): GameView[] {
   const root = rec(payload);

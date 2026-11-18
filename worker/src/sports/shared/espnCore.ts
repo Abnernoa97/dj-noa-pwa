@@ -75,3 +75,19 @@ export function marketConsensus(books: BookView[]) {
   };
 }
 
+
+/** ESPN team view with the league-specific abbreviation resolver injected exactly once. */
+export function createTeamView(abbr: (name: string, supplied?: string) => string) {
+  return (value: AnyRecord) => {
+    const team = rec(value.team);
+    const name = str(team.displayName) || str(team.name) || str(team.shortDisplayName) || 'Equipo';
+    return { name, abbreviation: abbr(name, str(team.abbreviation)), logo: str(team.logo) || undefined, score: str(value.score) || undefined };
+  };
+}
+
+/** Match the original ESPN game ordering while preserving the caller's mutation policy. */
+export function compareGameStartTime(a: {startTime: string}, b: {startTime: string}): number {
+  const aTime = new Date(a.startTime).getTime();
+  const bTime = new Date(b.startTime).getTime();
+  return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
+}
