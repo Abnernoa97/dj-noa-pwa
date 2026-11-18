@@ -6,9 +6,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 test('global scroll fix loads last so it wins the CSS cascade', () => {
   const main = read('src/main.tsx');
-  const visual = main.indexOf("import 'src/styles/core/visual-polish.css';");
-  const excel = main.indexOf("import 'src/features/excel/styles/excel-scroll-fix.css';");
-  const global = main.indexOf("import 'src/styles/core/scroll-fix.css';");
+  const visual = main.indexOf("import './styles/core/visual-polish.css';");
+  const excel = main.indexOf("import './features/excel/styles/excel-scroll-fix.css';");
+  const global = main.indexOf("import './styles/core/scroll-fix.css';");
   assert.ok(visual >= 0);
   assert.ok(excel >= 0);
   assert.ok(global > visual);

@@ -35,5 +35,12 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - El auditor experimental encontró 81 fuentes, 80 alcanzables y un candidato `src/finance.ts`. No borrarlo: revisar exportaciones y consumidores de tests antes de clasificarlo como obsoleto.
 - CSS: 33 hojas y 3,008 apariciones de `!important`; dato heurístico para P10, no defectos confirmados.
 
+## 18/11/2026 · P10-a, organización física de CSS por capítulos
+- Los **33 archivos CSS** se trasladaron sin editar su contenido a `src/features/{calendar,events,excel,tasks,noah,safety,home,sports}/styles/` (27) y `src/styles/core/` (6).
+- El orden original de las 33 importaciones en `src/main.tsx` se conservó. No quedan copias CSS en la raíz de `src/`.
+- La primera compilación Cloudflare de commit `8aefe2ed` detuvo el despliegue correctamente: 67/70 tests SUCCESS, pero 3 tests exigían las rutas antiguas de estilos. La app de producción **no** cambió durante ese build fallido.
+- Se corrigieron las tres referencias de pruebas, sin cambiar el CSS ni el diseño. Se añadió `tests/dj-noa-css-chapters.test.mjs` para conservar los capítulos y la precedencia. Cerrar P10 solo después del build corregido y QA visual en teléfonos.
+- **No se han borrado ramas**: la limpieza de refs queda pendiente de inventariar commits únicos y de un método de eliminación de ramas autorizado en la conexión actual.
+
 ## Próximo bloque
 **P01:** mapa de importaciones reales, CSS con propietarios, escritor canónico de cada dato y catálogo de candidatos. No borrar por similitud de nombres. Conservar esta bitácora como referencia única para otros chats.

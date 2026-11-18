@@ -13,8 +13,8 @@ test('Excel owns one natural vertical touch scroller', () => {
 });
 
 test('Excel scroll fix loads after the visual polish layer', () => {
-  const visual = main.indexOf("import 'src/styles/core/visual-polish.css'");
-  const scroll = main.indexOf("import 'src/features/excel/styles/excel-scroll-fix.css'");
+  const visual = main.indexOf("import './styles/core/visual-polish.css'");
+  const scroll = main.indexOf("import './features/excel/styles/excel-scroll-fix.css'");
   assert.ok(visual >= 0);
   assert.ok(scroll > visual);
 });

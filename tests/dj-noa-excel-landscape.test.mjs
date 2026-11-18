@@ -32,7 +32,7 @@ test('landscape layout is isolated, preserves native navigation and independent 
   const style = file('src/features/excel/styles/excel-landscape.css');
   const entry = file('src/main.tsx');
   const grid = file('src/ExcelModulesEnhancer.tsx');
-  assert.match(entry, /import '\.\/excel-landscape\.css'/);
+  assert.match(entry, /import '\.\/features\/excel\/styles\/excel-landscape\.css'/);
   assert.match(style, /@media \(orientation: landscape\)/);
   assert.match(style, /body\.excel-landscape-scope \.ios-shell/);
   assert.match(style, /\.excel-grid-scroll/);
