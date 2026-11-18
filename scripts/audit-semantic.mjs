@@ -1,5 +1,5 @@
-import './audit-css-prunable.mjs';
 #!/usr/bin/env node
+import './audit-css-prunable.mjs';
 /** DJ NOA P01. Read-only audit. Matches are REVIEW CANDIDATES, never deletions. */
 import {createRequire} from 'node:module';
 import {readFileSync,readdirSync} from 'node:fs';
