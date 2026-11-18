@@ -7,7 +7,7 @@ const file = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 test('PWA allows orientation changes but Excel alone requests landscape', () => {
   const manifest = file('vite.config.ts');
   const orientation = file('src/features/excel/useExcelLandscape.ts');
-  const app = file('src/App.tsx');
+  const app = file('src/app/App.tsx');
   assert.match(manifest, /orientation: 'any'/);
   assert.match(orientation, /orientation\.lock\('landscape'\)/);
   assert.match(orientation, /orientation\.lock\('portrait'\)/);

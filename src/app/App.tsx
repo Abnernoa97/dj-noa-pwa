@@ -2,27 +2,27 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { ChevronLeft } from 'lucide-react';
 import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
-import { useExcelLandscape } from './features/excel/useExcelLandscape';
+import { useExcelLandscape } from '../features/excel/useExcelLandscape';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import CalendarWorkspace from './features/calendar/CalendarWorkspace';
-import { EventEditor, EventHub, EventsView, type EventDraft } from './features/events/EventWorkspace';
-import MlbWorkspace from './features/sports/MlbWorkspace';
-import NoahActionOverlay from './features/noah/NoahActionOverlay';
-import NoahImageIntake from './features/noah/NoahImageIntake';
-import { commitNoahVision, type VisionSource } from './domains/noah/noahVisionCommit';
-import type { ReviewAction } from './domains/noah/noahImageReconcile';
-import NoahVoice, { type NoahVoiceHandle } from './features/noah/NoahVoice';
+import CalendarWorkspace from '../features/calendar/CalendarWorkspace';
+import { EventEditor, EventHub, EventsView, type EventDraft } from '../features/events/EventWorkspace';
+import MlbWorkspace from '../features/sports/MlbWorkspace';
+import NoahActionOverlay from '../features/noah/NoahActionOverlay';
+import NoahImageIntake from '../features/noah/NoahImageIntake';
+import { commitNoahVision, type VisionSource } from '../domains/noah/noahVisionCommit';
+import type { ReviewAction } from '../domains/noah/noahImageReconcile';
+import NoahVoice, { type NoahVoiceHandle } from '../features/noah/NoahVoice';
 
-import ReminderWorkspace from './features/tasks/ReminderWorkspace';
-import SheetWorkspace from './features/excel/SheetWorkspace';
-import { db, uid } from './db';
-import { normalizedEventIdentity } from './domains/events/eventIntegrity';
-import { formatMoneyAmount } from './domains/finance/moneyIntegrity';
-import { portfolioUsdSettlement } from './domains/finance/financialOverview';
-import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from './domains/events/eventMutations';
-import { scheduleReminderNotifications } from './features/tasks/reminderNotifications';
-import type { AppView, EventItem, ReminderItem, SheetRow } from './types';
+import ReminderWorkspace from '../features/tasks/ReminderWorkspace';
+import SheetWorkspace from '../features/excel/SheetWorkspace';
+import { db, uid } from '../db';
+import { normalizedEventIdentity } from '../domains/events/eventIntegrity';
+import { formatMoneyAmount } from '../domains/finance/moneyIntegrity';
+import { portfolioUsdSettlement } from '../domains/finance/financialOverview';
+import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from '../domains/events/eventMutations';
+import { scheduleReminderNotifications } from '../features/tasks/reminderNotifications';
+import type { AppView, EventItem, ReminderItem, SheetRow } from '../types';
 import {
   eventActionLabel,
   sectionName,
@@ -32,9 +32,9 @@ import {
   type NoahEventActionResult,
   type NoahEventPatch,
   type NoahFinanceInput
-} from './domains/noah/noahEvents';
-import BottomNav from './app/BottomNav';
-import HomeView from './app/HomeView';
+} from '../domains/noah/noahEvents';
+import BottomNav from './BottomNav';
+import HomeView from './HomeView';
 
 function safeDate(value?: string) {
   if (!value) return null;

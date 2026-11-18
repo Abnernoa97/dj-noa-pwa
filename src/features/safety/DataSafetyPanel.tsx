@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { DatabaseBackup, Download, ShieldCheck, Upload, X } from 'lucide-react';
 import { downloadDjNoaBackup, restoreDjNoaBackup } from '../../services/storage/dataBackup';
-import { useNativeBack } from '../../navigationBack';
+import { useNativeBack } from '../../app/navigationBack';
 
 export default function DataSafetyPanel() {
   const [open, setOpen] = useState(false);

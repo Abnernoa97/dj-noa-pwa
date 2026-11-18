@@ -83,7 +83,7 @@ test('event total and deposit are distinct, never interpreted as the same amount
 test('Vision commits only structured records; manual event and sheet photos remain independent',()=>{
   const commit=readFileSync(new URL('../src/domains/noah/noahVisionCommit.ts',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../src/features/noah/NoahImageIntake.tsx',import.meta.url),'utf8');
-  const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+  const app=readFileSync(new URL('../src/app/App.tsx',import.meta.url),'utf8');
   const worker=readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
   const optimizer=readFileSync(new URL('../src/services/media/photoOptimization.ts',import.meta.url),'utf8');
   assert.match(commit,/db\.transaction\('rw', \[db\.events, db\.sheetRows\]/);

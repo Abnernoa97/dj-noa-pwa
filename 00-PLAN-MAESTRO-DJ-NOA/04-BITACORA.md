@@ -78,3 +78,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - `DataSafetyPanel` y `AppMaintenance` trasladados a `src/features/safety/` y el servicio de copias `dataBackup` a `src/services/storage/`.
 - No cambia el archivo de datos, schema Dexie, el origen de la PWA ni el contrato de restauración. Se eliminan las rutas previas y se añaden pruebas de estructura.
 - P02 sigue EN CURSO: todavía falta el inventario completo de datos y la prueba física del respaldo en dispositivos.
+
+## 18/11/2026 · P03-a · Coordinador y navegación agrupados
+- Traslado de `App.tsx` y `navigationBack.ts` a `src/app/`, sin crear copias ni modificar reglas de negocio.
+- `src/main.tsx` sigue siendo el bootstrap PWA; todas las pantallas usan `src/app/navigationBack.ts` como única implementación.
+- Ajustados componentes, pruebas y auditor de estructura para las rutas canónicas. Se agregó prueba de capítulo y documentación.
+- P03 permanece EN CURSO: extracción semántica de responsabilidades y QA de retroceso nativo quedan pendientes. Cierre del traslado solo tras Cloudflare SUCCESS.

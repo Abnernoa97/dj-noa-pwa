@@ -61,7 +61,7 @@ test('new blank Excel concept uses eventId, date and neutral zero amount', () =>
 });
 
 test('app delegates all event writes to central transactional store', () => {
-  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
   const mut = readFileSync(new URL('../src/domains/events/eventMutations.ts', import.meta.url), 'utf8');
   assert.match(app, /createEventsWithRelations\(/);
   assert.match(app, /createEventWithRelations\(/);

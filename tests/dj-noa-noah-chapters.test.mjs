@@ -21,10 +21,10 @@ test('Noah UI, business rules and shared media are in canonical chapters, with n
  }
 });
 test('App routes Noah actions to the same canonical implementation and storage identity is unchanged',()=>{
- const app=read('src/App.tsx');
- assert.match(app,/from '\.\/features\/noah\/NoahVoice'/);
- assert.match(app,/from '\.\/features\/noah\/NoahImageIntake'/);
- assert.match(app,/from '\.\/domains\/noah\/noahVisionCommit'/);
+ const app=read('src/app/App.tsx');
+ assert.match(app,/from '\.\.\/features\/noah\/NoahVoice'/);
+ assert.match(app,/from '\.\.\/features\/noah\/NoahImageIntake'/);
+ assert.match(app,/from '\.\.\/domains\/noah\/noahVisionCommit'/);
  const db=read('src/db.ts');
  assert.match(db,/super\('dj-noa-local'\)/);
  const commit=read('src/domains/noah/noahVisionCommit.ts');

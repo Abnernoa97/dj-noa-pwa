@@ -4,7 +4,7 @@ import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fn
 import { es } from 'date-fns/locale';
 import { db, uid } from '../../db';
 import { eventScheduleDueAt, type EventScheduleAnchor } from '../../domains/events/eventSchedule';
-import { useNativeBack } from '../../navigationBack';
+import { useNativeBack } from '../../app/navigationBack';
 import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';
 import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from '../../types';
 

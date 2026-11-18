@@ -76,7 +76,7 @@ test('calendar, event, excel and home share currency-aware summaries', () => {
     const s = readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
     assert.match(s, /UsdSettlement/, path);
   }
-  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
   assert.match(app, /portfolioUsdSettlement\(sheetRows\)/);
   const mut = readFileSync(new URL('../src/domains/events/eventMutations.ts', import.meta.url), 'utf8');
   assert.match(mut, /eventLinkedReminderPatch\(/);

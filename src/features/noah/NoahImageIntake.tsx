@@ -4,7 +4,7 @@ import { db } from '../../db';
 import { normalizedEventIdentity, isValidEventDate } from '../../domains/events/eventIntegrity';
 import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from '../../domains/noah/noahImageReconcile';
 import type { VisionSource } from '../../domains/noah/noahVisionCommit';
-import { useNativeBack } from '../../navigationBack';
+import { useNativeBack } from '../../app/navigationBack';
 import type { NoahChatAction } from '../../domains/noah/noahExcel';
 import type { SheetColumn, SheetValue } from '../../types';
 

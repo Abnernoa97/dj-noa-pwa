@@ -20,11 +20,11 @@ for(const [oldPath,canonical] of Object.entries(moved)){
 }
 });
 test('Event mutation contract stays single and Event/Calendar/Tasks routes remain wired',()=>{
-const app=read('src/App.tsx');
-assert.match(app,/from '\.\/domains\/events\/eventMutations'/);
-assert.match(app,/from '\.\/features\/events\/EventWorkspace'/);
-assert.match(app,/from '\.\/features\/calendar\/CalendarWorkspace'/);
-assert.match(app,/from '\.\/features\/tasks\/ReminderWorkspace'/);
+const app=read('src/app/App.tsx');
+assert.match(app,/from '\.\.\/domains\/events\/eventMutations'/);
+assert.match(app,/from '\.\.\/features\/events\/EventWorkspace'/);
+assert.match(app,/from '\.\.\/features\/calendar\/CalendarWorkspace'/);
+assert.match(app,/from '\.\.\/features\/tasks\/ReminderWorkspace'/);
 const mutations=read('src/domains/events/eventMutations.ts');
 assert.match(mutations,/db\.transaction\('rw', \[db\.events, db\.sheetRows, db\.reminders\]/);
 assert.match(mutations,/eventLinkedReminderPatch\(/);

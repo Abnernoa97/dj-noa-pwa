@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Brain, TrendingDown, TrendingUp } from 'lucide-react';
-import { useNativeBack } from '../../navigationBack';
+import { useNativeBack } from '../../app/navigationBack';
 
 type BookOdds = { provider: string; away: number; home: number };
 type Standing = {

@@ -5,7 +5,7 @@ import { db, uid } from '../../db';
 import { normalizeSheetText as normalize, numberValue } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
-import { useNativeBack } from '../../navigationBack';
+import { useNativeBack } from '../../app/navigationBack';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../types';
 
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];

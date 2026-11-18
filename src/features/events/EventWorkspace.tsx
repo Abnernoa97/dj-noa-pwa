@@ -5,7 +5,7 @@ import { ArrowLeft, Bell, CalendarDays, Camera, Check, FileSpreadsheet, MapPin, 
 import { db, uid } from '../../db';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { eventUsdSettlement } from '../../domains/finance/financialOverview';
-import { useNativeBack } from '../../navigationBack';
+import { useNativeBack } from '../../app/navigationBack';
 import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from '../../types';
 
 export type EventDraft = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;

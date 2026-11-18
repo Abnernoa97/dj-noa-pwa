@@ -9,9 +9,9 @@ test('Excel components and orientation live in one chapter without legacy copies
   assert.ok(existsSync(new URL('src/features/excel/'+name,root)),name);
   assert.equal(existsSync(new URL('src/'+name,root)),false,'No duplicated root '+name);
  }
- const app=read('src/App.tsx'),main=read('src/main.tsx');
- assert.match(app,/from '\.\/features\/excel\/SheetWorkspace'/);
- assert.match(app,/from '\.\/features\/excel\/useExcelLandscape'/);
+ const app=read('src/app/App.tsx'),main=read('src/main.tsx');
+ assert.match(app,/from '\.\.\/features\/excel\/SheetWorkspace'/);
+ assert.match(app,/from '\.\.\/features\/excel\/useExcelLandscape'/);
  assert.match(main,/from '\.\/features\/excel\/ExcelModulesEnhancer'/);
  assert.match(read('src/features/excel/SheetWorkspace.tsx'),/\.\.\/\.\.\/domains\/sheet\/sheetValues/);
 });

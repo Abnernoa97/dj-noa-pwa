@@ -9,7 +9,7 @@ for(const name of ['finance.ts','financialOverview.ts','moneyIntegrity.ts']){
 }
 });
 test('USD reconciliation remains shared by Excel, Calendar, Events and App',()=>{
-for(const p of ['src/App.tsx','src/features/excel/SheetWorkspace.tsx','src/features/calendar/CalendarWorkspace.tsx','src/features/events/EventWorkspace.tsx']){
+for(const p of ['src/app/App.tsx','src/features/excel/SheetWorkspace.tsx','src/features/calendar/CalendarWorkspace.tsx','src/features/events/EventWorkspace.tsx']){
  const s=read(p);
  assert.match(s,/domains\/finance\/financialOverview/,p);
  assert.match(s,/domains\/finance\/moneyIntegrity/,p);

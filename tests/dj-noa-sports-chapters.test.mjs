@@ -18,8 +18,8 @@ for(const [oldPath,canonical]of Object.entries(files)){
 }
 });
 test('sports entrypoints and the Hard Rock odds calculation retain their routes',()=>{
- const app=read('src/App.tsx'),main=read('src/main.tsx'),hard=read('src/features/sports/HardRockMarketEnhancer.tsx');
- assert.match(app,/from '\.\/features\/sports\/MlbWorkspace'/);
+ const app=read('src/app/App.tsx'),main=read('src/main.tsx'),hard=read('src/features/sports/HardRockMarketEnhancer.tsx');
+ assert.match(app,/from '\.\.\/features\/sports\/MlbWorkspace'/);
  assert.match(main,/from '\.\/features\/sports\/SportsEnhancer'/);
  assert.match(main,/from '\.\/features\/sports\/HardRockMarketEnhancer'/);
  assert.match(hard,/from '\.\.\/\.\.\/domains\/sports\/hardRockOdds'/);
