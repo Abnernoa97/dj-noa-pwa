@@ -33,7 +33,9 @@ for(const file of files){const code=get(file);
   root.walkRules(r=>{rules++;const decl=(r.nodes||[]).filter(n=>n.type==='decl');important+=decl.filter(d=>d.important).length;
    let ctx='';for(let p=r.parent;p&&p.type!=='root';p=p.parent)if(p.type==='atrule')ctx=p.name+' '+p.params+' / '+ctx;
    const site={file,line:r.source?.start?.line||0,ctx:ctx||'base'};
-   for(const selector of r.selectors||[r.selector])add(cssSelectors,selector.trim().replace(/\s+/g,' '),site);
+   if(/\bkeyframes\b/.test(ctx))return; // from/to are animation steps, not CSS selector collisions
+   const props=Object.fromEntries(decl.map(d=>[d.prop.toLowerCase(),d.value+(d.important?' !important':'')]));
+   for(const selector of r.selectors||[r.selector])add(cssSelectors,selector.trim().replace(/\s+/g,' '),{...site,props});
    const sig=decl.map(d=>d.prop+':'+d.value+(d.important?'!important':'')).join(';');
    if(decl.length>=3&&sig.length>85)add(cssRules,sig,{...site,selector:r.selector});
   });cssFiles.push({file,rules,important});continue;
@@ -73,7 +75,23 @@ for(let i=0;i<big.length;i++)for(let j=i+1;j<big.length;j++){
 }
 cloneCandidates.sort((a,b)=>b.score-a.score);
 const allSelectorDuplicates=[...cssSelectors].filter(([_,sites])=>across(sites)).sort((a,b)=>b[1].length-a[1].length);
-const selectors=allSelectorDuplicates.slice(0,80).map(([selector,sites])=>({selector,sites:sites.slice(0,9)}));
+const selectors=allSelectorDuplicates.map(([selector,sites])=>({selector,sites:sites.map(({file,line,ctx})=>({file,line,ctx}))}));
+const collisions=[];
+for(const [selector,sites] of allSelectorDuplicates){
+ const groups=new Map();for(const site of sites)add(groups,site.ctx,site);
+ for(const [context,sameContext] of groups){
+  if(new Set(sameContext.map(s=>s.file)).size<2)continue;
+  const overlaps=[];
+  for(let i=0;i<sameContext.length;i++)for(let j=i+1;j<sameContext.length;j++){
+   const a=sameContext[i],b=sameContext[j];if(a.file===b.file)continue;
+   const common=Object.keys(a.props).filter(p=>Object.hasOwn(b.props,p));
+   for(const prop of common){const first=a.props[prop],second=b.props[prop];
+    overlaps.push({prop,kind:first===second?'same':'different',a:a.file+':'+a.line,b:b.file+':'+b.line});}
+  }
+  if(overlaps.length)collisions.push({selector,context,same:overlaps.filter(x=>x.kind==='same').length,different:overlaps.filter(x=>x.kind==='different').length,examples:overlaps.slice(0,8)});
+ }
+}
+collisions.sort((a,b)=>(b.different*2+b.same)-(a.different*2+a.same));
 const allRuleDuplicates=[...cssRules.values()].filter(across).sort((a,b)=>b.length-a.length);
 const rules=allRuleDuplicates.slice(0,40);
 const owners=Object.fromEntries([...ownership].map(([k,v])=>[k,v.sort((a,b)=>b.count-a.count).slice(0,30)]));
@@ -81,9 +99,11 @@ const emit=(k,x)=>console.log('[DJ NOA DUP '+k+'] '+JSON.stringify(x));
 emit('SUMMARY',{scope:areas,files:files.length,tsFiles:files.length-cssFiles.length,cssFiles:cssFiles.length,
  functions:totalFunctions,exactFunctions:exactFunctions.length,similarFunctions:cloneCandidates.length,
  repeatedNames:functionNames.length,exactBlocks:lines.length,crossFileSelectors:allSelectorDuplicates.length,identicalCssRules:allRuleDuplicates.length,
+ cssSameMediaPropertyCollisions:collisions.length,cssSameMediaDifferingProperties:collisions.reduce((n,x)=>n+x.different,0),
  importantCss:cssFiles.reduce((a,b)=>a+b.important,0)});
 emit('EXACT_FUNCTIONS',exactFunctions);emit('SIMILAR_FUNCTIONS',cloneCandidates.slice(0,45));
 emit('REPEATED_NAMES',functionNames);emit('EXACT_BLOCKS',lines);
-for(let i=0;i<selectors.length;i+=15)emit('CSS_SELECTORS_'+(i/15+1),selectors.slice(i,i+15));
+for(let i=0;i<selectors.length;i+=12)emit('CSS_SELECTORS_'+(i/12+1),selectors.slice(i,i+12));
+for(let i=0;i<collisions.length;i+=12)emit('CSS_CONFLICTS_'+(i/12+1),collisions.slice(i,i+12));
 emit('CSS_RULES',rules);emit('CODE_OWNERS',owners);
 console.log('[DJ NOA DUP NOTE] Read-only report. A detected name, token match or CSS selector can be intentional. Preserve behavior, data, cascade and mobile QA before merging.');
