@@ -16,7 +16,7 @@
 | P09 | Deportes MLB/NBA y contexto | EN CURSO | Servicios, caché y presentación sin llamadas duplicadas ni cambios de resultados |
 | P10 | CSS y diseño | EN CURSO | Sustituir capas duplicadas **con QA visual** Android/iPhone y conservar diseño aprobado |
 | P11 | Velocidad, scroll, orientación y PWA offline | PENDIENTE | Mediciones comparativas, service worker, navegación y Excel horizontal funcionando |
-| P12 | Aceptación final, documentación y poda de ramas | PENDIENTE | Build Cloudflare, QA real, revisión de backups y candidatos de ramas uno por uno |
+| P12 | Aceptación final, documentación y poda de ramas | EN CURSO | Build Cloudflare, QA real, revisión de backups y candidatos de ramas uno por uno |
 
 ## Estado de la estructura, 18/11/2026
 
@@ -28,7 +28,7 @@
 - `src/shared/`: contrato único de tipos y normalización de texto.
 - `worker/src/`: Worker de producción original; `dj-noa-cloud/` sigue aislado y en pausa.
 - Compilación final comprobada de `23ee054`: **91/91 tests, Cloudflare SUCCESS, deployment 100 %**. No constituye QA física Android/iPhone.
-- **GitHub tiene todavía 75 ramas: `main` y 74 históricas.** Solo `main` publica; no se ha podido eliminar las otras con el conector actual. Eliminar sin antes comprobar commits únicos y backups puede borrar trabajos recuperables.
+- **P12-a poda de ramas VERIFICADA (18/11/2026): GitHub devuelve únicamente `main`**. Fueron eliminadas las 74 ramas históricas mediante una ejecución única de GitHub Actions (run `44402947387`, SUCCESS), después de verificar sus SHA y PR. Se retiró el workflow temporal inmediatamente; `.github/workflows` no existe en `main`. Las referencias de backup desaparecieron pero sus commits ancestrales permanecen en la historia de `main`. P12 general sigue EN CURSO por QA física y aceptación final.
 
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
