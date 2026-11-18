@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import NbaWorkspace from '../features/sports/NbaWorkspace';
 import { useNativeBack } from './navigationBack';
-import type { AppView, EventItem, ReminderItem } from '../types';
+import type { AppView, EventItem, ReminderItem } from '../shared/types';
 
 type Props = {
   todayEventCount: number;

@@ -2,7 +2,7 @@ import { db, uid } from '../../services/storage/db';
 import { createEventWithRelations } from '../events/eventMutations';
 import { isValidEventDate, normalizedEventIdentity } from '../events/eventIntegrity';
 import type { ReviewAction } from './noahImageReconcile';
-import type { SheetRow } from '../../types';
+import type { SheetRow } from '../../shared/types';
 
 /** Images are transient inputs for recognition, not permanent attachments. */
 export type VisionSource = { sourceId: string; file: File; rawText: string };

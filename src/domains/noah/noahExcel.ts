@@ -1,7 +1,7 @@
 import { db, uid } from '../../services/storage/db';
 import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../sheet/sheetValues';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
-import type { FinancialType, SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../types';
+import type { FinancialType, SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
 
 export type NoahSheetCellInput = {
   columnId: string;

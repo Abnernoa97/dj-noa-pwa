@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { EventItem, EventPhoto, HistoryItem, ReminderItem, SheetColumn, SheetPhoto, SheetRow } from '../../types';
+import type { EventItem, EventPhoto, HistoryItem, ReminderItem, SheetColumn, SheetPhoto, SheetRow } from '../../shared/types';
 
 class DJNoaDB extends Dexie {
   events!: Table<EventItem, string>;

@@ -2,7 +2,7 @@ import { db, uid } from '../../services/storage/db';
 import { isValidEventDate, linkedRowPatchForEventChange, makePlaceholderRow, normalizedEventIdentity } from './eventIntegrity';
 import { eventLinkedReminderPatch } from './eventSchedule';
 import type { NoahFinanceInput } from '../noah/noahEvents';
-import type { EventItem, ReminderItem, SheetRow } from '../../types';
+import type { EventItem, ReminderItem, SheetRow } from '../../shared/types';
 
 export type EventDraftData = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;
 

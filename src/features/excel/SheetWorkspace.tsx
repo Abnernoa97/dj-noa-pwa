@@ -6,7 +6,7 @@ import { normalizeSheetText as normalize, numberValue } from '../../domains/shee
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../app/navigationBack';
-import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../types';
+import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../shared/types';
 
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
 const LONG_PRESS_MS = 480;

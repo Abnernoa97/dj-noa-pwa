@@ -1,4 +1,4 @@
-import type { SheetRow } from '../../types';
+import type { SheetRow } from '../../shared/types';
 import { normalizeText as normalize } from '../../shared/normalizeText.ts';
 
 /** USD is the sole operational currency. Historical records are preserved verbatim. */

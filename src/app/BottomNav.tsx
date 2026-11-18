@@ -1,6 +1,6 @@
 import { CalendarDays, CalendarCheck2, CheckCircle2, FileSpreadsheet, House } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { AppView } from '../types';
+import type { AppView } from '../shared/types';
 
 type Props = { view: AppView; onView: (view: AppView) => void };
 

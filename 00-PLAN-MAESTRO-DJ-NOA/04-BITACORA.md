@@ -89,3 +89,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - `src/db.ts` se traslada a `src/services/storage/db.ts` sin duplicaciones; la implementación es idéntica salvo la ruta del import de tipos.
 - Se conserva la identidad Dexie `dj-noa-local`, esquema de versiones 1–6 y sus siete tablas; no se hace migración, borrado de caché ni cambios de valores.
 - Los módulos de eventos, Excel, Noah, Tareas y respaldos apuntan al mismo archivo; se incorporó un test de contrato de almacenamiento. Publicación pendiente de Cloudflare SUCCESS y QA local posterior.
+
+## 18/11/2026 · P01-d · Contrato de tipos centralizado
+- Todas las interfaces compartidas pasan de `src/types.ts` a `src/shared/types.ts`, sin cambiar una línea del contenido de los tipos; las importaciones de todos los consumidores se redirigen a la única carpeta canónica.
+- Se añade guard de capítulo y documentación. `CurrencyCode` mantiene la compatibilidad de históricos MXN; la operación nueva continúa solo USD.
+- Sin migraciones de Dexie, sin duplicar interfaces ni tocar el Worker. Cloudflare y QA pendientes de aceptación final.

@@ -21,7 +21,7 @@ const REQUIRED = [
   'src/app/App.tsx',
   'src/app/navigationBack.ts',
   'src/services/storage/db.ts',
-  'src/types.ts',
+  'src/shared/types.ts',
   'src/features/excel/SheetWorkspace.tsx',
   'src/domains/sheet/sheetValues.ts',
   'src/shared/normalizeText.ts',

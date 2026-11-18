@@ -6,7 +6,7 @@ import { db, uid } from '../../services/storage/db';
 import { eventScheduleDueAt, type EventScheduleAnchor } from '../../domains/events/eventSchedule';
 import { useNativeBack } from '../../app/navigationBack';
 import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';
-import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from '../../types';
+import type { EventItem, ReminderItem, ReminderPriority, ReminderRepeat } from '../../shared/types';
 
 type Props = {
   items: ReminderItem[];

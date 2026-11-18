@@ -6,7 +6,7 @@ import { db, uid } from '../../services/storage/db';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { eventUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../app/navigationBack';
-import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from '../../types';
+import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from '../../shared/types';
 
 export type EventDraft = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;
 

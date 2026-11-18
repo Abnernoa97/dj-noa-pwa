@@ -7,7 +7,7 @@ import { db, uid } from '../../services/storage/db';
 import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
-import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../types';
+import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
 
 const BEHAVIOR_LABEL: Record<SheetColumnBehavior, string> = {
   income: 'Ingreso · suma',

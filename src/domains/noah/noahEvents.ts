@@ -1,4 +1,4 @@
-import type { CurrencyCode, EventItem, EventStatus, FinancialType, SheetStatus } from '../../types';
+import type { CurrencyCode, EventItem, EventStatus, FinancialType, SheetStatus } from '../../shared/types';
 
 export type NoahEventPatch = Partial<Pick<EventItem,
   | 'title'

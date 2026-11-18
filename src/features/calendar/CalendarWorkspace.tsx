@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
-import type { EventItem, ReminderItem, SheetRow } from '../../types';
+import type { EventItem, ReminderItem, SheetRow } from '../../shared/types';
 import { useNativeBack } from '../../app/navigationBack';
 import { formatMoneyAmount, formatMoneyTotals } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';

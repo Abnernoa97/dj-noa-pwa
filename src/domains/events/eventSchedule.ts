@@ -1,5 +1,5 @@
 import { isValidEventDate } from './eventIntegrity.ts';
-import type { EventItem, ReminderItem } from '../../types';
+import type { EventItem, ReminderItem } from '../../shared/types';
 
 export type EventScheduleAnchor = 'callTime' | 'soundcheckTime' | 'showTime';
 const ANCHORS: EventScheduleAnchor[] = ['callTime', 'soundcheckTime', 'showTime'];

@@ -6,7 +6,7 @@ import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from '..
 import type { VisionSource } from '../../domains/noah/noahVisionCommit';
 import { useNativeBack } from '../../app/navigationBack';
 import type { NoahChatAction } from '../../domains/noah/noahExcel';
-import type { SheetColumn, SheetValue } from '../../types';
+import type { SheetColumn, SheetValue } from '../../shared/types';
 
 type Finding = {
   kind: string;

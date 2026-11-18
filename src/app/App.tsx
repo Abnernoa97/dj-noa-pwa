@@ -22,7 +22,7 @@ import { formatMoneyAmount } from '../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../domains/finance/financialOverview';
 import { createEventWithRelations, createEventsWithRelations, updateEventWithRelations, deleteEventWithRelations, syncEventFinance } from '../domains/events/eventMutations';
 import { scheduleReminderNotifications } from '../features/tasks/reminderNotifications';
-import type { AppView, EventItem, ReminderItem, SheetRow } from '../types';
+import type { AppView, EventItem, ReminderItem, SheetRow } from '../shared/types';
 import {
   eventActionLabel,
   sectionName,

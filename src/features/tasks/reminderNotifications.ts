@@ -1,5 +1,5 @@
 import { db } from '../../services/storage/db';
-import type { ReminderItem, ReminderRepeat } from '../../types';
+import type { ReminderItem, ReminderRepeat } from '../../shared/types';
 
 const MAX_DELAY = 24 * 60 * 60 * 1000;
 const RECENT_OVERDUE = 15 * 60 * 1000;

@@ -1,4 +1,4 @@
-import type { SheetColumn, SheetColumnBehavior } from '../../types';
+import type { SheetColumn, SheetColumnBehavior } from '../../shared/types';
 export { normalizeText as normalizeSheetText } from '../../shared/normalizeText.ts';
 
 /** The only text/amount/column-behavior helpers shared by Excel and Noah. */
