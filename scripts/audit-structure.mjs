@@ -22,6 +22,7 @@ const REQUIRED = [
   'src/db.ts',
   'src/types.ts',
   'src/SheetWorkspace.tsx',
+  'src/domains/sheet/sheetValues.ts',
   'src/ExcelModulesEnhancer.tsx',
   'src/finance.ts',
   'src/financialOverview.ts',

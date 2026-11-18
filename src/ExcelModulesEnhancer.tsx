@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from './db';
+import { normalizeSheetText as normalize, numberValue, behaviorOf } from './domains/sheet/sheetValues';
 import { formatMoneyAmount } from './moneyIntegrity';
 import { portfolioUsdSettlement } from './financialOverview';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from './types';
@@ -14,20 +15,6 @@ const BEHAVIOR_LABEL: Record<SheetColumnBehavior, string> = {
   investment: 'Inversión · resta',
   neutral: 'Dato · no calcula'
 };
-
-function normalize(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function numberValue(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? '').replace(/[$,\s]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function behaviorOf(column: SheetColumn): SheetColumnBehavior {
-  return column.behavior || 'neutral';
-}
 
 function legacyBehavior(row: SheetRow): SheetColumnBehavior {
   if (row.financialType === 'expense') return 'expense';

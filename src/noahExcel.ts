@@ -1,4 +1,5 @@
 import { db, uid } from './db';
+import { normalizeSheetText as normalize, numberValue, behaviorOf } from './domains/sheet/sheetValues';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 import type { FinancialType, SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from './types';
 
@@ -29,20 +30,6 @@ const SHEET_ACTION_TYPES = new Set<NoahSheetAction['type']>([
   'clear_sheet_cell',
   'delete_sheet_row'
 ]);
-
-function normalize(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function numberValue(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? '').replace(/[$,\s]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function behaviorOf(column: SheetColumn): SheetColumnBehavior {
-  return column.behavior || 'neutral';
-}
 
 function makeColumnKey(name: string) {
   const slug = normalize(name).replace(/\s+/g, '_') || 'columna';

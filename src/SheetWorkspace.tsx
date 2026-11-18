@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, RotateCw, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from './db';
+import { normalizeSheetText as normalize, numberValue } from './domains/sheet/sheetValues';
 import { formatMoneyAmount } from './moneyIntegrity';
 import { portfolioUsdSettlement } from './financialOverview';
 import { useNativeBack } from './navigationBack';
@@ -26,19 +27,9 @@ type SortMode = 'newest' | 'oldest' | 'amount-desc' | 'amount-asc' | 'label';
 type DraftColumn = { name: string; type: SheetColumn['type']; formula: string };
 type PhotoView = SheetPhoto & { url: string };
 
-function normalize(text: string) {
-  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
 function keyFromName(name: string) {
   const base = normalize(name).replace(/\s+/g, '_') || `col_${Date.now()}`;
   return `custom_${base}`;
-}
-
-function numberValue(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? '').replace(/[$,\s]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function parseFormula(expression: string, vars: Record<string, number>): number | null {

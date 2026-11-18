@@ -4,8 +4,8 @@
 
 | ID | Fase | Estado inicial | Cierre exigido |
 |---|---|---|---|
-| P00 | Respaldo, inventario y Cloudflare sin GitHub Actions | EN CURSO | Sin workflows, build Cloudflare SUCCESS, respaldo confirmado |
-| P01 | Mapa del código, importaciones, referencias y duplicados | PENDIENTE | Inventario de consumidores, huérfanos solo candidatos y duplicaciones demostradas |
+| P00 | Respaldo, inventario y Cloudflare sin GitHub Actions | VERIFICADO | Sin workflows, build Cloudflare SUCCESS, respaldo confirmado |
+| P01 | Mapa del código, importaciones, referencias y duplicados | EN CURSO | Inventario de consumidores, huérfanos solo candidatos y duplicaciones demostradas |
 | P02 | Contrato de datos, offline y respaldo | PENDIENTE | Dexie 1–6, blobs manuales, PWA SW, recuperación y transacciones sin pérdida |
 | P03 | Coordinador App y navegación | PENDIENTE | Reducir `src/App.tsx` por extracción, sin nuevos estados ni pantallas duplicadas |
 | P04 | Excel único y complementos | PENDIENTE | `SheetWorkspace` + `ExcelModulesEnhancer` comparten fórmulas, filas y columnas |

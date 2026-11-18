@@ -2,6 +2,13 @@
 
 **Corte inicial verificable:** 18/11/2026, `main` `31d47ae5b9d90ebd86709ebc755240318f2b783a`. Lectura estática de GitHub, NO prueba de teléfono ni diagnóstico completo de código muerto.
 
+## Primeros duplicados confirmados por comparación de código
+- `numberValue`: tres implementaciones del mismo parseo de monto (`SheetWorkspace`, `ExcelModulesEnhancer` y `noahExcel`).
+- `normalize`: las mismas tres implementaciones de normalización, con distinto nombre local del parámetro.
+- `behaviorOf`: dos implementaciones equivalentes (`ExcelModulesEnhancer` y `noahExcel`).
+- Se preparó un helper puro en `src/domains/sheet/sheetValues.ts` para reducir duplicación, conservando resultados y requiriendo pruebas de regresión de Cloudflare.
+- El build P00 confirmó 0 workflows, importaciones resueltas, tipos y tests; también señaló 11 advertencias de vulnerabilidad npm y un chunk Vite superior a 500 kB. Auditar ambos antes de actualizar dependencias o dividir bundles.
+
 ## Inventario
 - 117 archivos rastreados, de los que 33 son CSS en `src/` y 39 TS/TSX en `src/`.
 - 13 archivos de pruebas bajo `tests/`; pruebas adicionales de IndexedDB en `integration-tests/`.

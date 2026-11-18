@@ -13,11 +13,16 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - **Protecciones:** no activar ni editar `dj-noa-cloud/`; sin borrar información, ramas o código vivo.
 
 ### Comprobación de cierre P00
-- [ ] GitHub `main` contiene cero `.github/workflows/*.yml`.
-- [ ] `npm run build` conserva el typecheck y ejecuta auditoría/tests.
-- [ ] Cloudflare Workers Builds del commit nuevo: `success`.
+- [x] GitHub `main` contiene cero `.github/workflows/*.yml`.
+- [x] `npm run build` conserva el typecheck y ejecuta auditoría/tests.
+- [x] Cloudflare Workers Builds del commit nuevo: `success` (commit `021b2d20fab49bcf1abd68871211bec4534aa325`; build `4fc04bcb-c034-4bfb-a306-4f3cae7b215b`; versión `fb6481b6-0e5d-46b9-947f-f301b27d7f56` al 100 %, 18/11/2026).
 - [ ] La app instalada y los datos existentes siguen intactos (QA física por confirmar, NO inferir del build).
-- [ ] Actualizar el tablero P00 a VERIFICADO únicamente con la evidencia disponible y dejar QA física pendiente cuando aplique.
+- [x] Tablero P00 = VERIFICADO para infraestructura y publicación Cloudflare; QA física permanece pendiente bajo P11/P12.
+
+## P01 · primer candidato comprobado — 18/11/2026
+- Se verificó en código fuente que `SheetWorkspace.tsx`, `ExcelModulesEnhancer.tsx` y `noahExcel.ts` tenían tres copias iguales de `numberValue` y `normalize`; los dos últimos repetían además `behaviorOf`.
+- Se preparó un helper puro en `src/domains/sheet/sheetValues.ts` y pruebas de regresión en `tests/dj-noa-sheet-shared.test.mjs` para retirar esas copias sin alterar valores USD, contratos ni el UI. **El cierre de este paso depende del build de Cloudflare del nuevo commit.**
+- El build previo avisó de 11 vulnerabilidades de dependencias (1 baja, 4 moderadas y 6 altas) y de un chunk Vite mayor que 500 kB. Son **riesgos a clasificar**, no instrucciones para ejecutar `npm audit fix --force`.
 
 ## Próximo bloque
 **P01:** mapa de importaciones reales, CSS con propietarios, escritor canónico de cada dato y catálogo de candidatos. No borrar por similitud de nombres. Conservar esta bitácora como referencia única para otros chats.
