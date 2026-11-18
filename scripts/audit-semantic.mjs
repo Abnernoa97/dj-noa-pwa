@@ -72,16 +72,18 @@ for(let i=0;i<big.length;i++)for(let j=i+1;j<big.length;j++){
   cloneCandidates.push({score:+score.toFixed(2),a:{file:a.file,line:a.line,name:a.name},b:{file:b.file,line:b.line,name:b.name}});
 }
 cloneCandidates.sort((a,b)=>b.score-a.score);
-const selectors=[...cssSelectors].filter(([_,sites])=>across(sites)).sort((a,b)=>b[1].length-a[1].length)
- .slice(0,70).map(([selector,sites])=>({selector,sites:sites.slice(0,9)}));
-const rules=[...cssRules.values()].filter(across).sort((a,b)=>b.length-a.length).slice(0,40);
+const allSelectorDuplicates=[...cssSelectors].filter(([_,sites])=>across(sites)).sort((a,b)=>b[1].length-a[1].length);
+const selectors=allSelectorDuplicates.slice(0,80).map(([selector,sites])=>({selector,sites:sites.slice(0,9)}));
+const allRuleDuplicates=[...cssRules.values()].filter(across).sort((a,b)=>b.length-a.length);
+const rules=allRuleDuplicates.slice(0,40);
 const owners=Object.fromEntries([...ownership].map(([k,v])=>[k,v.sort((a,b)=>b.count-a.count).slice(0,30)]));
 const emit=(k,x)=>console.log('[DJ NOA DUP '+k+'] '+JSON.stringify(x));
 emit('SUMMARY',{scope:areas,files:files.length,tsFiles:files.length-cssFiles.length,cssFiles:cssFiles.length,
  functions:totalFunctions,exactFunctions:exactFunctions.length,similarFunctions:cloneCandidates.length,
- repeatedNames:functionNames.length,exactBlocks:lines.length,crossFileSelectors:selectors.length,identicalCssRules:rules.length,
+ repeatedNames:functionNames.length,exactBlocks:lines.length,crossFileSelectors:allSelectorDuplicates.length,identicalCssRules:allRuleDuplicates.length,
  importantCss:cssFiles.reduce((a,b)=>a+b.important,0)});
 emit('EXACT_FUNCTIONS',exactFunctions);emit('SIMILAR_FUNCTIONS',cloneCandidates.slice(0,45));
 emit('REPEATED_NAMES',functionNames);emit('EXACT_BLOCKS',lines);
-emit('CSS_SELECTORS',selectors);emit('CSS_RULES',rules);emit('CODE_OWNERS',owners);
+for(let i=0;i<selectors.length;i+=15)emit('CSS_SELECTORS_'+(i/15+1),selectors.slice(i,i+15));
+emit('CSS_RULES',rules);emit('CODE_OWNERS',owners);
 console.log('[DJ NOA DUP NOTE] Read-only report. A detected name, token match or CSS selector can be intentional. Preserve behavior, data, cascade and mobile QA before merging.');

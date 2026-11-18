@@ -10,7 +10,8 @@ test('the dependency inventory is read-only and never deletes unreferenced files
   assert.doesNotMatch(code,/\b(?:unlink|rmdir|rmSync|writeFile|execSync|spawnSync)\s*\(/);
   assert.doesNotMatch(code,/\b(?:fetch|XMLHttpRequest)\s*\(/);
   const p=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
-  assert.match(p.scripts.build,/npm run audit:structure && npm run audit:candidates && npm run typecheck/);
+  assert.match(p.scripts.build,/npm run audit:structure && npm run audit:candidates &&/);
+  assert.match(p.scripts.build,/&& npm run audit:semantics && npm run typecheck/);
 });
 
 test('Cloudflare is responsible for build and deploy; GitHub Actions stays disabled', () => {
