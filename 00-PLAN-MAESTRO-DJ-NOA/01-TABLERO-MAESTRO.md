@@ -47,6 +47,29 @@
 - Verificación de organización: `main` sin otras ramas, sin GitHub Actions; build `56f7464` Cloudflare **SUCCESS**, **97/97 pruebas**, deploy 100 %. Esta es una auditoría de coincidencias sintácticas y grafos; **NO acredita que todos los duplicados funcionales estén ya unificados**.
 - **P01 inventario documentado; P01 integración/eliminación EN CURSO para la siguiente etapa.** No ejecutar una eliminación masiva de 183 selectores ni de 31 grupos sin equivalencias, rollback y QA.
 
+## P01-h · Primera tanda de unificación efectiva VERIFICADA — 18/11/2026
+
+**Comparación del mismo auditor de TypeScript/PostCSS (corte inicial → commit `bfff20b`):**
+
+| Indicador | Antes | Después | Cambio |
+|---|---:|---:|---:|
+| Grupos de cuerpos de función idénticos entre archivos | 31 | **15** | **−16 (−51.6 %)** |
+| Pares de cuerpos de función similares | 31 | **24** | −7 |
+| Nombres de funciones repetidos entre archivos | 49 | **31** | −18 |
+| Funciones/métodos/callbacks presentes en código analizado | 1,217 | **1,175** | −42 |
+| Selectores CSS repetidos entre archivos | 183 | **183** | Sin tocar, QA visual obligatoria |
+| `!important` CSS | 3,008 | **3,008** | Sin tocar, QA visual obligatoria |
+
+**Seis lotes consolidados en la única `main`, todos con tests y Cloudflare SUCCESS:**
+- **DUP-01a:** parsers, cuotas, estados y consenso idénticos MLB/NBA → `worker/src/sports/shared/espnCore.ts`.
+- **DUP-01b:** parsers compartidos Context/Live/Analysis, identidad deportiva y fechas → `sports/shared/contextCore.ts`.
+- **DUP-02a:** nombre de jugador y orden de bateo/lineups → `sports/shared/contextCore.ts`.
+- **DUP-03a:** favoritos, cuotas, reloj y etiquetas en tarjetas MLB/NBA → `src/features/sports/sportsPresentation.ts`.
+- **DUP-05a:** un solo snapshot Excel y detector de celdas vacías para Noah Voz/Visión → `src/domains/noah/noahSheetSnapshot.ts`.
+- **DUP-05b:** voz usa normalizador canónico `src/shared/normalizeText.ts`.
+
+**Último corte `bfff20b`: 114/114 pruebas, 0 fallos, Cloudflare SUCCESS, versión Worker desplegada al 100 %.** Los recuentos son indicios sintácticos de duplicación, no funciones eliminables automáticamente. P01 sigue EN CURSO por Excel/Dexie, recurrencia, IA y CSS.
+
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
 

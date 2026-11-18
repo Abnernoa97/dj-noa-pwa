@@ -63,3 +63,13 @@ DJ NOA
 5. **DUP-09:** normalizar CSS por pantalla conservando el orden final actual; revisar iOS y Android físicamente antes de retirar `!important`.
 
 Las referencias a un método o tabla no constituyen un segundo propietario. Las tablas de propietarios reflejan la arquitectura **actual y objetivo**, no una certificación de que todos los consumidores ya estén migrados.
+
+## Corte P01-h · propietarios efectivamente unificados (18/11/2026)
+
+- `worker/src/sports/shared/espnCore.ts`: parses ESPN de MLB/NBA, cuotas/consenso y estado; consumidores de contexto/live/análisis usan los parsers comunes.
+- `worker/src/sports/shared/contextCore.ts`: identidad de equipos, fecha lexical, jugador y alineación MLB para Context/Live.
+- `src/features/sports/sportsPresentation.ts`: único formateador de tarjetas, probabilidades y favoritos en MLB/NBA, sin compartir caché o peticiones específicas.
+- `src/domains/noah/noahSheetSnapshot.ts`: snapshot de columna y prueba de valor Excel en Voz/Visión.
+- `src/shared/normalizeText.ts`: también propietario del normalizador del reconocimiento de voz.
+
+**No unificados todavía:** escritor Excel `SheetWorkspace/ExcelModulesEnhancer/noahExcel`, recurrencia cliente/Worker, dos parsing paths IA, CSS con múltiples capas. Preservar sus contratos antes de migrar.

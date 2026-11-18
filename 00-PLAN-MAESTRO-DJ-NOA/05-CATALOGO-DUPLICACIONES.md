@@ -2,6 +2,12 @@
 
 **Corte auditado:** 18/11/2026. Fuente: `scripts/audit-semantic.mjs` ejecutado en Cloudflare Workers Builds del commit `56f7464b08b52154ec12d52325b3a41d4c78fd6c` (**97/97 pruebas SUCCESS**). Auditoría de lectura sola, con analizador TypeScript y parser CSS PostCSS. El orden de los archivos puede cambiar tras traslados sin cambiar sus funciones.
 
+## Seguimiento tras la primera consolidación — 18/11/2026
+
+Este archivo conserva **el inventario inicial** de 31 grupos exactos y 31 parejas similares, con sus rutas/posiciones originales. El corte posterior del mismo auditor, tras las consolidaciones, arroja **15 grupos exactos y 24 parejas similares** en vez de 31/31. Ya se corrigieron completamente los clones seleccionados en **DUP-01a, DUP-01b, DUP-02a, DUP-03a, DUP-05a y DUP-05b** sin reemplazar protocolos de negocio.
+
+Los seis commits de consolidación son `7480b1e`, `9e2c573`, `9087af4`, `b350a96`, `4a35b06` y `bfff20b`. El siguiente ciclo debe empezar por regenerar el inventario con `npm run audit:semantics`, revisar los 15 grupos **actuales** y fijar contratos de datos antes de tocar Excel/recurrencia/Noah IA/CSS. No borrar el catálogo inicial: permite contrastar el avance, no se debe confundir con el estado actual.
+
 ## Alcance exacto, no estimaciones
 
 | Evidencia | Resultado |

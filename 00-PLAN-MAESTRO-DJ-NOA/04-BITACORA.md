@@ -179,3 +179,10 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 ## 18/11/2026 · P01/DUP-05b: normalización de voz unificada
 - La función `normalizeSpeech` del componente Noah Voz era cuerpo idéntico a `src/shared/normalizeText.ts`. Se retiró la definición local y se importa `normalizeText as normalizeSpeech` (sin wrapper ni conversión nueva), conservando su único consumidor de sesión de voz.
 - Añadida prueba de import único y normalización con acentos a `tests/dj-noa-normalization-unified.test.mjs`. Sin alterar reconocimiento de voz, permisos, base de datos, navegación ni API.
+
+## 18/11/2026 · P01-h · Primera consolidación funcional certificada
+- Seis entregas protegidas en `main`: `7480b1e` (ESPN core), `9e2c573` (Context/Live/Analysis), `9087af4` (alineaciones; corrige resolución ESM del commit previo `d3d2ad5`), `b350a96` (visual MLB/NBA), `4a35b06` (Noah snapshots) y `bfff20b` (normalización de voz).
+- Cada entrega tuvo regresión y publicación Cloudflare SUCCESS; la última finalizó con **114/114 pruebas, cero fallos**, build `c5ff02e1-1dc6-4282-a443-3f23ee3364b7`, Worker deployment al 100 % versión `8116cb4c-ca03-4ad5-a386-d02083aae25b`.
+- Auditor semántico mismo método antes/después: exact duplicates 31→**15**, similitud 31→**24**, nombres repetidos 49→**31**, funciones/métodos/callbacks 1,217→**1,175**; CSS mantiene 183 selectores repetidos y 3,008 `!important`, intactos deliberadamente.
+- No se alteraron bases Dexie, rutas HTTP, bindings, imágenes de Visión, ni datos/movimientos USD. La publicación automátizada usa solo Cloudflare; no se abrieron ramas ni GitHub Actions.
+- **Resultado**: seis grupos funcionales con propietarios canónicos, más pruebas y menor duplicidad. **Pendiente**: 15 grupos exactos, 24 parejas similares, escrituras Excel, recurrencia, parsing IA, CSS y QA real de teléfonos; P01 general EN CURSO.
