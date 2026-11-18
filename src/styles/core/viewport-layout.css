@@ -6,22 +6,22 @@ html,body,#root{height:100%;overflow:hidden!important;overscroll-behavior:none}
 body{position:fixed;inset:0;width:100%;}
 .app-shell{height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;padding:max(6px,env(safe-area-inset-top)) 10px calc(58px + env(safe-area-inset-bottom))!important}
 .topbar{min-height:78px!important;height:78px!important;padding-top:5px!important;align-items:flex-start!important}
-.topbar h1{font-size:38px!important;line-height:.9!important;margin:0 0 7px!important;letter-spacing:.27em!important;padding-left:.27em!important}
-.topbar-date{font-size:7px!important;letter-spacing:.17em!important}
+.topbar h1{font-size:38px!important;line-height:.9!important;margin:0 0 7px!important;padding-left:.27em!important}
+.topbar-date{letter-spacing:.17em!important}
 .content{height:calc(100dvh - 142px)!important;min-height:0!important;overflow:hidden!important}
-.page-card{height:100%!important;min-height:0!important;overflow:hidden!important;padding:10px!important;border-radius:14px!important}
+.page-card{padding:10px!important;border-radius:14px!important}
 
 /* Home */
-.home-view{height:100%!important;min-height:0!important;justify-content:flex-end!important;padding:0 4px 2px!important}
+.home-view{justify-content:flex-end!important;padding:0 4px 2px!important}
 .home-view::before{top:14%!important;font-size:6px!important;letter-spacing:.2em!important}
 .home-view::after{top:19%!important;width:42px!important}
 .next-event-card{width:100%!important;max-width:none!important;min-height:86px!important;margin:0 0 5px!important;padding:10px 12px!important;border-radius:14px!important;grid-template-columns:48px 1fr!important;gap:6px 10px!important}
-.card-heading{font-size:6px!important;letter-spacing:.18em!important}
+.card-heading{font-size:6px!important}
 .card-heading svg{width:13px!important;height:13px!important}
 .event-date-block{width:46px!important;height:50px!important;border-radius:11px!important}
 .event-date-block strong{font-size:22px!important}
 .event-date-block span{font-size:6px!important}
-.event-main-copy h3{font-size:13px!important;margin-bottom:3px!important}
+.event-main-copy h3{font-size:13px!important}
 .event-main-copy p{font-size:8px!important;margin-bottom:5px!important}
 .direction-button,.event-detail-link{font-size:6px!important;padding:5px 8px!important}
 .empty-state{padding:3px 0!important}.empty-state p{font-size:8px!important;margin-bottom:6px!important}.empty-state button{font-size:7px!important;padding:6px 8px!important}
@@ -34,7 +34,7 @@ body{position:fixed;inset:0;width:100%;}
 
 /* Calendar */
 .calendar-page{gap:6px!important}
-.calendar-topline{gap:7px!important;align-items:center!important}
+.calendar-topline{gap:7px!important}
 .calendar-title-wrap h2{font-size:21px!important;margin-top:2px!important}
 .calendar-actions{gap:4px!important}.calendar-nav-button{width:30px!important;height:30px!important}.calendar-today-button{height:30px!important;padding:0 8px!important;font-size:6px!important}
 .calendar-view-switch{padding:2px!important;gap:3px!important}.calendar-view-switch button{padding:6px 5px!important;font-size:6px!important}
@@ -45,8 +45,7 @@ body{position:fixed;inset:0;width:100%;}
 .calendar-week{grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:3px!important;overflow:hidden!important}.week-day{min-width:0!important;min-height:118px!important;padding:5px!important;border-radius:9px!important}.week-day-head strong{font-size:16px!important}.week-day-head span,.week-event span,.week-empty{font-size:5px!important}.week-event{padding:4px!important}.week-event strong{font-size:6px!important}
 .day-date-hero{padding:2px 0 8px!important}.day-date-hero strong{font-size:40px!important}.day-event-list{gap:4px!important}.day-event{padding:7px 8px!important;grid-template-columns:40px 1fr auto!important}.day-event-time{font-size:12px!important}.day-event-copy strong{font-size:9px!important}.day-event-copy span{font-size:6px!important}
 
-/* Excel */
-.sheet-classic{height:100%!important;min-height:0!important;width:100%!important;margin:0!important;padding:7px!important}.sheet-classic-head{margin-bottom:4px!important}.sheet-classic-head h2{font-size:21px!important}.sheet-classic-actions button{width:27px!important;height:27px!important}.sheet-mini-summary{margin-bottom:4px!important}.sheet-mini-summary span{padding:3px 4px!important;font-size:5px!important}.sheet-mini-summary b{font-size:7px!important}.sheet-classic-tools{margin-bottom:4px!important}.sheet-classic-tools label,.sheet-classic-tools input,.sheet-classic-tools select{height:23px!important;font-size:5.5px!important}.excel-letters{height:15px!important}.excel-head{min-height:20px!important}.excel-body{max-height:calc(100dvh - 245px)!important;overflow-y:auto!important;scrollbar-width:none}.excel-body::-webkit-scrollbar{display:none}.excel-row{min-height:23px!important}.excel-row>span{font-size:5.2px!important}.excel-head span{font-size:4.7px!important}.sheet-table-hint{margin-top:3px!important;font-size:5.5px!important}
+/* Excel */.sheet-classic-head{margin-bottom:4px!important}.sheet-classic-head h2{font-size:21px!important}.sheet-classic-actions button{width:27px!important;height:27px!important}.sheet-mini-summary{margin-bottom:4px!important}.sheet-mini-summary span{padding:3px 4px!important;font-size:5px!important}.sheet-mini-summary b{font-size:7px!important}.sheet-classic-tools{margin-bottom:4px!important}.sheet-classic-tools label,.sheet-classic-tools input,.sheet-classic-tools select{height:23px!important;font-size:5.5px!important}.excel-letters{height:15px!important}.excel-head{min-height:20px!important}.excel-body{max-height:calc(100dvh - 245px)!important}.excel-row{min-height:23px!important}.excel-row>span{font-size:5.2px!important}.excel-head span{font-size:4.7px!important}.sheet-table-hint{margin-top:3px!important;font-size:5.5px!important}
 
 /* Events / reminders */
 .events-page,.reminders-workspace{height:100%!important;min-height:0!important;overflow:hidden!important}
@@ -66,8 +65,8 @@ body{position:fixed;inset:0;width:100%;}
 .topbar-date{font-size:7px!important;letter-spacing:.18em!important}
 .content{height:calc(100dvh - 145px)!important}
 
-.home-view{position:relative!important;height:100%!important;min-height:0!important;padding:0 4px!important;justify-content:initial!important}
-.home-view::before{content:"EVENTOS   •   CALENDARIO   •   EXCEL   •   TAREAS"!important;top:17%!important;font-size:6.3px!important;letter-spacing:.18em!important;color:rgba(232,216,173,.58)!important}
+.home-view{padding:0 4px!important;justify-content:initial!important}
+.home-view::before{content:"EVENTOS   •   CALENDARIO   •   EXCEL   •   TAREAS"!important;top:17%!important;font-size:6.3px!important;color:rgba(232,216,173,.58)!important}
 .home-view::after{top:22%!important;width:46px!important}
 
 .next-event-card{position:absolute!important;left:50%!important;bottom:clamp(145px,20dvh,285px)!important;transform:translateX(-50%)!important;width:min(calc(100% - 14px),560px)!important;min-height:98px!important;margin:0!important;padding:11px 13px!important;border-radius:16px!important;grid-template-columns:52px 1fr!important;gap:7px 11px!important}
