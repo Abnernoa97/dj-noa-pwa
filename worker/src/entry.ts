@@ -1,11 +1,11 @@
 import baseWorker, { ReminderScheduler } from './index';
-import { handleMlbRequest } from './mlb';
-import { handleNbaRequest } from './nba';
+import { handleMlbRequest } from './sports/mlb';
+import { handleNbaRequest } from './sports/nba';
 import { handleNoahChat } from './noahChat';
 import { handleNoahImage } from './noahImage';
-import { handleSportsAnalysis } from './sportsAnalysis';
-import { handleSportsContext } from './sportsContext';
-import { handleSportsLive } from './sportsLive';
+import { handleSportsAnalysis } from './sports/sportsAnalysis';
+import { handleSportsContext } from './sports/sportsContext';
+import { handleSportsLive } from './sports/sportsLive';
 
 export { ReminderScheduler };
 
