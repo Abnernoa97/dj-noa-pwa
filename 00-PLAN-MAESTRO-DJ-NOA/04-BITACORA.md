@@ -94,3 +94,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Todas las interfaces compartidas pasan de `src/types.ts` a `src/shared/types.ts`, sin cambiar una línea del contenido de los tipos; las importaciones de todos los consumidores se redirigen a la única carpeta canónica.
 - Se añade guard de capítulo y documentación. `CurrencyCode` mantiene la compatibilidad de históricos MXN; la operación nueva continúa solo USD.
 - Sin migraciones de Dexie, sin duplicar interfaces ni tocar el Worker. Cloudflare y QA pendientes de aceptación final.
+
+## 18/11/2026 · P03-b · Extracción real de lógica de presentación Noah
+- Se extrajeron `financeText`, `patchEntries`, `progressSteps`, `matrixSteps`, `calendarSeriesSteps` y sus funciones auxiliares al capítulo `src/features/noah/noahActionSteps.ts`.
+- `src/app/App.tsx` baja de 785 a 687 líneas sin modificar el comportamiento; ahora importa un único proveedor de pasos, con tests de equivalencia de estados y valores.
+- No hay llamadas a bases de datos ni network en el módulo extraído. P03 continúa EN CURSO, requieren más separaciones y pruebas en móvil.

@@ -45,6 +45,7 @@ const REQUIRED = [
   'src/domains/noah/noahEvents.ts',
   'src/domains/noah/noahExcel.ts',
   'src/features/noah/NoahVoice.tsx',
+  'src/features/noah/noahActionSteps.ts',
   'src/features/noah/NoahImageIntake.tsx',
   'src/features/noah/NoahActionOverlay.tsx',
   'src/features/sports/MlbWorkspace.tsx',

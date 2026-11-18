@@ -6,3 +6,5 @@
 - `styles/`: apariencia Noah mantenida en su orden original de la cascada.
 - Las reglas, validación y escritura se encuentran en `src/domains/noah/`, no en componentes duplicados.
 - Las fotos utilizadas por Visión no se incorporan a galerías salvo subida manual del usuario.
+
+- `noahActionSteps.ts`: única función de presentación de pasos/progreso de Noah, extraída de App, sin acceso a IndexedDB ni red.
