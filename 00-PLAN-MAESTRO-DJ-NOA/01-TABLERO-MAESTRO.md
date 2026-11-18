@@ -8,7 +8,7 @@
 | P01 | Mapa del código, importaciones, referencias y duplicados | EN CURSO | Inventario de consumidores, huérfanos solo candidatos y duplicaciones demostradas |
 | P02 | Contrato de datos, offline y respaldo | PENDIENTE | Dexie 1–6, blobs manuales, PWA SW, recuperación y transacciones sin pérdida |
 | P03 | Coordinador App y navegación | PENDIENTE | Reducir `src/App.tsx` por extracción, sin nuevos estados ni pantallas duplicadas |
-| P04 | Excel único y complementos | PENDIENTE | `SheetWorkspace` + `ExcelModulesEnhancer` comparten fórmulas, filas y columnas |
+| P04 | Excel único y complementos | EN CURSO | `SheetWorkspace` + `ExcelModulesEnhancer` comparten fórmulas, filas y columnas |
 | P05 | Motor financiero USD único | PENDIENTE | Categorías, contratos, anticipos, cobros, gastos e históricos sin duplicidad |
 | P06 | Eventos, Calendario, Tareas | PENDIENTE | Un evento y un ID; fechas/recordatorios sincronizados sin tocar fechas manuales |
 | P07 | Noah Voz, Imagen y IA | PENDIENTE | Contratos de acciones/validación únicos, 1–5 fotos temporales y cero fotos automáticas almacenadas |

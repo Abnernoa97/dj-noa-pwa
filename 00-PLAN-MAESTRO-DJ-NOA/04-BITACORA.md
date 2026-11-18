@@ -44,3 +44,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 
 ## Próximo bloque
 **P01:** mapa de importaciones reales, CSS con propietarios, escritor canónico de cada dato y catálogo de candidatos. No borrar por similitud de nombres. Conservar esta bitácora como referencia única para otros chats.
+
+## 18/11/2026 · P04-a · Estructura de Excel por capítulo
+- Traslado del editor clásico, cuadrícula dinámica y hook de orientación a `src/features/excel/`. CSS del capítulo ya ubicado en `styles/`.
+- No se duplican los archivos de origen. Se reescribieron rutas en App, entrypoint, auditor y pruebas, y se añadió guard para impedir regresiones de estructura.
+- Se conservan internamente los módulos de cálculo/persistencia y las opciones actuales; **P04 sigue EN CURSO** hasta consolidar las responsabilidades de ambas tablas y QA móvil.
+- Certificación de Cloudflare para esta tanda: pendiente del resultado del build.

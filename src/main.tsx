@@ -4,7 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import AppMaintenance from './AppMaintenance';
 import DataSafetyPanel from './DataSafetyPanel';
-import ExcelModulesEnhancer from './ExcelModulesEnhancer';
+import ExcelModulesEnhancer from './features/excel/ExcelModulesEnhancer';
 import HardRockMarketEnhancer from './HardRockMarketEnhancer';
 import SportsEnhancer from './SportsEnhancer';
 import './styles/core/styles.css';

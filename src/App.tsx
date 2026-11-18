@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { ChevronLeft } from 'lucide-react';
 import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
-import { useExcelLandscape } from './useExcelLandscape';
+import { useExcelLandscape } from './features/excel/useExcelLandscape';
 import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import CalendarWorkspace from './CalendarWorkspace';
@@ -15,7 +15,7 @@ import type { ReviewAction } from './noahImageReconcile';
 import NoahVoice, { type NoahVoiceHandle } from './NoahVoice';
 
 import ReminderWorkspace from './ReminderWorkspace';
-import SheetWorkspace from './SheetWorkspace';
+import SheetWorkspace from './features/excel/SheetWorkspace';
 import { db, uid } from './db';
 import { normalizedEventIdentity } from './eventIntegrity';
 import { formatMoneyAmount } from './moneyIntegrity';

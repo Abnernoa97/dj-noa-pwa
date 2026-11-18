@@ -6,7 +6,7 @@ const file = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 
 test('PWA allows orientation changes but Excel alone requests landscape', () => {
   const manifest = file('vite.config.ts');
-  const orientation = file('src/useExcelLandscape.ts');
+  const orientation = file('src/features/excel/useExcelLandscape.ts');
   const app = file('src/App.tsx');
   assert.match(manifest, /orientation: 'any'/);
   assert.match(orientation, /orientation\.lock\('landscape'\)/);
@@ -18,8 +18,8 @@ test('PWA allows orientation changes but Excel alone requests landscape', () => 
 });
 
 test('unsupported screen orientation lock never breaks Excel; users can retry', () => {
-  const orientation = file('src/useExcelLandscape.ts');
-  const sheet = file('src/SheetWorkspace.tsx');
+  const orientation = file('src/features/excel/useExcelLandscape.ts');
+  const sheet = file('src/features/excel/SheetWorkspace.tsx');
   assert.match(orientation, /typeof orientation\.lock !== 'function'/);
   assert.match(orientation, /catch \{/);
   assert.match(orientation, /window\.addEventListener\('resize', updateViewport\)/);
@@ -31,7 +31,7 @@ test('unsupported screen orientation lock never breaks Excel; users can retry', 
 test('landscape layout is isolated, preserves native navigation and independent table scrolling', () => {
   const style = file('src/features/excel/styles/excel-landscape.css');
   const entry = file('src/main.tsx');
-  const grid = file('src/ExcelModulesEnhancer.tsx');
+  const grid = file('src/features/excel/ExcelModulesEnhancer.tsx');
   assert.match(entry, /import '\.\/features\/excel\/styles\/excel-landscape\.css'/);
   assert.match(style, /@media \(orientation: landscape\)/);
   assert.match(style, /body\.excel-landscape-scope \.ios-shell/);

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNativeBack } from './navigationBack';
+import { useNativeBack } from '../../navigationBack';
 import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { db, uid } from './db';
-import { normalizeSheetText as normalize, numberValue, behaviorOf } from './domains/sheet/sheetValues';
-import { formatMoneyAmount } from './moneyIntegrity';
-import { portfolioUsdSettlement } from './financialOverview';
-import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from './types';
+import { db, uid } from '../../db';
+import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../../domains/sheet/sheetValues';
+import { formatMoneyAmount } from '../../moneyIntegrity';
+import { portfolioUsdSettlement } from '../../financialOverview';
+import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../types';
 
 const BEHAVIOR_LABEL: Record<SheetColumnBehavior, string> = {
   income: 'Ingreso · suma',

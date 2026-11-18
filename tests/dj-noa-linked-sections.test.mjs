@@ -84,7 +84,7 @@ test('calendar, event, excel and home share currency-aware summaries', () => {
   const ui = readFileSync(new URL('../src/ReminderWorkspace.tsx', import.meta.url), 'utf8');
   assert.match(ui, /SEGUIR HORARIO DEL EVENTO/);
   assert.match(ui, /eventScheduleDueAt\(/);
-  const sheet = readFileSync(new URL('../src/SheetWorkspace.tsx', import.meta.url), 'utf8');
+  const sheet = readFileSync(new URL('../src/features/excel/SheetWorkspace.tsx', import.meta.url), 'utf8');
   assert.match(sheet, /Mantener fecha propia/);
   assert.match(sheet, /Moneda/);
 });

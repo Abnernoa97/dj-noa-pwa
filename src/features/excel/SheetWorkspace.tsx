@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, RotateCw, Search, Trash2, Upload, X } from 'lucide-react';
-import { db, uid } from './db';
-import { normalizeSheetText as normalize, numberValue } from './domains/sheet/sheetValues';
-import { formatMoneyAmount } from './moneyIntegrity';
-import { portfolioUsdSettlement } from './financialOverview';
-import { useNativeBack } from './navigationBack';
-import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from './types';
+import { db, uid } from '../../db';
+import { normalizeSheetText as normalize, numberValue } from '../../domains/sheet/sheetValues';
+import { formatMoneyAmount } from '../../moneyIntegrity';
+import { portfolioUsdSettlement } from '../../financialOverview';
+import { useNativeBack } from '../../navigationBack';
+import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../types';
 
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
 const LONG_PRESS_MS = 480;

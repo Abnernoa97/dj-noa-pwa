@@ -48,8 +48,8 @@ test('financial summary groups income and expenses by currency and ignores neutr
 });
 
 test('Excel complement displays USD settlements with historical rows safely locked', () => {
-  const sheet = readFileSync(new URL('../src/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
-  const details = readFileSync(new URL('../src/SheetWorkspace.tsx', import.meta.url), 'utf8');
+  const sheet = readFileSync(new URL('../src/features/excel/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
+  const details = readFileSync(new URL('../src/features/excel/SheetWorkspace.tsx', import.meta.url), 'utf8');
   assert.match(sheet, /portfolioUsdSettlement\(rows\)/);
   assert.match(sheet, /className="excel-grid-currency"/);
   assert.match(sheet, /summaryValue\(overview\.contracted\)/);

@@ -78,8 +78,8 @@ test('payment documents denominated outside USD cannot create an expense/deposit
 });
 
 test('new money writers and Excel import are USD-only and do not mutate historical records', () => {
-  const main = readFileSync(new URL('../src/SheetWorkspace.tsx', import.meta.url), 'utf8');
-  const excel = readFileSync(new URL('../src/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/features/excel/SheetWorkspace.tsx', import.meta.url), 'utf8');
+  const excel = readFileSync(new URL('../src/features/excel/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
   const assistant = readFileSync(new URL('../src/noahExcel.ts', import.meta.url), 'utf8');
   const worker = readFileSync(new URL('../worker/src/noahChat.ts', import.meta.url), 'utf8');
   assert.match(main, /currency: 'USD'/);
