@@ -1,5 +1,5 @@
 import { json } from '../shared/http';
-import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus, createTeamView, compareGameStartTime } from './shared/espnCore';
+import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus, createTeamView, compareGameStartTime, parseEspnEvent } from './shared/espnCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -63,30 +63,7 @@ function sortGames(games: GameView[]) { return games.sort(compareGameStartTime);
 
 function parseEspnGames(payload: unknown): GameView[] {
   const root = rec(payload);
-  const games = list(root.events).map((raw) => {
-    const event = rec(raw);
-    const competition = rec(list(event.competitions)[0]);
-    const competitors = list(competition.competitors).map(rec);
-    const awayRaw = competitors.find((item) => str(item.homeAway) === 'away');
-    const homeRaw = competitors.find((item) => str(item.homeAway) === 'home');
-    if (!awayRaw || !homeRaw) return null;
-    const books = marketView(competition);
-    const consensus = marketConsensus(books);
-    const status = statusView(event.status);
-    const venue = rec(competition.venue);
-    return {
-      id: str(event.id) || crypto.randomUUID(),
-      startTime: str(event.date),
-      status: status.status,
-      statusText: status.statusText,
-      venue: str(venue.fullName) || undefined,
-      away: teamView(awayRaw),
-      home: teamView(homeRaw),
-      consensusAway: consensus.away,
-      consensusHome: consensus.home,
-      books
-    } satisfies GameView;
-  }).filter(Boolean) as GameView[];
+  const games = list(root.events).map((raw) => parseEspnEvent(raw, teamView)).filter(Boolean) as GameView[];
   return sortGames(games);
 }
 

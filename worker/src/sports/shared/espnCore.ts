@@ -91,3 +91,29 @@ export function compareGameStartTime(a: {startTime: string}, b: {startTime: stri
   const bTime = new Date(b.startTime).getTime();
   return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
 }
+
+/** Identical ESPN event projection for MLB and NBA. League-specific abbreviation rules are injected. */
+export function parseEspnEvent(raw: unknown, teamView: ReturnType<typeof createTeamView>) {
+    const event = rec(raw);
+    const competition = rec(list(event.competitions)[0]);
+    const competitors = list(competition.competitors).map(rec);
+    const awayRaw = competitors.find((item) => str(item.homeAway) === 'away');
+    const homeRaw = competitors.find((item) => str(item.homeAway) === 'home');
+    if (!awayRaw || !homeRaw) return null;
+    const books = marketView(competition);
+    const consensus = marketConsensus(books);
+    const status = statusView(event.status);
+    const venue = rec(competition.venue);
+    return {
+      id: str(event.id) || crypto.randomUUID(),
+      startTime: str(event.date),
+      status: status.status,
+      statusText: status.statusText,
+      venue: str(venue.fullName) || undefined,
+      away: teamView(awayRaw),
+      home: teamView(homeRaw),
+      consensusAway: consensus.away,
+      consensusHome: consensus.home,
+      books
+    };
+  }
