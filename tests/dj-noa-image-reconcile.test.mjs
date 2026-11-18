@@ -106,7 +106,7 @@ test('unrelated events and low-confidence sources are not automatically merged',
 
 test('Noah image UI applies verified cross-photo preview and rechecks duplicates before saving', () => {
   const ui = readFileSync(new URL('../src/features/noah/NoahImageIntake.tsx',import.meta.url),'utf8');
-  const server = readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
+  const server = readFileSync(new URL('../worker/src/noah/noahImage.ts',import.meta.url),'utf8');
   assert.match(ui, /reconcilePhotoReads\(/);
   assert.match(ui, /currentEvents = await db\.events\.toArray\(\)/);
   assert.match(ui, /Fuentes:/);

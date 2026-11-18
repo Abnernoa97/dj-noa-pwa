@@ -81,7 +81,7 @@ test('new money writers and Excel import are USD-only and do not mutate historic
   const main = readFileSync(new URL('../src/features/excel/SheetWorkspace.tsx', import.meta.url), 'utf8');
   const excel = readFileSync(new URL('../src/features/excel/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
   const assistant = readFileSync(new URL('../src/domains/noah/noahExcel.ts', import.meta.url), 'utf8');
-  const worker = readFileSync(new URL('../worker/src/noahChat.ts', import.meta.url), 'utf8');
+  const worker = readFileSync(new URL('../worker/src/noah/noahChat.ts', import.meta.url), 'utf8');
   assert.match(main, /currency: 'USD'/);
   assert.match(main, /Moneda = USD/);
   assert.match(main, /selectedRow\.currency === 'USD'/);

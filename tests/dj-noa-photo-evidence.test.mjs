@@ -84,7 +84,7 @@ test('Vision commits only structured records; manual event and sheet photos rema
   const commit=readFileSync(new URL('../src/domains/noah/noahVisionCommit.ts',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../src/features/noah/NoahImageIntake.tsx',import.meta.url),'utf8');
   const app=readFileSync(new URL('../src/app/App.tsx',import.meta.url),'utf8');
-  const worker=readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
+  const worker=readFileSync(new URL('../worker/src/noah/noahImage.ts',import.meta.url),'utf8');
   const optimizer=readFileSync(new URL('../src/services/media/photoOptimization.ts',import.meta.url),'utf8');
   assert.match(commit,/db\.transaction\('rw', \[db\.events, db\.sheetRows\]/);
   assert.doesNotMatch(commit,/db\.eventPhotos|db\.sheetPhotos|blob: source\.file|crypto\.subtle\.digest/);
