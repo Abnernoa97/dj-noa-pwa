@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getHardRockPublishedMarket, type HardRockPublishedMarket } from './hardRockOdds';
+import { getHardRockPublishedMarket, type HardRockPublishedMarket } from '../../domains/sports/hardRockOdds';
 
 type MarketState = {
   host: HTMLElement;

@@ -62,3 +62,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Reglas de acciones, Excel, conciliación visual y escritura transaccional ubicadas en `src/domains/noah/`.
 - Optimización de fotos **manual** ubicada en `src/services/media/`, independiente del guardado de fotos analizadas por Noah.
 - Actualizados importadores App, mantenimiento, mutaciones de eventos, pruebas y auditor estructural. Sin cambiar rutas Worker, contratos USD o datos almacenados. Cloudflare build y QA pendientes de aceptación.
+
+## 18/11/2026 · P09-a · Deportes ordenados por capítulo
+- Cinco componentes deportivos trasladados a `src/features/sports/`, con sus estilos existentes; `hardRockOdds.ts` separado en `src/domains/sports/`.
+- Referencias actualizadas en `App.tsx` y `main.tsx`; los endpoints, el Worker y los cálculos se mantienen iguales.
+- Añadida prueba estructural de módulos sin copias; publicación y validación de Cloudflare pendientes.
+- P09 en curso hasta revisión de llamadas, caché, y QA de resultados en el teléfono.

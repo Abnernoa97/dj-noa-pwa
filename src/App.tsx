@@ -7,7 +7,7 @@ import { addDays, addMonths, addWeeks, format, isAfter, isSameDay, parseISO, sta
 import { es } from 'date-fns/locale';
 import CalendarWorkspace from './features/calendar/CalendarWorkspace';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './features/events/EventWorkspace';
-import MlbWorkspace from './MlbWorkspace';
+import MlbWorkspace from './features/sports/MlbWorkspace';
 import NoahActionOverlay from './features/noah/NoahActionOverlay';
 import NoahImageIntake from './features/noah/NoahImageIntake';
 import { commitNoahVision, type VisionSource } from './domains/noah/noahVisionCommit';

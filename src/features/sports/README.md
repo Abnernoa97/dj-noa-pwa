@@ -1,0 +1,10 @@
+# Capítulo Deportes · DJ NOA
+
+- `MlbWorkspace.tsx`: pantalla MLB.
+- `NbaWorkspace.tsx`: pantalla NBA.
+- `SportsGameDetail.tsx`: detalles, estadísticas y análisis de encuentros.
+- `SportsEnhancer.tsx`: capa de enriquecimiento de eventos deportivos.
+- `HardRockMarketEnhancer.tsx`: panel de mercado Hard Rock.
+- `styles/`: todos los estilos de deportes en el orden de carga original.
+
+La interfaz consume las APIs de la aplicación. No duplicar rutas de Worker ni servicios de resultados.

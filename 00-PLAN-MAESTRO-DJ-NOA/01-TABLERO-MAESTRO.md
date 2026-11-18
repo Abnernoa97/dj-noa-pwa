@@ -13,7 +13,7 @@
 | P06 | Eventos, Calendario, Tareas | EN CURSO | Un evento y un ID; fechas/recordatorios sincronizados sin tocar fechas manuales |
 | P07 | Noah Voz, Imagen y IA | EN CURSO | Contratos de acciones/validación únicos, 1–5 fotos temporales y cero fotos automáticas almacenadas |
 | P08 | Worker y API | PENDIENTE | Un ruteo de API, seguridad preservada y módulos de IA / recordatorios sin cambios de bindings |
-| P09 | Deportes MLB/NBA y contexto | PENDIENTE | Servicios, caché y presentación sin llamadas duplicadas ni cambios de resultados |
+| P09 | Deportes MLB/NBA y contexto | EN CURSO | Servicios, caché y presentación sin llamadas duplicadas ni cambios de resultados |
 | P10 | CSS y diseño | EN CURSO | Sustituir capas duplicadas **con QA visual** Android/iPhone y conservar diseño aprobado |
 | P11 | Velocidad, scroll, orientación y PWA offline | PENDIENTE | Mediciones comparativas, service worker, navegación y Excel horizontal funcionando |
 | P12 | Aceptación final, documentación y poda de ramas | PENDIENTE | Build Cloudflare, QA real, revisión de backups y candidatos de ramas uno por uno |
