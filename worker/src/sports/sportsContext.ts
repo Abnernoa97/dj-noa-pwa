@@ -1,3 +1,4 @@
+import { json } from '../shared/http';
 import { rec, list, str, num } from './shared/espnCore';
 import { normalize, dateOnly, playerName, lineupFromBoxscoreSide } from './shared/contextCore';
 
@@ -267,9 +268,7 @@ async function loadNbaGameLineups(gameId: string) {
   }
 }
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
-}
+
 
 export async function handleSportsContext(request: Request): Promise<Response> {
   if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);

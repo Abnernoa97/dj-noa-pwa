@@ -1,3 +1,4 @@
+import { json } from '../shared/http';
 import { rec, list, str, num, statusView } from './shared/espnCore';
 import { normalize, dateOnly, playerName, lineupFromBoxscoreSide } from './shared/contextCore';
 
@@ -50,9 +51,7 @@ async function getJson(url: string): Promise<unknown> {
   return response.json();
 }
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
-}
+
 
 function shiftDate(value: string, days: number) {
   const [year, month, day] = value.split('-').map(Number);

@@ -1,3 +1,4 @@
+import { json } from '../shared/http';
 import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus } from './shared/espnCore';
 
 type AnyRecord = Record<string, unknown>;
@@ -367,9 +368,7 @@ async function loadStandings(date: string) {
   }
 }
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
-}
+
 
 export async function handleNbaRequest(request: Request): Promise<Response> {
   if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);

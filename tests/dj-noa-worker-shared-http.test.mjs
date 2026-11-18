@@ -11,7 +11,7 @@ test('shared JSON sets no-store headers, status and optional extra headers',asyn
  assert.deepEqual(await r.json(),{ok:true});
 });
 test('router, chat, vision and analysis share JSON helper',()=>{
- for(const file of ['entry.ts','noah/noahChat.ts','noah/noahImage.ts','sports/sportsAnalysis.ts']){
+ for(const file of ['entry.ts','noah/noahChat.ts','noah/noahImage.ts','sports/sportsAnalysis.ts','sports/mlb.ts','sports/nba.ts','sports/sportsContext.ts','sports/sportsLive.ts']){
   const s=readFileSync(new URL('../worker/src/'+file,import.meta.url),'utf8');
   assert.match(s,/import \{ json \} from/);
   assert.doesNotMatch(s,/function json\(/);
