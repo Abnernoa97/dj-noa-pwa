@@ -7,7 +7,7 @@
 | P00 | Respaldo, inventario y Cloudflare sin GitHub Actions | VERIFICADO | Sin workflows, build Cloudflare SUCCESS, respaldo confirmado |
 | P01 | Mapa del código, importaciones, referencias y duplicados | EN CURSO | Inventario de consumidores, huérfanos solo candidatos y duplicaciones demostradas |
 | P02 | Contrato de datos, offline y respaldo | EN CURSO | Dexie 1–6, blobs manuales, PWA SW, recuperación y transacciones sin pérdida |
-| P03 | Coordinador App y navegación | EN CURSO | Reducir `src/App.tsx` por extracción, sin nuevos estados ni pantallas duplicadas |
+| P03 | Coordinador App y navegación | EN CURSO | Reducir `src/app/App.tsx` por extracción, sin nuevos estados ni pantallas duplicadas |
 | P04 | Excel único y complementos | EN CURSO | `SheetWorkspace` + `ExcelModulesEnhancer` comparten fórmulas, filas y columnas |
 | P05 | Motor financiero USD único | EN CURSO | Categorías, contratos, anticipos, cobros, gastos e históricos sin duplicidad |
 | P06 | Eventos, Calendario, Tareas | EN CURSO | Un evento y un ID; fechas/recordatorios sincronizados sin tocar fechas manuales |
@@ -17,6 +17,18 @@
 | P10 | CSS y diseño | EN CURSO | Sustituir capas duplicadas **con QA visual** Android/iPhone y conservar diseño aprobado |
 | P11 | Velocidad, scroll, orientación y PWA offline | PENDIENTE | Mediciones comparativas, service worker, navegación y Excel horizontal funcionando |
 | P12 | Aceptación final, documentación y poda de ramas | PENDIENTE | Build Cloudflare, QA real, revisión de backups y candidatos de ramas uno por uno |
+
+## Estado de la estructura, 18/11/2026
+
+- `src/` raíz: solo `main.tsx` y declaraciones de TypeScript (`react-css.d.ts`, `vite-env.d.ts`).
+- `src/app/`: coordinador, navegación nativa e Inicio. `App.tsx` ahora tiene 687 líneas tras extraer 98 líneas de presentadores Noah.
+- `src/features/`: Eventos, Calendario, Excel, Tareas, Noah, Deportes, Seguridad e Inicio; sus componentes y CSS tienen carpetas de propietario.
+- `src/domains/`: Finanzas USD, Eventos, Noah, Excel/sheet y probabilidades deportivas; reglas sin elementos visuales.
+- `src/services/`: instancia Dexie, respaldos y optimización de medios manuales.
+- `src/shared/`: contrato único de tipos y normalización de texto.
+- `worker/src/`: Worker de producción original; `dj-noa-cloud/` sigue aislado y en pausa.
+- Compilación final comprobada de `23ee054`: **91/91 tests, Cloudflare SUCCESS, deployment 100 %**. No constituye QA física Android/iPhone.
+- **GitHub tiene todavía 75 ramas: `main` y 74 históricas.** Solo `main` publica; no se ha podido eliminar las otras con el conector actual. Eliminar sin antes comprobar commits únicos y backups puede borrar trabajos recuperables.
 
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
@@ -33,8 +45,8 @@ P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 c
 ## Priorización de candidatos iniciales
 1. **Excel:** existen vista clásica y complemento que monta su propia tabla. Revisión de responsabilidad, no borrar ninguna ahora.
 2. **Moneda:** `finance.ts`, `moneyIntegrity.ts`, `financialOverview.ts` y cálculos en componentes. Consolidar sin redefinir contrato USD ni sumar fee+anticipo dos veces.
-3. **CSS:** 33 CSS en `src/`; capas `styles`, `viewport-layout`, `visual-polish`, `sheet-focus`, `excel-modules`, `ios-dark-redesign`, `excel-landscape`. Revisar cascada y media queries; cifras de selectores repetidos serían solo candidatos, no defectos probados.
-4. **App + Noah:** `App.tsx` concentra rutas, trabajo de IA, navegación y estado; extraer funciones puras/servicios primero.
+3. **CSS:** 33 hojas ya agrupadas en `src/features/*/styles/` y `src/styles/core/`; capas `styles`, `viewport-layout`, `visual-polish`, `sheet-focus`, `excel-modules`, `ios-dark-redesign`, `excel-landscape`. Revisar cascada y media queries; cifras de selectores repetidos serían solo candidatos, no defectos probados.
+4. **App + Noah:** `src/app/App.tsx` concentra rutas, trabajo de IA, navegación y estado; extraer funciones puras/servicios primero.
 5. **Ramas:** 74 antes del nuevo respaldo. No borrar ramas `backup-`/`before-` ni históricas sin verificar equivalencia con `main` y referencias.
 
 ## Límites de la aceptación

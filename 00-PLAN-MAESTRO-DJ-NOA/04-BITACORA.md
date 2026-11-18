@@ -99,3 +99,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Se extrajeron `financeText`, `patchEntries`, `progressSteps`, `matrixSteps`, `calendarSeriesSteps` y sus funciones auxiliares al capítulo `src/features/noah/noahActionSteps.ts`.
 - `src/app/App.tsx` baja de 785 a 687 líneas sin modificar el comportamiento; ahora importa un único proveedor de pasos, con tests de equivalencia de estados y valores.
 - No hay llamadas a bases de datos ni network en el módulo extraído. P03 continúa EN CURSO, requieren más separaciones y pruebas en móvil.
+
+## 18/11/2026 · P03-b certificado y estado de ramas
+- Cloudflare build para `23ee05407964dfc41a8839be2034faf5908aa793`: **SUCCESS**, 91/91 tests, despliegue del Worker `dj-noa-pwa` al **100 %** versión `3a10e48a-a1de-4257-8efb-81f20fbaf450`.
+- Solo la rama `main` publica. Se comprobaron 75 ramas en GitHub (74 adicionales), aún **sin eliminar**. No hay operación de borrado de rama disponible en el conector actual. Preservar los respaldos y documentar candidatos antes de una poda autorizada.
+- Persisten tareas pendientes: App de 687 líneas, Excel con editor y complemento, CSS con capas de override, audit de dependencias, QA real Android/iPhone y ramas históricas.

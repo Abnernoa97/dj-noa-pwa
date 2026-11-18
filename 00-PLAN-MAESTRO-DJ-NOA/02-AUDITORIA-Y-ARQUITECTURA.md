@@ -9,6 +9,10 @@
 - Se preparó un helper puro en `src/domains/sheet/sheetValues.ts` para reducir duplicación, conservando resultados y requiriendo pruebas de regresión de Cloudflare.
 - El build P00 confirmó 0 workflows, importaciones resueltas, tipos y tests; también señaló 11 advertencias de vulnerabilidad npm y un chunk Vite superior a 500 kB. Auditar ambos antes de actualizar dependencias o dividir bundles.
 
+## Estado actual tras organización física (18/11/2026)
+
+Este inventario inicial permanece como referencia histórica. Los archivos de la tabla inicial se trasladaron sin copias y sus rutas vigentes están en `01-TABLERO-MAESTRO.md`. Por ejemplo: `src/app/App.tsx`, `src/features/excel/SheetWorkspace.tsx`, `src/services/storage/db.ts` y `src/styles/core/ios-dark-redesign.css`. La limpieza **semántica** de funciones/capas sigue EN CURSO. Última entrega: `23ee054`, 91/91 tests y despliegue Cloudflare correcto.
+
 ## Inventario
 - 117 archivos rastreados, de los que 33 son CSS en `src/` y 39 TS/TSX en `src/`.
 - 13 archivos de pruebas bajo `tests/`; pruebas adicionales de IndexedDB en `integration-tests/`.
