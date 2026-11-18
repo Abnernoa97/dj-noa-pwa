@@ -6,7 +6,7 @@ import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from '..
 import type { VisionSource } from '../../domains/noah/noahVisionCommit';
 import { useNativeBack } from '../../app/navigationBack';
 import type { NoahChatAction } from '../../domains/noah/noahExcel';
-import type { SheetColumn, SheetValue } from '../../shared/types';
+import { hasCellValue, columnSnapshot } from '../../domains/noah/noahSheetSnapshot';
 
 type Finding = {
   kind: string;
@@ -44,21 +44,6 @@ type AnalysisPayload = {
 type Props = {
   onApply: (proposals: ReviewAction[], sources: VisionSource[]) => Promise<void>;
 };
-
-function hasCellValue(value: SheetValue | undefined) {
-  return value !== undefined && value !== null && value !== '';
-}
-
-function columnSnapshot(columns: SheetColumn[]) {
-  return columns.slice(0, 80).map((column) => ({
-    id: column.id,
-    name: column.name,
-    key: column.key,
-    type: column.type,
-    behavior: column.behavior || 'neutral',
-    position: column.position
-  }));
-}
 
 function actionLabel(action: NoahChatAction) {
   if (action.type === 'create_event') {

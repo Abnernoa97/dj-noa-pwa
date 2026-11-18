@@ -170,3 +170,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Extraídas las 8 funciones equivalentes de tarjetas MLB/NBA: `odd`, `impliedProbability`, `favoriteFromOdds`, `favoriteForGame`, `shortTeamName`, `gameClock`, `dateLabel`, `marketLabel` a `src/features/sports/sportsPresentation.ts`.
 - Sustituidas definiciones locales por importación común en `MlbWorkspace` y `NbaWorkspace`. Se conservan los tipos de respuesta por liga, claves caché diferentes, peticiones a sus endpoints, navegación, CSS y lógica NBA de temporada anterior.
 - Añadida prueba `tests/dj-noa-sports-presentation.test.mjs` con cuotas, votos, empates, fecha/estado y política de cache diferenciado. Requiere test/Cloudflare SUCCESS; no se tocó Dexie, Noah ni finanzas.
+
+## 18/11/2026 · P01/DUP-05a: snapshots de Excel compartidos entre Noah Voz y Visión
+- Se verificaron dos bloques con semántica idéntica: `hasCellValue` y `sheetColumnSnapshot`/`columnSnapshot` en `NoahVoice` y `NoahImageIntake`.
+- Se eliminaron implementaciones locales y se migraron ambos componentes a `src/domains/noah/noahSheetSnapshot.ts`, manteniendo el límite de 80 columnas, orden, comportamiento neutro por defecto y tratamiento de `null`, cadena vacía, cero y falso.
+- Añadidas pruebas puras y de ausencia de duplicados `tests/dj-noa-noah-snapshot.test.mjs`. Sin cambio en almacenamiento de fotos/Visión, transacciones, moneda ni endpoints. Cloudflare/regresiones deben aprobarse antes de marcar verificado.

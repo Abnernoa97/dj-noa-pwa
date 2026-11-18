@@ -2,7 +2,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useNativeBack } from '../../app/navigationBack';
 import { Mic, Square } from 'lucide-react';
 import { db } from '../../services/storage/db';
-import type { EventItem, SheetColumn, SheetRow, SheetValue } from '../../shared/types';
+import type { EventItem, SheetRow } from '../../shared/types';
+import { hasCellValue, columnSnapshot } from '../../domains/noah/noahSheetSnapshot';
 import type { NoahEventAction, NoahEventActionResult } from '../../domains/noah/noahEvents';
 import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from '../../domains/noah/noahExcel';
 
@@ -40,21 +41,6 @@ function clamp(value: number, min: number, max: number) {
 
 function normalizeSpeech(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function hasCellValue(value: SheetValue | undefined) {
-  return value !== undefined && value !== null && value !== '';
-}
-
-function sheetColumnSnapshot(columns: SheetColumn[]) {
-  return columns.slice(0, 80).map((column) => ({
-    id: column.id,
-    name: column.name,
-    key: column.key,
-    type: column.type,
-    behavior: column.behavior || 'neutral',
-    position: column.position
-  }));
 }
 
 const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events, sheetRows, section, onEventAction }, ref) {
@@ -336,7 +322,7 @@ const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events
         notes: event.notes,
         status: event.status
       }));
-      const sheetColumns = sheetColumnSnapshot(currentColumns);
+      const sheetColumns = columnSnapshot(currentColumns);
       const sheetSnapshot = currentRows.filter((row) => row.currency === 'USD').slice(0, 120).map((row) => ({
         id: row.id,
         label: row.label,
