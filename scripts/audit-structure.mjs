@@ -27,7 +27,6 @@ const REQUIRED = [
   'src/shared/normalizeText.ts',
   'scripts/audit-candidates.mjs',
   'src/features/excel/ExcelModulesEnhancer.tsx',
-  'src/domains/finance/finance.ts',
   'src/domains/finance/financialOverview.ts',
   'src/features/safety/AppMaintenance.tsx',
   'src/features/safety/DataSafetyPanel.tsx',

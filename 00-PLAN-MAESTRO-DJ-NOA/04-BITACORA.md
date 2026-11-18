@@ -129,3 +129,10 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Sustituidas por un único helper puro `makeGridColumnKey(name, generatedId)` en `src/domains/sheet/sheetValues.ts`, manteniendo exactamente normalización, fallback `columna`, prefijo `grid_` y primeros seis caracteres del ID que genera cada consumidor.
 - Los dos consumidores siguen usando `uid()` en el mismo punto y creando sus propias filas/columnas como antes; no cambia IndexedDB, nombres de columnas guardadas, tipos, fórmulas, moneda USD ni Worker.
 - Añadidas pruebas de equivalencia de IDs y un guard contra copias locales en `tests/dj-noa-sheet-shared.test.mjs`. **P01 permanece EN CURSO**; Cloudflare y regresiones del commit deben aprobarse antes de dar este paso por verificado.
+
+## 18/11/2026 · P01-f · Retiro de motor financiero antiguo sin consumidores reales
+- El auditor de importaciones reportó **una sola fuente sin acceso desde los entrypoints PWA/Worker**: `src/domains/finance/finance.ts`. Su clasificación `financialTypeForCategory` y resumen `financialSummary` no eran invocados por la app; únicamente tenían consumidores en tests de compatibilidad histórica.
+- El motor anterior clasifica importes mediante etiquetas de categoría, una ruta conceptual distinta de la conciliación contractual USD actual. Se elimina ese archivo **de código fuente**, no datos financieros.
+- Se reemplaza la prueba del resumen obsoleto por una regresión de `eventUsdSettlement`: contrato USD, anticipo recibido, nota neutra y fila MXN histórica, todos diferenciados sin contar dos veces.
+- Se ajustan los tests del normalizador, el guard de arquitectura y el README. Se mantiene **exactamente** la implementación de `financialOverview.ts`, `moneyIntegrity.ts`, Dexie, tablas, Worker, IA y pantallas. Los archivos históricos siguen disponibles en Git y los registros de dinero en IndexedDB son intocables.
+- P01-f exige build/QA Cloudflare SUCCESS antes del cierre; P01 general continúa EN CURSO por CSS, Excel y contratos.

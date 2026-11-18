@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { formatMoneyBuckets, formatMoneyTotals, groupedExcelTotals, groupedMoney } from '../src/domains/finance/moneyIntegrity.ts';
-import { financialSummary } from '../src/domains/finance/finance.ts';
+import { eventUsdSettlement } from '../src/domains/finance/financialOverview.ts';
 
 const col = (name, kind) => ({ id: name, key: name, name, behavior: kind, type: 'currency', position: 0, createdAt: 'now' });
 const cols = [col('income', 'income'), col('expense', 'expense'), col('investment', 'investment'), col('note', 'neutral')];
@@ -34,17 +34,15 @@ test('legacy rows with no currency explicitly belong to MXN, without altering st
   assert.match(formatMoneyTotals(rows), /histórico/);
 });
 
-test('financial summary groups income and expenses by currency and ignores neutral balances', () => {
+test('canonical USD settlement counts cash once and excludes unrelated MXN and notes', () => {
   const rows = [
-    row('first', 'MXN', {}, 20000, 'income'),
-    row('second', 'MXN', {}, 7000, 'expense'),
-    row('third', 'USD', {}, 2000, 'income'),
-    row('fourth', 'USD', {}, 300, 'expense'),
-    row('note', 'USD', {}, 9000, 'neutral'),
+    { ...row('old', 'MXN', {}, 20000, 'income'), financialRole: 'fee' },
+    { ...row('fee', 'USD', {}, 2000, 'income'), financialRole: 'fee', syncManaged: true },
+    { ...row('advance', 'USD', {}, 300, 'income'), financialRole: 'deposit', status: 'paid' },
+    { ...row('note', 'USD', {}, 9000, 'neutral'), financialRole: 'other' }
   ];
-  const result = financialSummary(rows);
-  assert.deepEqual(result.MXN, { income: 20000, expense: 7000, neutral: 0, balance: 13000 });
-  assert.deepEqual(result.USD, { income: 2000, expense: 300, neutral: 9000, balance: 1700 });
+  const result = eventUsdSettlement(rows);
+  assert.deepEqual(result, { contracted: 2000, received: 300, pending: 1700, hasContract: true, ambiguous: false, excludedLegacy: 1 });
 });
 
 test('Excel complement displays USD settlements with historical rows safely locked', () => {
