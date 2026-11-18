@@ -30,6 +30,14 @@
 - Compilación final comprobada de `23ee054`: **91/91 tests, Cloudflare SUCCESS, deployment 100 %**. No constituye QA física Android/iPhone.
 - **P12-a poda de ramas VERIFICADA (18/11/2026): GitHub devuelve únicamente `main`**. Fueron eliminadas las 74 ramas históricas mediante una ejecución única de GitHub Actions (run `44402947387`, SUCCESS), después de verificar sus SHA y PR. Se retiró el workflow temporal inmediatamente; `.github/workflows` no existe en `main`. Las referencias de backup desaparecieron pero sus commits ancestrales permanecen en la historia de `main`. P12 general sigue EN CURSO por QA física y aceptación final.
 
+## P01 · corte certificado de limpieza semántica (18/11/2026)
+
+- Auditor de importaciones PWA + Worker tras P01-f: **81 fuentes rastreadas / 81 alcanzables / 0 candidatos huérfanos**. Esto prueba alcance estático, no ausencia absoluta de código muerto.
+- **P01-e verificado:** eliminadas dos funciones equivalentes de generación de clave `grid_...` (Excel y Noah) a favor de `makeGridColumnKey`; 93/93 pruebas y Cloudflare deployment **SUCCESS** del commit `5b61b4e`.
+- **P01-f verificado:** retirado `src/domains/finance/finance.ts`, sin consumidores en producción. Las pruebas financieras históricas se redirigieron a la conciliación contractual USD vigente; **93/93**, Cloudflare build `ba08a33e-6e59-462c-b606-471e81512935` **SUCCESS**, deployment 100 % del commit `22acf2c`.
+- Permanecen **33 hojas CSS** y **3,008 menciones `!important`**; son indicios de deuda en P10, no autorización de borrado. Revisar CSS con QA visual Android/iPhone, Excel/Noah con integridad de datos y navegadores.
+- **P01 continúa EN CURSO**, por auditoría semántica más profunda de funciones y contratos; el grafo limpio no equivale a finalizar todo el proyecto.
+
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
 

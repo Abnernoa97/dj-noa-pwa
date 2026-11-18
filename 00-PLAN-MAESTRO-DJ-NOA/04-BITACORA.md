@@ -136,3 +136,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Se reemplaza la prueba del resumen obsoleto por una regresión de `eventUsdSettlement`: contrato USD, anticipo recibido, nota neutra y fila MXN histórica, todos diferenciados sin contar dos veces.
 - Se ajustan los tests del normalizador, el guard de arquitectura y el README. Se mantiene **exactamente** la implementación de `financialOverview.ts`, `moneyIntegrity.ts`, Dexie, tablas, Worker, IA y pantallas. Los archivos históricos siguen disponibles en Git y los registros de dinero en IndexedDB son intocables.
 - P01-f exige build/QA Cloudflare SUCCESS antes del cierre; P01 general continúa EN CURSO por CSS, Excel y contratos.
+
+## 18/11/2026 · P01-e/f certificados por Cloudflare
+- P01-e commit `5b61b4e654ab112469fd27c8afb4cde6aa059a6f`: **93/93 tests, 0 fallos**, Workers Builds `7143a074-c25f-4906-94d1-fd3ff32f3fcf` SUCCESS, Worker desplegado al 100 % versión `ecdde1b1-f233-4b1f-a33f-57809cd45687`.
+- P01-f commit `22acf2c2b6b9bcbd408a23ceb66c8146f363f310`: **93/93 tests, 0 fallos**, Workers Builds `ba08a33e-6e59-462c-b606-471e81512935` SUCCESS, Worker desplegado al 100 % versión `4d031b0b-9386-4c90-bda4-d6dcc086990d`.
+- Auditor P01-f: **81/81 fuentes accesibles, cero candidatos huérfanos** desde las entradas PWA y Worker. Se retiró una implementación histórica no invocada; el resto requiere auditoría de duplicidad semántica y QA físico, no borrado automatizado.
+- No se han creado ramas ni workflows GitHub Actions. Los dos cambios se aplicaron en `main` con commits atómicos y Cloudflare como publicación oficial. P01 general continúa EN CURSO; P02–P11 no se dan por cerrados por tests sintéticos.
