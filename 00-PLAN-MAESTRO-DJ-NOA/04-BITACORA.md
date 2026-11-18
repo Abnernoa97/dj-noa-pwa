@@ -29,5 +29,11 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Contadores y posibles archivos huérfanos se archivarán tras leer los logs del build real; **no se borran fuentes por una sospecha de ausencia de imports**.
 - P01 permanece EN CURSO; finanzas, Visión y Excel conservan sus contratos.
 
+## 18/11/2026 · Compuerta P01-b/c y corrección de test
+- El build Cloudflare `0539facd-7297-40b8-96e5-35c067f29039` del commit `54dfc3d` falló en las pruebas Node (`ERR_MODULE_NOT_FOUND`): el runtime no resuelve importaciones `.ts` sin extensión en los módulos cargados por tests. **El deploy de esa revisión NO ocurrió; permaneció activa la versión anterior `30e5da29`**.
+- Corrección acotada: declarar la extensión `.ts` en las cuatro referencias a `src/shared/normalizeText.ts` y exigirlo en el test. Sin cambio de funciones, montos o almacenamiento. Requiere un nuevo build **SUCCESS** para cerrar.
+- El auditor experimental encontró 81 fuentes, 80 alcanzables y un candidato `src/finance.ts`. No borrarlo: revisar exportaciones y consumidores de tests antes de clasificarlo como obsoleto.
+- CSS: 33 hojas y 3,008 apariciones de `!important`; dato heurístico para P10, no defectos confirmados.
+
 ## Próximo bloque
 **P01:** mapa de importaciones reales, CSS con propietarios, escritor canónico de cada dato y catálogo de candidatos. No borrar por similitud de nombres. Conservar esta bitácora como referencia única para otros chats.

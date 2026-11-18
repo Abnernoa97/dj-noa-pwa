@@ -1,5 +1,5 @@
 import type { SheetColumn, SheetColumnBehavior } from '../../types';
-export { normalizeText as normalizeSheetText } from '../../shared/normalizeText';
+export { normalizeText as normalizeSheetText } from '../../shared/normalizeText.ts';
 
 /** The only text/amount/column-behavior helpers shared by Excel and Noah. */
 /** Preserve existing Excel parsing exactly; this is NOT currency conversion. */

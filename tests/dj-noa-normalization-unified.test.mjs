@@ -29,6 +29,6 @@ test('older normalization implementations cannot creep back into audited modules
     const source = readFileSync(new URL(path, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /function normalize\(/, path);
     assert.doesNotMatch(source, /\.normalize\('NFD'\)/, path);
-    assert.match(source, /shared\/normalizeText/, path);
+    assert.match(source, /shared\/normalizeText\.ts/, path);
   }
 });

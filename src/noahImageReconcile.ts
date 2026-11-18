@@ -1,4 +1,4 @@
-import { normalizeText as normalize } from './shared/normalizeText';
+import { normalizeText as normalize } from './shared/normalizeText.ts';
 import { isValidEventDate, normalizedEventIdentity } from './eventIntegrity.ts';
 import type { NoahChatAction } from './noahExcel';
 import type { EventItem } from './types';
