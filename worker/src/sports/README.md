@@ -7,3 +7,9 @@
 
 Consumidor externo único: `../entry.ts`. No usar estas funciones desde la PWA; los archivos de interfaz viven en `src/features/sports/`.
 **Pendiente P01/P09:** inventario de normalizadores, probabilidades y parsing duplicados entre estos archivos; no fusionar sin comprobar equivalencia semántica.
+
+## Funciones compartidas (DUP-01)
+
+- `shared/espnCore.ts`: fuente única para parseadores de objetos/listas/texto/números, estados de ESPN, avance de fecha, mercado de cuotas y consenso utilizados por **ambos** `mlb.ts` y `nba.ts`.
+- No se incluyen `abbr`, `officialStatus`, `getJson`, `teamView`, `sortGames` ni loaders porque tienen diferencias específicas de liga o protocolo que requieren otra auditoría.
+- La PWA usa la API existente; no se cambian nombres de ruta, precios de cuota, redondeos ni el fallback de proveedores.

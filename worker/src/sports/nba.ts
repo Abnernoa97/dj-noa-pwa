@@ -1,3 +1,5 @@
+import { rec, list, str, num, int, nextDate, statusView, marketView, marketConsensus } from './shared/espnCore';
+
 type AnyRecord = Record<string, unknown>;
 
 type TeamView = { name: string; abbreviation: string; logo?: string; score?: string };
@@ -33,22 +35,7 @@ const NBA_HEADERS: HeadersInit = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 };
 
-function rec(value: unknown): AnyRecord { return value && typeof value === 'object' && !Array.isArray(value) ? value as AnyRecord : {}; }
-function list(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
-function str(value: unknown) { return typeof value === 'string' ? value : ''; }
-function num(value: unknown): number | undefined {
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-function int(value: unknown, fallback = 0) { const parsed = num(value); return parsed === undefined ? fallback : Math.trunc(parsed); }
 function abbr(name: string, supplied?: string) { return supplied?.trim().toUpperCase() || name.split(/\s+/).map((part) => part[0]).join('').slice(0, 3).toUpperCase(); }
-
-function nextDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
 
 function normalizeDate(value: string) {
   const trimmed = value.trim();
@@ -78,16 +65,6 @@ async function firstJson(urls: string[], nbaHeaders = false) {
   throw lastError instanceof Error ? lastError : new Error('upstream_unavailable');
 }
 
-function statusView(value: unknown) {
-  const status = rec(value);
-  const type = rec(status.type);
-  const state = str(type.state).toLowerCase();
-  const detail = str(type.shortDetail) || str(type.detail) || str(status.displayClock);
-  if (state === 'in') return { status: 'live' as const, statusText: detail || 'EN VIVO' };
-  if (state === 'post') return { status: 'final' as const, statusText: detail || 'FINAL' };
-  return { status: 'scheduled' as const, statusText: detail || 'PROGRAMADO' };
-}
-
 function officialStatus(game: AnyRecord) {
   const raw = int(game.gameStatus);
   const text = str(game.gameStatusText) || str(game.gameStatusTextLong);
@@ -115,52 +92,9 @@ function officialTeamView(value: AnyRecord): TeamView {
   };
 }
 
-function marketMoneyLine(item: AnyRecord, side: 'away' | 'home') {
-  const teamOdds = rec(side === 'away' ? item.awayTeamOdds : item.homeTeamOdds);
-  return num(teamOdds.moneyLine)
-    ?? num(teamOdds.moneyline)
-    ?? num(item[`${side}MoneyLine`])
-    ?? num(item[`${side}Moneyline`]);
-}
-
-function marketView(competition: AnyRecord): BookView[] {
-  const rows = new Map<string, BookView>();
-  for (const raw of list(competition.odds)) {
-    const item = rec(raw);
-    const away = marketMoneyLine(item, 'away');
-    const home = marketMoneyLine(item, 'home');
-    if (away === undefined || home === undefined || away === 0 || home === 0) continue;
-    const provider = rec(item.provider);
-    const providerName = str(provider.name) || str(provider.displayName) || str(item.providerName) || 'Mercado';
-    const key = providerName.trim().toLowerCase();
-    if (!rows.has(key)) rows.set(key, { provider: providerName, away, home });
-  }
-  return Array.from(rows.values()).slice(0, 5);
-}
-
-function impliedProbability(american: number) {
-  return american < 0 ? (-american) / ((-american) + 100) : 100 / (american + 100);
-}
-
-function americanFromProbability(probability: number) {
-  if (!(probability > 0 && probability < 1)) return undefined;
-  const american = probability >= 0.5
-    ? -(100 * probability) / (1 - probability)
-    : (100 * (1 - probability)) / probability;
-  return Math.round(american);
-}
-
 function decimalToAmerican(decimal: number) {
   if (!(decimal > 1)) return undefined;
   return decimal >= 2 ? Math.round((decimal - 1) * 100) : Math.round(-100 / (decimal - 1));
-}
-
-function marketConsensus(books: BookView[]) {
-  if (!books.length) return {};
-  if (books.length === 1) return { away: books[0].away, home: books[0].home };
-  const awayProbability = books.reduce((sum, book) => sum + impliedProbability(book.away), 0) / books.length;
-  const homeProbability = books.reduce((sum, book) => sum + impliedProbability(book.home), 0) / books.length;
-  return { away: americanFromProbability(awayProbability), home: americanFromProbability(homeProbability) };
 }
 
 async function loadOfficialOdds(): Promise<Map<string, BookView[]>> {
