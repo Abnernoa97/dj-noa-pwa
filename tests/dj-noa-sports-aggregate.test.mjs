@@ -9,6 +9,6 @@ test('recent form aggregation is shared, ordered and counts wins/losses',()=>{
 test('live and context use one W/L aggregator',()=>{
  for(const file of ['sportsContext','sportsLive']){
   const src=readFileSync(new URL('../worker/src/sports/'+file+'.ts',import.meta.url),'utf8');
-  assert.match(src,/aggregateForm\(recent/);assert.doesNotMatch(src,/const aggregate = \(items:/);
+  assert.match(src,file==='sportsLive'?/summarizeResults\(recent/:/aggregateForm\(recent/);assert.doesNotMatch(src,/const aggregate = \(items:/);
  }
 });

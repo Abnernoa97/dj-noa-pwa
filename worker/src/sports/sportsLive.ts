@@ -1,6 +1,6 @@
 import { json } from '../shared/http';
 import { rec, list, str, num, statusView } from './shared/espnCore';
-import { normalize, dateOnly, playerName, lineupFromBoxscoreSide, aggregateForm } from './shared/contextCore';
+import { normalize, dateOnly, playerName, lineupFromBoxscoreSide, aggregateForm as summarizeResults } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -290,7 +290,7 @@ function aggregateForm(games: FormGame[], sourceSeason: number): FormView | null
   const recent = games.slice(0, 10);
   if (!recent.length) return null;
 
-  return { last5: aggregateForm(recent.slice(0, 5)), last10: aggregateForm(recent), games: recent, sourceSeason };
+  return { last5: summarizeResults(recent.slice(0, 5)), last10: summarizeResults(recent), games: recent, sourceSeason };
 }
 
 async function resolveMlbTeamId(name: string, abbreviation: string, season: number): Promise<number | undefined> {
