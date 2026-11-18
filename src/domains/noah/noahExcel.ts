@@ -1,4 +1,5 @@
 import { db, uid } from '../../services/storage/db';
+import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../sheet/sheetValues';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 import type { FinancialType, SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
@@ -204,10 +205,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
   if (action.type === 'delete_sheet_row') {
     const row = await db.sheetRows.get(action.rowId);
     if (!row) return { ok: false, message: 'No encontré esa fila.' };
-    await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
-      await db.sheetPhotos.where('rowId').equals(row.id).delete();
-      await db.sheetRows.delete(row.id);
-    });
+    await deleteSheetRowWithPhotos(row.id);
     announce({ type: action.type, rowId: row.id, rowLabel: row.label });
     return { ok: true, message: `Listo, eliminé ${row.label || 'esa fila'}.` };
   }

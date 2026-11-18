@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
+import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
@@ -179,10 +180,7 @@ export default function ExcelModulesEnhancer() {
 
   const deleteRow = async (row: SheetRow) => {
     if (!window.confirm(`¿Eliminar la fila “${row.label || 'sin nombre'}”?`)) return;
-    await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
-      await db.sheetPhotos.where('rowId').equals(row.id).delete();
-      await db.sheetRows.delete(row.id);
-    });
+    await deleteSheetRowWithPhotos(row.id);
   };
 
   const createColumn = async () => {

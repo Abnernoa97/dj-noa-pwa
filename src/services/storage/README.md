@@ -6,3 +6,5 @@
 
 - `db.ts`: única instancia Dexie `dj-noa-local` y único esquema de migraciones 1–6; las siete tablas no cambian.
 - `dataBackup.ts`: exportación/importación de respaldos locales que utiliza esa misma instancia, sin bases duplicadas.
+
+- `sheetMutations.ts`: única transacción de eliminación de filas Excel **junto con sus fotos**. Noah y la vista de grilla delegan borrado individual; `SheetWorkspace` delega selección múltiple. Mantiene `Table.delete` para uno y `bulkDelete` en selección, sin alterar versiones Dexie.

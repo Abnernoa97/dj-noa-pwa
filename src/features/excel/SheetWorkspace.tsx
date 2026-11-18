@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, RotateCw, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
+import { deleteSheetRowsWithPhotos } from '../../services/storage/sheetMutations';
 import { normalizeSheetText as normalize, numberValue } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
@@ -311,10 +312,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     const selected = rows.filter((row) => selectionIds.has(row.id));
     const label = ids.length === 1 ? `“${selected[0]?.label || 'esta fila'}”` : `${ids.length} filas`;
     if (!window.confirm(`¿Eliminar ${label}?`)) return;
-    await db.transaction('rw', [db.sheetRows, db.sheetPhotos], async () => {
-      for (const id of ids) await db.sheetPhotos.where('rowId').equals(id).delete();
-      await db.sheetRows.bulkDelete(ids);
-    });
+    await deleteSheetRowsWithPhotos(ids);
     if (selectedRowId && selectionIds.has(selectedRowId)) setSelectedRowId(null);
     setSelectionIds(new Set());
     await onChanged();
