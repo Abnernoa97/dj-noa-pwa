@@ -229,7 +229,7 @@
 .mlb-books{margin-top:10px;display:flex;flex-direction:column;gap:4px}
 .mlb-books>div{display:grid;grid-template-columns:1fr 64px 64px;align-items:center;min-height:31px;padding:0 9px;border-radius:9px;background:rgba(255,255,255,.03);font-size:8.5px;color:rgba(255,255,255,.48)}
 .mlb-books>div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mlb-books b{text-align:center;font-size:10px;color:rgba(255,255,255,.76);font-variant-numeric:tabular-nums}
+.mlb-books b{text-align:center;font-size:10px;color:rgba(255,255,255,.76)}
 .mlb-no-odds{margin-top:11px;text-align:center;font-size:8.5px;letter-spacing:.05em;color:rgba(255,255,255,.36)}
 .mlb-updated{padding:18px 5px 6px;text-align:center;font-size:8px;letter-spacing:.10em;color:rgba(255,255,255,.31)}
 
