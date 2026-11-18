@@ -6,9 +6,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 test('global scroll fix loads last so it wins the CSS cascade', () => {
   const main = read('src/main.tsx');
-  const visual = main.indexOf("import './visual-polish.css';");
-  const excel = main.indexOf("import './excel-scroll-fix.css';");
-  const global = main.indexOf("import './scroll-fix.css';");
+  const visual = main.indexOf("import 'src/styles/core/visual-polish.css';");
+  const excel = main.indexOf("import 'src/features/excel/styles/excel-scroll-fix.css';");
+  const global = main.indexOf("import 'src/styles/core/scroll-fix.css';");
   assert.ok(visual >= 0);
   assert.ok(excel >= 0);
   assert.ok(global > visual);
@@ -16,14 +16,14 @@ test('global scroll fix loads last so it wins the CSS cascade', () => {
 });
 
 test('main content is the single vertical touch scroll surface', () => {
-  const css = read('src/scroll-fix.css');
+  const css = read('src/styles/core/scroll-fix.css');
   assert.match(css, /\.content\s*\{[\s\S]*overflow-y:auto!important/);
   assert.match(css, /\.content\s*\{[\s\S]*touch-action:pan-y!important/);
   assert.match(css, /-webkit-overflow-scrolling:touch/);
 });
 
 test('events reminders calendar and Excel are allowed to grow vertically', () => {
-  const css = read('src/scroll-fix.css');
+  const css = read('src/styles/core/scroll-fix.css');
   for (const selector of ['.events-page', '.reminders-workspace', '.calendar-page', '.sheet-classic']) {
     assert.ok(css.includes(selector), selector);
   }

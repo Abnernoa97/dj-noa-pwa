@@ -29,7 +29,7 @@ test('unsupported screen orientation lock never breaks Excel; users can retry', 
 });
 
 test('landscape layout is isolated, preserves native navigation and independent table scrolling', () => {
-  const style = file('src/excel-landscape.css');
+  const style = file('src/features/excel/styles/excel-landscape.css');
   const entry = file('src/main.tsx');
   const grid = file('src/ExcelModulesEnhancer.tsx');
   assert.match(entry, /import '\.\/excel-landscape\.css'/);
