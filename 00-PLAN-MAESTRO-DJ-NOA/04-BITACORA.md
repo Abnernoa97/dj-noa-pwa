@@ -175,3 +175,7 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Se verificaron dos bloques con semántica idéntica: `hasCellValue` y `sheetColumnSnapshot`/`columnSnapshot` en `NoahVoice` y `NoahImageIntake`.
 - Se eliminaron implementaciones locales y se migraron ambos componentes a `src/domains/noah/noahSheetSnapshot.ts`, manteniendo el límite de 80 columnas, orden, comportamiento neutro por defecto y tratamiento de `null`, cadena vacía, cero y falso.
 - Añadidas pruebas puras y de ausencia de duplicados `tests/dj-noa-noah-snapshot.test.mjs`. Sin cambio en almacenamiento de fotos/Visión, transacciones, moneda ni endpoints. Cloudflare/regresiones deben aprobarse antes de marcar verificado.
+
+## 18/11/2026 · P01/DUP-05b: normalización de voz unificada
+- La función `normalizeSpeech` del componente Noah Voz era cuerpo idéntico a `src/shared/normalizeText.ts`. Se retiró la definición local y se importa `normalizeText as normalizeSpeech` (sin wrapper ni conversión nueva), conservando su único consumidor de sesión de voz.
+- Añadida prueba de import único y normalización con acentos a `tests/dj-noa-normalization-unified.test.mjs`. Sin alterar reconocimiento de voz, permisos, base de datos, navegación ni API.

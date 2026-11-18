@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useNativeBack } from '../../app/navigationBack';
 import { Mic, Square } from 'lucide-react';
 import { db } from '../../services/storage/db';
+import { normalizeText as normalizeSpeech } from '../../shared/normalizeText';
 import type { EventItem, SheetRow } from '../../shared/types';
 import { hasCellValue, columnSnapshot } from '../../domains/noah/noahSheetSnapshot';
 import type { NoahEventAction, NoahEventActionResult } from '../../domains/noah/noahEvents';
@@ -37,10 +38,6 @@ function recognitionCtor() {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeSpeech(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 const NoahVoice = forwardRef<NoahVoiceHandle, Props>(function NoahVoice({ events, sheetRows, section, onEventAction }, ref) {

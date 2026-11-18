@@ -30,3 +30,10 @@ test('older normalization implementations cannot creep back into audited modules
     assert.match(source, /shared\/normalizeText\.ts/, path);
   }
 });
+
+test('Noah speech reuses the exact shared accent-insensitive normalizer', () => {
+  const voice = readFileSync(new URL('../src/features/noah/NoahVoice.tsx', import.meta.url),'utf8');
+  assert.match(voice, /normalizeText as normalizeSpeech/);
+  assert.doesNotMatch(voice, /function normalizeSpeech\(/);
+  assert.equal(normalizeText('PÁGÓ / SÉÑOR'), 'pago senor');
+});
