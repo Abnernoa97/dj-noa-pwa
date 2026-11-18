@@ -70,6 +70,14 @@
 
 **Último corte `bfff20b`: 114/114 pruebas, 0 fallos, Cloudflare SUCCESS, versión Worker desplegada al 100 %.** Los recuentos son indicios sintácticos de duplicación, no funciones eliminables automáticamente. P01 sigue EN CURSO por Excel/Dexie, recurrencia, IA y CSS.
 
+## P01-i/j · Excel y Noah: consolidación VERIFICADA (18/11/2026)
+
+- **DUP-06a**: una sola transacción de borrado de filas y fotos en src/services/storage/sheetMutations.ts. Consumidores: Noah Excel, ExcelModulesEnhancer y SheetWorkspace. Se conservan los métodos individuales/bulk y confirmaciones de cada superficie.
+- **DUP-06b**: una sola función pura sheetFinancialPatch en src/domains/sheet/sheetFinancial.ts. Reutilizada por Noah y la grilla Excel para ingresos menos gastos menos inversiones, sin alterar guardas USD ni columnas neutrales.
+- **Regresiones y publicación**: 121/121 pruebas aprobadas; Cloudflare SUCCESS, commit aff2ebd, despliegue 100 %. El primer intento falló solo por dependencia ausente en la prueba, y fue reemplazado por un store simulado; no se añadió dependencia.
+- **Auditor de duplicaciones**: 31 grupos idénticos iniciales → 15 en el corte anterior → **14 grupos ahora**. Permanecen 24 pares similares; los 183 selectores CSS y 3,008 declaraciones !important siguen intactos.
+- **Riesgo identificado y sin modificar**: borrar columnas se hace de tres maneras no equivalentes. Noah puede recalcular registros históricos MXN al borrar una columna; las otras interfaces no recalculan igual. Requiere contrato y pruebas de integridad antes de tocar esa ruta. P01/P04/P05 siguen EN CURSO, no hay QA física Android/iPhone.
+
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
 

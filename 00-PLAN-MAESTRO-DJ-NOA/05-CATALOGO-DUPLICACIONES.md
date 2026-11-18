@@ -8,6 +8,13 @@ Este archivo conserva **el inventario inicial** de 31 grupos exactos y 31 pareja
 
 Los seis commits de consolidación son `7480b1e`, `9e2c573`, `9087af4`, `b350a96`, `4a35b06` y `bfff20b`. El siguiente ciclo debe empezar por regenerar el inventario con `npm run audit:semantics`, revisar los 15 grupos **actuales** y fijar contratos de datos antes de tocar Excel/recurrencia/Noah IA/CSS. No borrar el catálogo inicial: permite contrastar el avance, no se debe confundir con el estado actual.
 
+## Seguimiento P01-i/j · Excel y Noah (18/11/2026)
+
+- DUP-06a consolidado: las tres superficies de Excel/Noah borran filas y fotografías en una transacción canónica, con la semántica previa para una fila y selección múltiple.
+- DUP-06b consolidado: cálculo puro de neto financiero compartido entre Noah y la grilla.
+- El auditor registra **14 grupos exactos y 24 parejas similares**, frente a 31/31 inicialmente. El CSS no ha cambiado.
+- La eliminación de columnas requiere un protocolo específico: Noah recalcula todas las filas en esa acción y puede alterar históricos MXN, mientras las demás interfaces no hacen lo mismo. No fusionar automáticamente.
+
 ## Alcance exacto, no estimaciones
 
 | Evidencia | Resultado |

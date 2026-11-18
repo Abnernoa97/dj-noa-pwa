@@ -73,3 +73,9 @@ Las referencias a un método o tabla no constituyen un segundo propietario. Las 
 - `src/shared/normalizeText.ts`: también propietario del normalizador del reconocimiento de voz.
 
 **No unificados todavía:** escritor Excel `SheetWorkspace/ExcelModulesEnhancer/noahExcel`, recurrencia cliente/Worker, dos parsing paths IA, CSS con múltiples capas. Preservar sus contratos antes de migrar.
+
+## Corte P01-i/j · Propietarios Excel comprobados
+
+- src/services/storage/sheetMutations.ts: único propietario de eliminar filas y fotos en transacción, utilizado por las tres superficies de Excel/Noah.
+- src/domains/sheet/sheetFinancial.ts: cálculo neto y clasificación de ingresos, gastos e inversiones, utilizado por Noah y grilla.
+- Pendiente: borrado de columnas, históricos MXN, importación y sincronización financiera. No unificar sin contrato y pruebas.

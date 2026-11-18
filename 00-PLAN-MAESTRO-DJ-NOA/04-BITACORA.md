@@ -201,3 +201,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - `noahExcel.ts` y `ExcelModulesEnhancer.tsx` calculaban independientemente ingresos − gastos − inversiones, monto absoluto y signo financiero. Extraje la función pura de Noah, sin alterar una condición, como `sheetFinancialPatch` en `src/domains/sheet/sheetFinancial.ts` y ambos consumidores la usan.
 - **Importante:** la grilla conserva el guard `row.currency !== 'USD'` y continúa sin recalcular si se modifica una columna neutra; Noah conserva sus casos de recálculo y mensajes. La unificación no autoriza cambiar importes históricos ni atribuir equivalencia a los borrados de columna.
 - Pruebas de netos positivos/negativos/neutros, neutralidad, entradas numéricas y ausencia de escrituras en `tests/dj-noa-sheet-financial.test.mjs`. Cloudflare pendiente; P01/P04 sigue EN CURSO.
+
+## 18/11/2026 · P01-i/j CERTIFICADO
+- Commit 79ba003: primer intento de prueba con fake-indexeddb no instalado, Cloudflare lo rechazó y no publicó.
+- Commit 6d5f15a: service de borrado + prueba de store simulado, 118/118 tests y Cloudflare SUCCESS, 100 % publicado.
+- Commit aff2ebd: función financiera única, 121/121 tests y Cloudflare SUCCESS, Worker versión 8b260413-8aa6-4ed4-afb2-5620068c37f3 desplegada al 100 %, build 9a79c0e0-c462-40e4-a3e8-e1d278ed1b34.
+- Auditor semántico 14 grupos exactos y 24 pares similares. P01/P04/P05 EN CURSO: diferencias de borrado de columnas e integridad USD/MXN todavía no resueltas; QA física pendiente.
