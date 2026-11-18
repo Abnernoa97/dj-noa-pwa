@@ -1,3 +1,4 @@
+import { json } from './shared/http';
 import baseWorker, { ReminderScheduler } from './index';
 import { handleMlbRequest } from './sports/mlb';
 import { handleNbaRequest } from './sports/nba';
@@ -22,16 +23,7 @@ type Env = {
 const MAX_AI_BYTES = 96_000;
 const MAX_IMAGE_AI_BYTES = 5_500_000;
 
-function json(data: unknown, status = 200, headers?: HeadersInit) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      ...headers
-    }
-  });
-}
+
 
 function requestComesFromApp(request: Request, url: URL) {
   const fetchSite = request.headers.get('sec-fetch-site');

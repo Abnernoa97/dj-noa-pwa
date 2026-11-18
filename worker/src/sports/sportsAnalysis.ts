@@ -1,3 +1,4 @@
+import { json } from '../shared/http';
 import { rec, str } from './shared/espnCore';
 
 type AnyRecord = Record<string, unknown>;
@@ -9,7 +10,7 @@ type AiBinding = {
 type Env = { AI: AiBinding };
 
 function list(value: unknown) { return Array.isArray(value) ? value : []; }
-function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } }); }
+
 
 function normalizeAnalysis(value: unknown) {
   const data = rec(value);

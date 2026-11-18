@@ -1,3 +1,4 @@
+import { json } from '../shared/http';
 type AiBinding = {
   run: (model: string, input: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
 };
@@ -13,15 +14,7 @@ type ActionSurface = 'events' | 'calendar' | 'sheet';
 type CurrencyCode = 'MXN' | 'USD';
 type SheetColumnBehavior = 'income' | 'expense' | 'investment' | 'neutral';
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store'
-    }
-  });
-}
+
 
 function readText(result: unknown) {
   const value = result as { response?: string; choices?: Array<{ message?: { content?: string } }> };
