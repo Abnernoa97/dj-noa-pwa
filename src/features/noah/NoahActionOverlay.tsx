@@ -1,5 +1,5 @@
 import { Check, Circle, LoaderCircle, Sparkles, X } from 'lucide-react';
-import type { NoahActionActivity } from './noahEvents';
+import type { NoahActionActivity } from '../../domains/noah/noahEvents';
 
 export default function NoahActionOverlay({ activity }: { activity: NoahActionActivity | null }) {
   if (!activity) return null;

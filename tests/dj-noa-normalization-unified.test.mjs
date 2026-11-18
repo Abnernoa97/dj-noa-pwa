@@ -23,7 +23,7 @@ test('finance, Excel and Noah share one accent-insensitive normalizer without co
 
 test('older normalization implementations cannot creep back into audited modules', () => {
   for (const path of [
-    '../src/finance.ts', '../src/financialOverview.ts', '../src/noahImageReconcile.ts',
+    '../src/finance.ts', '../src/financialOverview.ts', '../src/domains/noah/noahImageReconcile.ts',
     '../src/domains/sheet/sheetValues.ts'
   ]) {
     const source = readFileSync(new URL(path, import.meta.url), 'utf8');

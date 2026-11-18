@@ -56,3 +56,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Rutas definitivas: `src/features/{events,calendar,tasks}/` y `src/domains/events/`.
 - Actualización de imports de App y Noah, referencias de pruebas, auditor de estructura y guard específico. Sin migración IndexedDB ni cambios funcionales previstos.
 - P06 permanece EN CURSO: aún falta auditar sincronización real entre módulos y QA de teléfonos; publicar únicamente tras Cloudflare SUCCESS.
+
+## 18/11/2026 · P07-a · Noah por capítulos
+- Componentes de interfaz (voz, análisis de fotos y avisos) ubicados en `src/features/noah/` sin copiar archivos anteriores.
+- Reglas de acciones, Excel, conciliación visual y escritura transaccional ubicadas en `src/domains/noah/`.
+- Optimización de fotos **manual** ubicada en `src/services/media/`, independiente del guardado de fotos analizadas por Noah.
+- Actualizados importadores App, mantenimiento, mutaciones de eventos, pruebas y auditor estructural. Sin cambiar rutas Worker, contratos USD o datos almacenados. Cloudflare build y QA pendientes de aceptación.

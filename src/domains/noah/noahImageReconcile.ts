@@ -1,7 +1,7 @@
-import { normalizeText as normalize } from './shared/normalizeText.ts';
-import { isValidEventDate, normalizedEventIdentity } from './domains/events/eventIntegrity.ts';
+import { normalizeText as normalize } from '../../shared/normalizeText.ts';
+import { isValidEventDate, normalizedEventIdentity } from '../events/eventIntegrity.ts';
 import type { NoahChatAction } from './noahExcel';
-import type { EventItem } from './types';
+import type { EventItem } from '../../types';
 
 export type PhotoVisualItem = {
   kind: string;

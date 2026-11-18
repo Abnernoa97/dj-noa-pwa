@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { reconcilePhotoReads } from '../src/noahImageReconcile.ts';
+import { reconcilePhotoReads } from '../src/domains/noah/noahImageReconcile.ts';
 
 const image = (fileName, ...visualItems) => ({ fileName, visualItems });
 const event = (title, dateISO, details={}) => ({
@@ -81,11 +81,11 @@ test('event total and deposit are distinct, never interpreted as the same amount
 });
 
 test('Vision commits only structured records; manual event and sheet photos remain independent',()=>{
-  const commit=readFileSync(new URL('../src/noahVisionCommit.ts',import.meta.url),'utf8');
-  const ui=readFileSync(new URL('../src/NoahImageIntake.tsx',import.meta.url),'utf8');
+  const commit=readFileSync(new URL('../src/domains/noah/noahVisionCommit.ts',import.meta.url),'utf8');
+  const ui=readFileSync(new URL('../src/features/noah/NoahImageIntake.tsx',import.meta.url),'utf8');
   const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
   const worker=readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
-  const optimizer=readFileSync(new URL('../src/photoOptimization.ts',import.meta.url),'utf8');
+  const optimizer=readFileSync(new URL('../src/services/media/photoOptimization.ts',import.meta.url),'utf8');
   assert.match(commit,/db\.transaction\('rw', \[db\.events, db\.sheetRows\]/);
   assert.doesNotMatch(commit,/db\.eventPhotos|db\.sheetPhotos|blob: source\.file|crypto\.subtle\.digest/);
   assert.match(commit,/eventPhotoCount: 0, paymentPhotoCount: 0/);

@@ -11,7 +11,7 @@
 | P04 | Excel único y complementos | EN CURSO | `SheetWorkspace` + `ExcelModulesEnhancer` comparten fórmulas, filas y columnas |
 | P05 | Motor financiero USD único | PENDIENTE | Categorías, contratos, anticipos, cobros, gastos e históricos sin duplicidad |
 | P06 | Eventos, Calendario, Tareas | EN CURSO | Un evento y un ID; fechas/recordatorios sincronizados sin tocar fechas manuales |
-| P07 | Noah Voz, Imagen y IA | PENDIENTE | Contratos de acciones/validación únicos, 1–5 fotos temporales y cero fotos automáticas almacenadas |
+| P07 | Noah Voz, Imagen y IA | EN CURSO | Contratos de acciones/validación únicos, 1–5 fotos temporales y cero fotos automáticas almacenadas |
 | P08 | Worker y API | PENDIENTE | Un ruteo de API, seguridad preservada y módulos de IA / recordatorios sin cambios de bindings |
 | P09 | Deportes MLB/NBA y contexto | PENDIENTE | Servicios, caché y presentación sin llamadas duplicadas ni cambios de resultados |
 | P10 | CSS y diseño | EN CURSO | Sustituir capas duplicadas **con QA visual** Android/iPhone y conservar diseño aprobado |

@@ -16,7 +16,7 @@ test('uses one canonical Wrangler config and one Worker entrypoint', () => {
 });
 
 test('new Noah voice chat is same-origin and legacy assistant routes are gone', () => {
-  const voice = read('src/NoahVoice.tsx');
+  const voice = read('src/features/noah/NoahVoice.tsx');
   const entry = read('worker/src/entry.ts');
 
   assert.match(voice, /fetch\('\/api\/noah-chat'/);

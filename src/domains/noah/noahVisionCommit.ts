@@ -1,8 +1,8 @@
-import { db, uid } from './db';
-import { createEventWithRelations } from './domains/events/eventMutations';
-import { isValidEventDate, normalizedEventIdentity } from './domains/events/eventIntegrity';
+import { db, uid } from '../../db';
+import { createEventWithRelations } from '../events/eventMutations';
+import { isValidEventDate, normalizedEventIdentity } from '../events/eventIntegrity';
 import type { ReviewAction } from './noahImageReconcile';
-import type { SheetRow } from './types';
+import type { SheetRow } from '../../types';
 
 /** Images are transient inputs for recognition, not permanent attachments. */
 export type VisionSource = { sourceId: string; file: File; rawText: string };

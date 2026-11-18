@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, ImagePlus, LoaderCircle, Sparkles, X } from 'lucide-react';
-import { db } from './db';
-import { normalizedEventIdentity, isValidEventDate } from './domains/events/eventIntegrity';
-import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from './noahImageReconcile';
-import type { VisionSource } from './noahVisionCommit';
-import { useNativeBack } from './navigationBack';
-import type { NoahChatAction } from './noahExcel';
-import type { SheetColumn, SheetValue } from './types';
+import { db } from '../../db';
+import { normalizedEventIdentity, isValidEventDate } from '../../domains/events/eventIntegrity';
+import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from '../../domains/noah/noahImageReconcile';
+import type { VisionSource } from '../../domains/noah/noahVisionCommit';
+import { useNativeBack } from '../../navigationBack';
+import type { NoahChatAction } from '../../domains/noah/noahExcel';
+import type { SheetColumn, SheetValue } from '../../types';
 
 type Finding = {
   kind: string;

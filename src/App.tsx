@@ -8,11 +8,11 @@ import { es } from 'date-fns/locale';
 import CalendarWorkspace from './features/calendar/CalendarWorkspace';
 import { EventEditor, EventHub, EventsView, type EventDraft } from './features/events/EventWorkspace';
 import MlbWorkspace from './MlbWorkspace';
-import NoahActionOverlay from './NoahActionOverlay';
-import NoahImageIntake from './NoahImageIntake';
-import { commitNoahVision, type VisionSource } from './noahVisionCommit';
-import type { ReviewAction } from './noahImageReconcile';
-import NoahVoice, { type NoahVoiceHandle } from './NoahVoice';
+import NoahActionOverlay from './features/noah/NoahActionOverlay';
+import NoahImageIntake from './features/noah/NoahImageIntake';
+import { commitNoahVision, type VisionSource } from './domains/noah/noahVisionCommit';
+import type { ReviewAction } from './domains/noah/noahImageReconcile';
+import NoahVoice, { type NoahVoiceHandle } from './features/noah/NoahVoice';
 
 import ReminderWorkspace from './features/tasks/ReminderWorkspace';
 import SheetWorkspace from './features/excel/SheetWorkspace';
@@ -32,7 +32,7 @@ import {
   type NoahEventActionResult,
   type NoahEventPatch,
   type NoahFinanceInput
-} from './noahEvents';
+} from './domains/noah/noahEvents';
 import BottomNav from './app/BottomNav';
 import HomeView from './app/HomeView';
 

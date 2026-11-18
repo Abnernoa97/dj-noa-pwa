@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { reconcilePhotoReads } from '../src/noahImageReconcile.ts';
+import { reconcilePhotoReads } from '../src/domains/noah/noahImageReconcile.ts';
 
 const event = (title, dateISO, fields = {}) => ({
   kind: 'event', title, dateISO, dateText: dateISO || '', confidence: 'high', ...fields
@@ -105,7 +105,7 @@ test('unrelated events and low-confidence sources are not automatically merged',
 });
 
 test('Noah image UI applies verified cross-photo preview and rechecks duplicates before saving', () => {
-  const ui = readFileSync(new URL('../src/NoahImageIntake.tsx',import.meta.url),'utf8');
+  const ui = readFileSync(new URL('../src/features/noah/NoahImageIntake.tsx',import.meta.url),'utf8');
   const server = readFileSync(new URL('../worker/src/noahImage.ts',import.meta.url),'utf8');
   assert.match(ui, /reconcilePhotoReads\(/);
   assert.match(ui, /currentEvents = await db\.events\.toArray\(\)/);

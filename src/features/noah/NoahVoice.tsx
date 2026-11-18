@@ -1,10 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { useNativeBack } from './navigationBack';
+import { useNativeBack } from '../../navigationBack';
 import { Mic, Square } from 'lucide-react';
-import { db } from './db';
-import type { EventItem, SheetColumn, SheetRow, SheetValue } from './types';
-import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
-import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from './noahExcel';
+import { db } from '../../db';
+import type { EventItem, SheetColumn, SheetRow, SheetValue } from '../../types';
+import type { NoahEventAction, NoahEventActionResult } from '../../domains/noah/noahEvents';
+import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from '../../domains/noah/noahExcel';
 
 type VoiceStatus = 'idle' | 'starting' | 'listening' | 'thinking' | 'speaking' | 'error';
 type ChatTurn = { role: 'user' | 'assistant'; content: string };

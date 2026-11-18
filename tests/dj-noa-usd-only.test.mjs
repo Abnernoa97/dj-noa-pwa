@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { eventUsdSettlement, portfolioUsdSettlement } from '../src/financialOverview.ts';
 import { formatMoneyAmount, formatMoneyTotals } from '../src/moneyIntegrity.ts';
-import { reconcilePhotoReads } from '../src/noahImageReconcile.ts';
+import { reconcilePhotoReads } from '../src/domains/noah/noahImageReconcile.ts';
 
 function record(id, amount, role, status = 'pending', currency = 'USD', eventId = 'event-1') {
   return { id, eventId, label: role || 'General', category: role || 'General',
@@ -80,7 +80,7 @@ test('payment documents denominated outside USD cannot create an expense/deposit
 test('new money writers and Excel import are USD-only and do not mutate historical records', () => {
   const main = readFileSync(new URL('../src/features/excel/SheetWorkspace.tsx', import.meta.url), 'utf8');
   const excel = readFileSync(new URL('../src/features/excel/ExcelModulesEnhancer.tsx', import.meta.url), 'utf8');
-  const assistant = readFileSync(new URL('../src/noahExcel.ts', import.meta.url), 'utf8');
+  const assistant = readFileSync(new URL('../src/domains/noah/noahExcel.ts', import.meta.url), 'utf8');
   const worker = readFileSync(new URL('../worker/src/noahChat.ts', import.meta.url), 'utf8');
   assert.match(main, /currency: 'USD'/);
   assert.match(main, /Moneda = USD/);
