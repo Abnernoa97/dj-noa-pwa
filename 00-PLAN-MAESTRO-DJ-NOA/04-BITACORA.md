@@ -196,3 +196,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 ### P01-i · corrección del harness de pruebas
 - La primera ejecución de Cloudflare del commit `79ba003` se detuvo con `ERR_MODULE_NOT_FOUND: fake-indexeddb` (librería no instalada en build); **no se desplegó ese commit fallido**.
 - Se reemplazó el test por inyección de un store simulado en `createSheetRowDeletion(db)`; se prueban orden, selección, preservación de fotos ajenas y rollback de la transacción **sin agregar dependencias ni abrir IndexedDB real**. El factory usa la instancia Dexie original para producción. Este test verifica orquestación y rollback simulado; no reemplaza QA de IndexedDB real en dispositivo.
+
+## 18/11/2026 · P01-j / DUP-06b · Cálculo de neto financiero Excel/Noah unificado
+- `noahExcel.ts` y `ExcelModulesEnhancer.tsx` calculaban independientemente ingresos − gastos − inversiones, monto absoluto y signo financiero. Extraje la función pura de Noah, sin alterar una condición, como `sheetFinancialPatch` en `src/domains/sheet/sheetFinancial.ts` y ambos consumidores la usan.
+- **Importante:** la grilla conserva el guard `row.currency !== 'USD'` y continúa sin recalcular si se modifica una columna neutra; Noah conserva sus casos de recálculo y mensajes. La unificación no autoriza cambiar importes históricos ni atribuir equivalencia a los borrados de columna.
+- Pruebas de netos positivos/negativos/neutros, neutralidad, entradas numéricas y ausencia de escrituras en `tests/dj-noa-sheet-financial.test.mjs`. Cloudflare pendiente; P01/P04 sigue EN CURSO.

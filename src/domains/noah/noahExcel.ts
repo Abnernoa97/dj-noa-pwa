@@ -1,8 +1,9 @@
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../sheet/sheetValues';
+import { sheetFinancialPatch } from '../sheet/sheetFinancial';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
-import type { FinancialType, SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
+import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
 
 export type NoahSheetCellInput = {
   columnId: string;
@@ -41,32 +42,13 @@ function coerceCellValue(column: SheetColumn, value: NoahSheetCellInput['value']
   return numberValue(value);
 }
 
-function financialPatch(columns: SheetColumn[], values: Record<string, SheetValue>): Pick<SheetRow, 'amount' | 'financialType'> {
-  let income = 0;
-  let expense = 0;
-  let investment = 0;
-
-  for (const column of columns) {
-    const behavior = behaviorOf(column);
-    if (behavior === 'neutral') continue;
-    const value = numberValue(values[column.key]);
-    if (behavior === 'income') income += value;
-    if (behavior === 'expense') expense += value;
-    if (behavior === 'investment') investment += value;
-  }
-
-  const net = income - expense - investment;
-  const financialType: FinancialType = net > 0 ? 'income' : net < 0 ? 'expense' : 'neutral';
-  return { amount: Math.abs(net), financialType };
-}
-
 async function recalculateRows(columns: SheetColumn[]) {
   const rows = await db.sheetRows.toArray();
   const now = new Date().toISOString();
   for (const row of rows) {
     if (row.currency !== 'USD') continue; // Protect archived amounts from recalculation.
     const values = { ...(row.values || {}) };
-    const patch = financialPatch(columns, values);
+    const patch = sheetFinancialPatch(columns, values);
     await db.sheetRows.update(row.id, { ...patch, updatedAt: now });
   }
 }
@@ -133,7 +115,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
       for (const row of rows) {
         const values = { ...(row.values || {}) };
         delete values[column.key];
-        await db.sheetRows.update(row.id, { values, ...financialPatch(remaining, values), updatedAt: now });
+        await db.sheetRows.update(row.id, { values, ...sheetFinancialPatch(remaining, values), updatedAt: now });
       }
     });
     announce({ type: action.type, columnId: column.id, columnName: column.name });
@@ -157,7 +139,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
       status: 'pending',
       currency: 'USD',
       values,
-      ...financialPatch(columns, values),
+      ...sheetFinancialPatch(columns, values),
       createdAt: now,
       updatedAt: now
     };
@@ -190,7 +172,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
     else values[column.key] = coerceCellValue(column, action.value);
     await db.sheetRows.update(row.id, {
       values,
-      ...financialPatch(columns, values),
+      ...sheetFinancialPatch(columns, values),
       updatedAt: new Date().toISOString()
     });
     announce({ type: action.type, rowId: row.id, rowLabel: row.label, columnId: column.id, columnName: column.name });

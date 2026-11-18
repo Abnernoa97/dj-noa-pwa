@@ -6,6 +6,7 @@ import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../../domains/sheet/sheetValues';
+import { sheetFinancialPatch } from '../../domains/sheet/sheetFinancial';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
@@ -158,22 +159,7 @@ export default function ExcelModulesEnhancer() {
     const values = { ...(row.values || {}), [column.key]: value };
     const patch: Partial<SheetRow> = { values, updatedAt: new Date().toISOString() };
 
-    if (behavior !== 'neutral') {
-      let income = 0;
-      let expense = 0;
-      let investment = 0;
-      for (const item of columns) {
-        const itemBehavior = behaviorOf(item);
-        if (itemBehavior === 'neutral') continue;
-        const itemValue = numberValue(values[item.key]);
-        if (itemBehavior === 'income') income += itemValue;
-        if (itemBehavior === 'expense') expense += itemValue;
-        if (itemBehavior === 'investment') investment += itemValue;
-      }
-      const net = income - expense - investment;
-      patch.amount = Math.abs(net);
-      patch.financialType = net > 0 ? 'income' : net < 0 ? 'expense' : 'neutral';
-    }
+    if (behavior !== 'neutral') Object.assign(patch, sheetFinancialPatch(columns, values));
 
     await db.sheetRows.update(row.id, patch);
   };
