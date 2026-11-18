@@ -1,5 +1,5 @@
 import { db, uid } from '../../services/storage/db';
-import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../sheet/sheetValues';
+import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../sheet/sheetValues';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 import type { FinancialType, SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
 
@@ -30,11 +30,6 @@ const SHEET_ACTION_TYPES = new Set<NoahSheetAction['type']>([
   'clear_sheet_cell',
   'delete_sheet_row'
 ]);
-
-function makeColumnKey(name: string) {
-  const slug = normalize(name).replace(/\s+/g, '_') || 'columna';
-  return `grid_${slug}_${uid().slice(0, 6)}`;
-}
 
 function coerceCellValue(column: SheetColumn, value: NoahSheetCellInput['value']): SheetValue {
   if (value === null) return null;
@@ -96,7 +91,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
     const column: SheetColumn = {
       id: uid(),
       name,
-      key: makeColumnKey(name),
+      key: makeGridColumnKey(name, uid()),
       type: behavior === 'neutral' ? 'text' : 'currency',
       behavior,
       position,

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
-import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../../domains/sheet/sheetValues';
+import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
@@ -23,11 +23,6 @@ function legacyBehavior(row: SheetRow): SheetColumnBehavior {
   if (/\b(inversion|invertir|inversiones)\b/.test(hint)) return 'investment';
   if (/\b(gasto|gastos|costo|costos)\b/.test(hint)) return 'expense';
   return 'income';
-}
-
-function makeKey(name: string) {
-  const slug = normalize(name).replace(/\s+/g, '_') || 'columna';
-  return `grid_${slug}_${uid().slice(0, 6)}`;
 }
 
 export default function ExcelModulesEnhancer() {
@@ -106,8 +101,8 @@ export default function ExcelModulesEnhancer() {
       if (await db.sheetColumns.count()) return;
       const now = new Date().toISOString();
       await db.sheetColumns.bulkAdd([
-        { id: uid(), name: 'Ingreso', key: makeKey('Ingreso'), type: 'currency', behavior: 'income', position: 0, createdAt: now },
-        { id: uid(), name: 'Gasto', key: makeKey('Gasto'), type: 'currency', behavior: 'expense', position: 1, createdAt: now }
+        { id: uid(), name: 'Ingreso', key: makeGridColumnKey('Ingreso', uid()), type: 'currency', behavior: 'income', position: 0, createdAt: now },
+        { id: uid(), name: 'Gasto', key: makeGridColumnKey('Gasto', uid()), type: 'currency', behavior: 'expense', position: 1, createdAt: now }
       ]);
     }).finally(() => { seedingRef.current = false; });
   }, [columnsLoaded, columns.length]);
@@ -198,7 +193,7 @@ export default function ExcelModulesEnhancer() {
     await db.sheetColumns.add({
       id: uid(),
       name,
-      key: makeKey(name),
+      key: makeGridColumnKey(name, uid()),
       type: newColumnBehavior === 'neutral' ? 'text' : 'currency',
       behavior: newColumnBehavior,
       position,

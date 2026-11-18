@@ -123,3 +123,9 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - **Workflow temporal eliminado** inmediatamente: commit `81de301b56a8790b63d36758045f4a0f0cbc6406`. Verificado que ya no existe la carpeta `.github/workflows` en `main`.
 - Resultado verificado por segunda lectura de GitHub: **1 rama total, `main`**; no se fusionó código antiguo, no se alteraron Dexie, datos locales ni bindings de Worker. En la referencia histórica de `main` siguen accesibles los commits ancestrales; ya no hay referencias de backup dedicadas.
 - **P12-a = VERIFICADO** (poda completada); **P12 general = EN CURSO**, pendiente QA física Android/iPhone, rendimiento, aceptación y control de integridad de aplicación. Prohibido crear nuevas ramas por conveniencia: continuar sobre `main`.
+
+## 18/11/2026 · P01-e · Claves de columnas Excel / Noah unificadas
+- Confirmadas **dos implementaciones idénticas** de la clave `grid_<nombre_normalizado>_<6 caracteres UID>` en `ExcelModulesEnhancer` y `noahExcel`. No eran funciones independientes ni se necesitaba mantener ambas.
+- Sustituidas por un único helper puro `makeGridColumnKey(name, generatedId)` en `src/domains/sheet/sheetValues.ts`, manteniendo exactamente normalización, fallback `columna`, prefijo `grid_` y primeros seis caracteres del ID que genera cada consumidor.
+- Los dos consumidores siguen usando `uid()` en el mismo punto y creando sus propias filas/columnas como antes; no cambia IndexedDB, nombres de columnas guardadas, tipos, fórmulas, moneda USD ni Worker.
+- Añadidas pruebas de equivalencia de IDs y un guard contra copias locales en `tests/dj-noa-sheet-shared.test.mjs`. **P01 permanece EN CURSO**; Cloudflare y regresiones del commit deben aprobarse antes de dar este paso por verificado.
