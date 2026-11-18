@@ -1,0 +1,64 @@
+name: DJ NOA one-time safe branch cleanup
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dj-noa-prune-once.yml'
+permissions:
+  contents: write
+jobs:
+  prune:
+    if: github.repository == 'Abnernoa97/dj-noa-pwa' && github.event.head_commit.message == 'DJ NOA one-time prune setup'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Remove only pre-audited branches, preserve main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys, time
+          REPO = 'Abnernoa97/dj-noa-pwa'
+          EXPECTED = json.loads('''{"DJ-NOA-1":"5c2a8da5a77ffc58fe53cc64b9260294347ff604","DJ-NOA-2-BEFORE-AUDIT":"db06772f45772808102201488cf121fa7246e8d6","ai-deterministic":"71c7a69a69063c5b3703a1c3660e15b9ed16ed75","ai-tests-hardening":"f39563a0394b3ce342167aaff6cb378ef4d886d8","audit-hardening":"3a5f55d4515976f33ea5e15fe1e2ff2c8ccd0d1b","backup-before-approved-hero-20261009":"e91b3e5094d3dfee148649b95af44b6289552197","backup-before-cloud-oauth-preparation-20261013":"bf6cb3b88af3cb6d7b2b7a8aefb69534f3db58d7","backup-before-cloudflare-account-sharing-policy-20261013":"6a699c9adf88a00e518000ea53c77b160f3ccf42","backup-before-dj-noa-cloud-g1-20261013":"7f68b155fb2291f316d0433dc4f78f433577d0ef","backup-before-dj-noa-cross-section-sync-g2-20261014":"425914694c6e291430cee3d5f3167af189e9fdef","backup-before-dj-noa-unified-event-mutations-20261014":"227be9577ae4e00609e79674cc9fa71fb0094658","backup-before-djnoa-master-reorganization-20261118":"31d47ae5b9d90ebd86709ebc755240318f2b783a","backup-before-ios-visual-redesign-20261008":"55c3af0e73fdd41e2efd168c89271b7a804d886d","backup-before-noah-stage5-audit-20261017":"0e372f3f73b41db9a5b25fc40245cdfa66994fc5","backup-before-noah-vision-cross-photo-g3-20261014":"2f16e9545f8bf0d1fe834a9ce49a547720196d0e","backup-before-noah-vision-photo-evidence-g4-20261014":"81970050ce94f74801a8806b5605c9f4d9ca9809","backup-before-universal-native-back-20261010":"b93c9e05d16652c3ddd2eeea7177474ece721313","backup-before-usd-only-finance-20261021":"0e372f3f73b41db9a5b25fc40245cdfa66994fc5","backup-broken-ui-2026-09-30":"e9568c044487cc70c8f32362f3e3007176c3572e","before-ai-button-reset":"7a6dc9631375c771cb2ee27d70a037ab85f0eae1","before-calendar-image-match":"e9568c044487cc70c8f32362f3e3007176c3572e","before-event-edit-delete-button":"d998c73805aedc8204f39f34a1e5bdad9a327900","before-event-editor-large":"9f5d0c28df63b66dfb66d6c3e5e5f67563f419dd","before-event-long-press-selection":"f81c6d3f9304c45853de9fb63e50437b5b02de24","before-events-havana-match":"42a51a81ea82ea5c3873a4165160379c0bf11b2e","before-events-premium-center":"cd6cf0909c4606ec59007b0137f48208ca3a157c","before-excel-classic-grid-redesign":"152d0881ed996ec8dc9982a9a5c08b48960f1e8e","before-excel-detail-large":"5da87505c3910df69703f42d2b9ae800cfc280d6","before-excel-mobile-fit":"337bf3959f010a4b11dffbdc519f6747f8b5eff8","before-excel-modular-redesign":"3bf5a659802235999930b8e5f9f326497f03e921","before-excel-premium-center":"dec149122b74f928ee9f61a6b80d8468e1f4f32e","before-familia-noa-voice-reset":"2049edbd36936c7dcdaa7b81d28712b8c5b24bbf","before-hard-rock-market":"e3a8978ff84ae540e34750c9b2cfe91b5da17fed","before-home-premium":"f0ecd77d3be6f46e5b6f80535e4abcbecc92afca","before-image-event-excel-linking":"f53d5056b607841718097ea83e81959a65b00f40","before-mlb-css-api-fix":"ebbb331437aeb68d9fe88cc9bd7b03a76d53c29f","before-mlb-live-next-polish":"84dd2920e3bf4382071ac441129a4e894cd53802","before-mlb-matchups-odds":"8c820366cbefb0350e42472d66ff18f62dcfcc80","before-mlb-navigation-fix":"bd4752102fb1fd75b8ba8c68cb06b757bc1580fe","before-mlb-workspace":"24d5fb9e46de11189b669b4b31bbd860209cb567","before-nba-data-fix":"4fde6ba799e39daeec3653f4fe4c25a62f3da310","before-nba-preseason-smart-fallback":"958d5a822fe7ddf6c77d81b61434b1031f74fc16","before-nba-workspace":"aa0cd241a01ace1b27997abe26747f095d10c3ca","before-noah-assistant-redesign":"97bf40d2646687ea7e15ca32b3981f544f1c6eb5","before-noah-calendar-direct-intent":"65f4c692587e945a1762d4ecdf6498f4e2ac3969","before-noah-continuous-voice":"cc6b50cae9dc690344b6143ca3fd5a6ce656dbe8","before-noah-events-integration":"8dfc40c6485efb7eb86ef1df2f593ea2c506a6a9","before-noah-five-image-reliability":"4f7afb347caa4fd56b635265dd65ba4704219062","before-noah-five-images":"0b2fa8904b39c4fb7e64801285ada0414130588d","before-noah-image-intake":"b19edb537a201b9c56a6a5be025f21ccb926d49f","before-noah-live-excel-schema":"ec675945a509711d6e011f47aabed98ed28c3e48","before-noah-mic-cycle-fix":"2ebb85f8aa3a7cab8fc37453b707a8f4616735ee","before-noah-multi-action-matrix":"716709befd261413fe131dbaadb9b41a02ce0a6e","before-noah-premium-event-flow":"5dd81492df36ec7d4f8f5f73a40ae8c1522c59eb","before-noah-turn-taking":"e636b8890e19ff8cc7b6dfbd866de2076b4b43c1","before-noah-turn-taking-fix":"1f3b2033fd3d2114ffe50f93e521a9bfc0df7763","before-noah-vision-grounding-fix":"4f61507f890d45b423a83017b489b3d9387cd42e","before-odds-object-parser":"42aa70637a653377a54273caeedb7890be94b296","before-overlay-safe-area-fix":"e760bbaab291dfe6e41966f0d552adec5e562c5d","before-reminder-editor-large":"139822b8c8a96768f05318087f6d8875809bff85","before-sports-context-history":"a2a4aff7dded9cd849881f1180870a05cbfb2ff3","before-sports-realtime-fill":"a7f88b79c24cd5e773c6a320117cb1a7d8f97097","before-tasks-premium-center":"eb7f96a6a8efbe3e7a440935035191dc58a828bd","bulk-delete-fix":"e474019e79e91362ebc3b97395be9ddb9bedf008","data-protection":"e2c53a555e2ac462618c807b8987777c6932af82","excel-landscape-android-20261022":"d8abbdec1707514cea8b7991b96515621ce0535c","finance-vision-no-image-storage-20261021":"b964c04be004c5e14848f5fc6b868b94c2da2232","notifications-hardening":"ca741e86096490826a92783fffd551be6bca619f","performance-coherence":"dc012d3a9e7bca32b32d6eb2fe7f12dc19928183","security-final":"28f1bbd55aefb9c45e797ab88d2b647e6f329935","stage5-noah-vision-integrity-20261017":"d7a398ce136ab9b0fd717891efe554d19350dba1","structural-cleanup":"39a04b2bba716c927d69d1b66f04559ed2513832","ui-code-cleanup":"99b4731af2b98be41c7c050d92fd2494c329f2b9","visual-polish":"afbae1c90396d38a9e355cf4f7c78acc9874ec1d"}''')
+          def gh(path, method='GET'):
+              cmd = ['gh','api','-X',method,path]
+              proc = subprocess.run(cmd, capture_output=True, text=True)
+              if proc.returncode:
+                  raise RuntimeError(f'{method} {path}: {proc.stderr.strip()[:300]}')
+              return json.loads(proc.stdout) if method == 'GET' else None
+          try:
+              info = gh(f'repos/{REPO}')
+              assert info['full_name'] == REPO and info['default_branch'] == 'main' and not info['private']
+              original_main = gh(f'repos/{REPO}/git/ref/heads/main')['object']['sha']
+              listing = gh(f'repos/{REPO}/branches?per_page=100')
+              actual = {b['name']: b['commit']['sha'] for b in listing if b['name']!='main'}
+              assert len(listing)==75 and actual==EXPECTED, 'Branch names or SHAs changed; no refs deleted'
+              assert not any(b['protected'] for b in listing), 'Protected branch detected'
+              assert all(b['name']!='main' for b in listing if b['name'] in EXPECTED)
+              prs = gh(f'repos/{REPO}/pulls?state=open&per_page=100')
+              assert not prs, 'Open PR detected'
+              for name in ['ai-tests-hardening','before-mlb-css-api-fix','before-noah-turn-taking-fix']:
+                  d=gh(f'repos/{REPO}/compare/main...{name}')
+                  assert d['ahead_by']==2 and len(d.get('files',[]))==0, f'Different code in {name}'
+              assert gh(f'repos/{REPO}/pulls/2')['merged'] is True, 'Finance PR not merged'
+              assert gh(f'repos/{REPO}/pulls/3')['merged'] is True, 'Excel PR not merged'
+              p1=gh(f'repos/{REPO}/pulls/1')
+              assert p1['state']=='closed' and p1['merged'] is False, 'Discarded PR changed'
+              assert gh(f'repos/{REPO}/git/ref/heads/main')['object']['sha']==original_main, 'main changed during verification'
+              print('PRECHECK COMPLETE: 74 named branches, exact SHAs, no open PRs; main protected by exclusion.',flush=True)
+              removed=[]
+              for name,sha in EXPECTED.items():
+                  ref=gh(f'repos/{REPO}/git/ref/heads/{name}')
+                  assert ref['object']['sha']==sha, f'SHA changed before delete: {name}'
+                  gh(f'repos/{REPO}/git/refs/heads/{name}',method='DELETE')
+                  removed.append(name)
+                  print(f'DELETED {len(removed)}/74: {name}',flush=True)
+              after=gh(f'repos/{REPO}/branches?per_page=100')
+              assert len(after)==1 and after[0]['name']=='main' and after[0]['commit']['sha']==original_main, 'Post-delete validation failed'
+              summary=f'## DJ NOA branch cleanup succeeded\n\nDeleted **{len(removed)}** audited legacy branches. Only `main` remains at `{original_main}`. No app code or data changed.\n'
+              open(os.environ['GITHUB_STEP_SUMMARY'],'a').write(summary)
+              print(summary,flush=True)
+          except Exception as e:
+              print('STOP / CHECK REQUIRED:',str(e),file=sys.stderr,flush=True)
+              raise
+          PY
