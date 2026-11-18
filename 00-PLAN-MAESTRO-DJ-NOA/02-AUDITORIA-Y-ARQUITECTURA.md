@@ -1,6 +1,8 @@
 # 02 · AUDITORÍA REAL Y ARQUITECTURA OBJETIVO
 
-**Corte inicial verificable:** 18/11/2026, `main` `31d47ae5b9d90ebd86709ebc755240318f2b783a`. Lectura estática de GitHub, NO prueba de teléfono ni diagnóstico completo de código muerto.
+**Corte inicial histórico:** 18/11/2026, `main` `31d47ae5b9d90ebd86709ebc755240318f2b783a`. Los siguientes números antiguos se conservan para comparar el avance. **Auditoría actual autoritativa:** `05-CATALOGO-DUPLICACIONES.md` (funciones/operaciones), `06-MAPA-PROPIETARIOS.md` (carpetas) y `07-ANEXO-CSS-COMPLETO.md` (183 selectores y 177 grupos). No usar esta línea base para inferir ramas actuales o archivos huérfanos.
+
+Se excluyen deliberadamente decisiones automáticas de borrado, reescritura de Dexie y modificaciones de `dj-noa-cloud/`.
 
 ## Primeros duplicados confirmados por comparación de código
 - `numberValue`: tres implementaciones del mismo parseo de monto (`SheetWorkspace`, `ExcelModulesEnhancer` y `noahExcel`).

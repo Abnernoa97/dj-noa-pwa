@@ -1,13 +1,15 @@
 # 00 · DJ NOA — LEER PRIMERO
 
-**Corte inicial:** 18 de noviembre de 2026. Este documento y `01-TABLERO-MAESTRO.md` constituyen el único plan vigente. La bitácora deja trazabilidad, no abre nuevos planes paralelos.
+**Corte inicial histórico:** 18 de noviembre de 2026. El tablero `01-TABLERO-MAESTRO.md` es el único plan vigente; los documentos `05`, `06` y `07` son sus inventarios técnicos, NO planes paralelos.
+
+**Actualización verificada 18/11/2026:** una sola `main` (74 ramas eliminadas y auditadas), `src/` organizado por dominios/funciones, Worker con carpetas `sports/` y `noah/`, auditor semántico permanente y **97/97 pruebas + Cloudflare SUCCESS** en la reorganización. Cualquier cifra de ramas/archivos siguiente corresponde a la línea base histórica, no al estado de hoy.
 
 ## Misión
 Reducir duplicaciones reales, acoplamiento, archivos innecesarios y complejidad del mantenimiento de DJ NOA **sin cambiar su comportamiento, borrar datos, reinventar la interfaz o consumir minutos de GitHub Actions**.
 
 ## Línea base verificada antes de limpiar
 - GitHub: `Abnernoa97/dj-noa-pwa`, `main` = `31d47ae5b9d90ebd86709ebc755240318f2b783a`.
-- **Respaldo creado:** `backup-before-djnoa-master-reorganization-20261118` en ese mismo commit. No eliminarlo durante esta reorganización.
+- **Respaldo histórico:** `backup-before-djnoa-master-reorganization-20261118` existió en ese commit. La referencia de esa rama se eliminó después de auditarla; el commit correspondiente permanece en el historial de `main`.
 - Recuento previo: **74 ramas**, **117 archivos Git**, **33 CSS bajo `src/`**, **39 TS/TSX bajo `src/`**, **13 tests** y **3 workflows GitHub Actions**. Los contadores describen inventario, no defectos.
 - Arquitectura visible: `src/App.tsx` (~783 líneas), `src/SheetWorkspace.tsx` (~556), `src/ExcelModulesEnhancer.tsx` (~348), `src/ios-dark-redesign.css` (~39 kB), `worker/src/noahChat.ts` (~30 kB).
 - Datos locales: Dexie `dj-noa-local` versiones 1–6 y siete tablas; esta fase no migra ni borra ninguna.

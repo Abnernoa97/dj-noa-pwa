@@ -15,6 +15,9 @@ Abrir [00 · LEER PRIMERO](00-PLAN-MAESTRO-DJ-NOA/00-LEER-PRIMERO.md) y seguir e
 - [02 · Auditoría y arquitectura](00-PLAN-MAESTRO-DJ-NOA/02-AUDITORIA-Y-ARQUITECTURA.md)
 - [03 · Protocolo de trabajo y Cloudflare](00-PLAN-MAESTRO-DJ-NOA/03-PROTOCOLO-Y-PUBLICACION.md)
 - [04 · Bitácora y decisiones](00-PLAN-MAESTRO-DJ-NOA/04-BITACORA.md)
+- [05 · Catálogo completo de funciones y candidatos](00-PLAN-MAESTRO-DJ-NOA/05-CATALOGO-DUPLICACIONES.md)
+- [06 · Mapa único de propietarios y carpetas](00-PLAN-MAESTRO-DJ-NOA/06-MAPA-PROPIETARIOS.md)
+- [07 · Anexo CSS: todos los selectores/contextos coincidentes](00-PLAN-MAESTRO-DJ-NOA/07-ANEXO-CSS-COMPLETO.md)
 
 ## Contratos que no deben romperse
 - Base Dexie `dj-noa-local` y sus versiones de esquema, registros, fotos guardadas manualmente y respaldos locales.
@@ -28,6 +31,7 @@ Abrir [00 · LEER PRIMERO](00-PLAN-MAESTRO-DJ-NOA/00-LEER-PRIMERO.md) y seguir e
 - `npm ci`: instalación reproducible para builds.
 - `npm run audit:structure`: lectura y control de estructura (no elimina nada).
 - `npm run audit:candidates`: mapa de dependencias, posibles huérfanos y capas CSS (solo lectura; no borra nada).
+- `npm run audit:semantics`: inventario AST de funciones repetidas, autores de datos y reglas CSS de todas las carpetas PWA/Worker/nube pausada. **No borra ni modifica archivos**.
 - `npm run typecheck`: TypeScript PWA y Worker.
 - `npm run typecheck:cloud`: TypeScript de la nube privada en pausa; verificación solamente.
 - `npm run test:ai`: regresiones locales.

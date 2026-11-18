@@ -38,6 +38,15 @@
 - Permanecen **33 hojas CSS** y **3,008 menciones `!important`**; son indicios de deuda en P10, no autorización de borrado. Revisar CSS con QA visual Android/iPhone, Excel/Noah con integridad de datos y navegadores.
 - **P01 continúa EN CURSO**, por auditoría semántica más profunda de funciones y contratos; el grafo limpio no equivale a finalizar todo el proyecto.
 
+## P01-g · Auditoría semántica y organización física: INVENTARIO VERIFICADO (18/11/2026)
+
+- Se instaló `scripts/audit-semantic.mjs` en el build oficial Cloudflare (read-only, TypeScript AST + PostCSS). Analizó **85 archivos**, **1,217 funciones/métodos/callbacks**, **31 grupos de funciones exactos**, **31 parejas similares** y **49 nombres repetidos**. Estos recuentos son candidatos, no 31 errores listos para borrar.
+- En CSS confirmó **183 selectores repetidos entre archivos**, **177 grupos con propiedades compartidas en el mismo media context**, **624 comparaciones de valores distintos**, **11 bloques CSS idénticos** y **3,008 `!important`**. Ver todo en `07-ANEXO-CSS-COMPLETO.md`.
+- Informe completo con rutas y líneas: `05-CATALOGO-DUPLICACIONES.md`. Arquitectura y propietario de cada capacidad: `06-MAPA-PROPIETARIOS.md`.
+- Ordenadas físicamente **5 rutas de deportes** en `worker/src/sports/` y **2 módulos de Noah** en `worker/src/noah/` sin copiar, alterar o reimplementar código; `entry.ts`, rutas y bindings permanecen. Regresiones de reubicación añadidas.
+- Verificación de organización: `main` sin otras ramas, sin GitHub Actions; build `56f7464` Cloudflare **SUCCESS**, **97/97 pruebas**, deploy 100 %. Esta es una auditoría de coincidencias sintácticas y grafos; **NO acredita que todos los duplicados funcionales estén ya unificados**.
+- **P01 inventario documentado; P01 integración/eliminación EN CURSO para la siguiente etapa.** No ejecutar una eliminación masiva de 183 selectores ni de 31 grupos sin equivalencias, rollback y QA.
+
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
 
@@ -55,7 +64,7 @@ P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 c
 2. **Moneda:** `finance.ts`, `moneyIntegrity.ts`, `financialOverview.ts` y cálculos en componentes. Consolidar sin redefinir contrato USD ni sumar fee+anticipo dos veces.
 3. **CSS:** 33 hojas ya agrupadas en `src/features/*/styles/` y `src/styles/core/`; capas `styles`, `viewport-layout`, `visual-polish`, `sheet-focus`, `excel-modules`, `ios-dark-redesign`, `excel-landscape`. Revisar cascada y media queries; cifras de selectores repetidos serían solo candidatos, no defectos probados.
 4. **App + Noah:** `src/app/App.tsx` concentra rutas, trabajo de IA, navegación y estado; extraer funciones puras/servicios primero.
-5. **Ramas:** 74 antes del nuevo respaldo. No borrar ramas `backup-`/`before-` ni históricas sin verificar equivalencia con `main` y referencias.
+5. **Ramas:** podadas y verificadas (74/74). Mantener únicamente `main`; no abrir ramas temporales durante la auditoría.
 
 ## Límites de la aceptación
 - Build **SUCCESS** ≠ app comprobada físicamente.
