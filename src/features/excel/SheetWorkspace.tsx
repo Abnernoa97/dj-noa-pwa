@@ -7,6 +7,8 @@ import { normalizeSheetText as normalize, numberValue } from '../../domains/shee
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../app/navigationBack';
+import { replacePhotoPreviews, clearPhotoPreviews } from '../../services/media/photoPreviews';
+import { toggleSetMember } from '../../shared/collectionOps';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../shared/types';
 
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
@@ -165,18 +167,12 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     let disposed = false;
     const load = async () => {
       if (!selectedRowId) {
-        setPhotos((current) => {
-          current.forEach((photo) => URL.revokeObjectURL(photo.url));
-          return [];
-        });
+        setPhotos((current) => clearPhotoPreviews(current));
         return;
       }
       const stored = await db.sheetPhotos.where('rowId').equals(selectedRowId).sortBy('createdAt');
       if (disposed) return;
-      setPhotos((current) => {
-        current.forEach((photo) => URL.revokeObjectURL(photo.url));
-        return stored.map((photo) => ({ ...photo, url: URL.createObjectURL(photo.blob) }));
-      });
+      setPhotos((current) => replacePhotoPreviews(current, stored));
     };
     void load();
     return () => { disposed = true; };
@@ -253,12 +249,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
   };
 
   const toggleRowSelection = (id: string) => {
-    setSelectionIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelectionIds((current) => toggleSetMember(current, id));
   };
 
   const startRowPress = (id: string, event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -329,10 +320,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
     if (!records.length) return;
     await db.sheetPhotos.bulkAdd(records);
     const stored = await db.sheetPhotos.where('rowId').equals(selectedRow.id).sortBy('createdAt');
-    setPhotos((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
-      return stored.map((photo) => ({ ...photo, url: URL.createObjectURL(photo.blob) }));
-    });
+    setPhotos((current) => replacePhotoPreviews(current, stored));
   };
 
   const deletePhoto = async (photo: PhotoView) => {

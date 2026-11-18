@@ -6,6 +6,8 @@ import { db, uid } from '../../services/storage/db';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { eventUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../app/navigationBack';
+import { replacePhotoPreviews, clearPhotoPreviews } from '../../services/media/photoPreviews';
+import { toggleSetMember } from '../../shared/collectionOps';
 import type { EventItem, EventPhoto, EventStatus, ReminderItem, SheetRow } from '../../shared/types';
 
 export type EventDraft = Omit<EventItem, 'id' | 'createdAt' | 'updatedAt'>;
@@ -70,21 +72,11 @@ export function EventsView({ events, onOpen, onCreate, onEdit, onDelete }: Event
 
   const toggleExpanded = (id: string) => {
     if (selectionMode) return;
-    setExpandedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setExpandedIds((current) => toggleSetMember(current, id));
   };
 
   const toggleSelected = (id: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelectedIds((current) => toggleSetMember(current, id));
   };
 
   const clearSelection = () => setSelectedIds(new Set());
@@ -285,18 +277,12 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
 
   const loadPhotos = async () => {
     const stored = await db.eventPhotos.where('eventId').equals(event.id).sortBy('createdAt');
-    setPhotos((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
-      return stored.map((photo) => ({ ...photo, url: URL.createObjectURL(photo.blob) }));
-    });
+    setPhotos((current) => replacePhotoPreviews(current, stored));
   };
 
   useEffect(() => {
     void loadPhotos();
-    return () => setPhotos((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
-      return [];
-    });
+    return () => setPhotos((current) => clearPhotoPreviews(current));
   }, [event.id]);
 
   const addPhotos = async (files: FileList | null) => {
