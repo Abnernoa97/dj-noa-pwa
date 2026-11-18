@@ -104,3 +104,13 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Cloudflare build para `23ee05407964dfc41a8839be2034faf5908aa793`: **SUCCESS**, 91/91 tests, despliegue del Worker `dj-noa-pwa` al **100 %** versión `3a10e48a-a1de-4257-8efb-81f20fbaf450`.
 - Solo la rama `main` publica. Se comprobaron 75 ramas en GitHub (74 adicionales), aún **sin eliminar**. No hay operación de borrado de rama disponible en el conector actual. Preservar los respaldos y documentar candidatos antes de una poda autorizada.
 - Persisten tareas pendientes: App de 687 líneas, Excel con editor y complemento, CSS con capas de override, audit de dependencias, QA real Android/iPhone y ramas históricas.
+
+## 18/11/2026 · P12-a · Auditoría de las 74 ramas históricas
+- Corte previo a la poda: `main` = `ecbbd856184b11dc0eb27350a351d31d0c17dd6a`; 75 ramas en total (`main` + 74). No hay ramas marcadas `protected`.
+- Comprobadas individualmente con `compare main...<rama>`: **68 ramas con `ahead_by=0`** (`behind`); sus commits se encuentran en el historial de `main` y no requieren ninguna fusión.
+- **Tres ramas divergentes sin diferencias netas de archivos**: `ai-tests-hardening`, `before-mlb-css-api-fix`, `before-noah-turn-taking-fix`. Sus dos commits individuales crean/retiran marcadores o archivos temporales; no aportan código pendiente.
+- **Dos ramas divergentes fusionadas por PR**: `finance-vision-no-image-storage-20261021` (PR #2, merged 22/10/2026) y `excel-landscape-android-20261022` (PR #3, merged 22/10/2026). Los módulos y tests correspondientes existen en `main`; su diferencia de historial no implica dependencia de la rama.
+- **Una rama abandonada explícitamente**: `stage5-noah-vision-integrity-20261017` (PR #1 cerrado sin fusionar y superado por PR #2). Su propuesta de persistir fotos originales de Visión contradice el contrato actual de analizar y guardar solo información estructurada; NO fusionarla.
+- Cloudflare Workers Builds tiene `branch_includes=[main]`; la publicación solo depende de `main`, no de las 74 referencias antiguas. No hay workflows de GitHub Actions en `main`.
+- **Resultado: 74 ramas candidatas a eliminación, ninguna pendiente de fusionar. La eliminación todavía NO se ha ejecutado**: el conector GitHub disponible permite leer/comparar/actualizar archivos y refs, pero NO proporciona la operación DELETE de una referencia. No simular la eliminación moviendo las ramas al SHA de main.
+- Criterio para ejecutar la poda desde una sesión autorizada con GitHub CLI: revalidar nombres, SHA de las seis ramas divergentes y estados de PR; eliminar `heads/<rama>` excepto `main`; volver a listar y confirmar `main` como única rama. Registrar resultado antes de cerrar P12.
