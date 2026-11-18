@@ -1,5 +1,5 @@
-import { db } from './db';
-import type { EventItem, EventPhoto, ReminderItem, SheetColumn, SheetPhoto, SheetRow } from './types';
+import { db } from '../../db';
+import type { EventItem, EventPhoto, ReminderItem, SheetColumn, SheetPhoto, SheetRow } from '../../types';
 
 type EncodedPhoto = Omit<EventPhoto, 'blob'> & { dataUrl: string };
 type EncodedSheetPhoto = Omit<SheetPhoto, 'blob'> & { dataUrl: string };

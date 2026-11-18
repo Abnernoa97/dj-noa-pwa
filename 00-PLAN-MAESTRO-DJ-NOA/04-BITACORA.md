@@ -73,3 +73,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - `finance.ts`, `financialOverview.ts` y `moneyIntegrity.ts` agrupados bajo `src/domains/finance/` sin conservar copias anteriores.
 - Consumo actualizado en Home/App, Excel, Calendario y Eventos; pruebas previas de USD e históricos mantienen sus mismos casos.
 - Sin cambios de fórmula ni de datos. Continúa pendiente revisión de lógica duplicada/ambigüedad, pruebas móviles y cierre de P05.
+
+## 18/11/2026 · P02-a · Seguridad y respaldo por capítulos
+- `DataSafetyPanel` y `AppMaintenance` trasladados a `src/features/safety/` y el servicio de copias `dataBackup` a `src/services/storage/`.
+- No cambia el archivo de datos, schema Dexie, el origen de la PWA ni el contrato de restauración. Se eliminan las rutas previas y se añaden pruebas de estructura.
+- P02 sigue EN CURSO: todavía falta el inventario completo de datos y la prueba física del respaldo en dispositivos.

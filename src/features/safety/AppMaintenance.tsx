@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { optimizeStoredPhotos } from './services/media/photoOptimization';
+import { optimizeStoredPhotos } from '../../services/media/photoOptimization';
 
 export default function AppMaintenance() {
   useEffect(() => {
