@@ -13,3 +13,5 @@ Consumidor externo único: `../entry.ts`. No usar estas funciones desde la PWA; 
 - `shared/espnCore.ts`: fuente única para parseadores de objetos/listas/texto/números, estados de ESPN, avance de fecha, mercado de cuotas y consenso utilizados por **ambos** `mlb.ts` y `nba.ts`.
 - No se incluyen `abbr`, `officialStatus`, `getJson`, `teamView`, `sortGames` ni loaders porque tienen diferencias específicas de liga o protocolo que requieren otra auditoría.
 - La PWA usa la API existente; no se cambian nombres de ruta, precios de cuota, redondeos ni el fallback de proveedores.
+
+- `shared/contextCore.ts`: normalizador de identidad deportiva y fecha lexical común en Context y Live. `sportsAnalysis` reutiliza parsers `rec/str` sin alterar su tratamiento local de listas.

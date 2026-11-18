@@ -1,3 +1,6 @@
+import { rec, list, str, num, statusView } from './shared/espnCore';
+import { normalize, dateOnly } from './shared/contextCore';
+
 type AnyRecord = Record<string, unknown>;
 
 type Sport = 'MLB' | 'NBA';
@@ -34,15 +37,6 @@ type LiveResponse = {
   warnings: string[];
 };
 
-function rec(value: unknown): AnyRecord { return value && typeof value === 'object' && !Array.isArray(value) ? value as AnyRecord : {}; }
-function list(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
-function str(value: unknown) { return typeof value === 'string' ? value : ''; }
-function num(value: unknown): number | undefined {
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-function normalize(value: string) { return value.toLowerCase().replace(/[^a-z0-9]/g, ''); }
-function dateOnly(value: string) { return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : ''; }
 function alias(value: string) {
   const key = value.toUpperCase();
   const aliases: Record<string, string> = { CWS: 'CHW', CHW: 'CHW', KC: 'KC', KCR: 'KC', SF: 'SF', SFG: 'SF', SD: 'SD', SDP: 'SD', TB: 'TB', TBR: 'TB', WSH: 'WSH', WSN: 'WSH' };
@@ -74,16 +68,6 @@ function teamMatches(team: AnyRecord, queryName: string, queryAbbr: string) {
   const n1 = normalize(name);
   const n2 = normalize(queryName);
   return Boolean(byAbbr || (n1 && n2 && (n1 === n2 || n1.includes(n2) || n2.includes(n1))));
-}
-
-function statusView(value: unknown) {
-  const status = rec(value);
-  const type = rec(status.type);
-  const state = str(type.state).toLowerCase();
-  const detail = str(type.shortDetail) || str(type.detail) || str(status.displayClock);
-  if (state === 'in') return { status: 'live' as const, statusText: detail || 'EN VIVO' };
-  if (state === 'post') return { status: 'final' as const, statusText: detail || 'FINAL' };
-  return { status: 'scheduled' as const, statusText: detail || 'PROGRAMADO' };
 }
 
 function teamView(value: AnyRecord): TeamView {

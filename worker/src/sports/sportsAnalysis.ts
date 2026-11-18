@@ -1,3 +1,5 @@
+import { rec, str } from './shared/espnCore';
+
 type AnyRecord = Record<string, unknown>;
 
 type AiBinding = {
@@ -6,8 +8,6 @@ type AiBinding = {
 
 type Env = { AI: AiBinding };
 
-function rec(value: unknown): AnyRecord { return value && typeof value === 'object' && !Array.isArray(value) ? value as AnyRecord : {}; }
-function str(value: unknown) { return typeof value === 'string' ? value : ''; }
 function list(value: unknown) { return Array.isArray(value) ? value : []; }
 function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } }); }
 

@@ -1,3 +1,6 @@
+import { rec, list, str, num } from './shared/espnCore';
+import { normalize, dateOnly } from './shared/contextCore';
+
 type AnyRecord = Record<string, unknown>;
 
 type Sport = 'MLB' | 'NBA';
@@ -19,17 +22,7 @@ type ContextResponse = {
   warnings: string[];
 };
 
-function rec(value: unknown): AnyRecord { return value && typeof value === 'object' && !Array.isArray(value) ? value as AnyRecord : {}; }
-function list(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
-function str(value: unknown) { return typeof value === 'string' ? value : ''; }
-function num(value: unknown): number | undefined {
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
 function bool(value: unknown) { return value === true || value === 'true'; }
-function normalize(value: string) { return value.toLowerCase().replace(/[^a-z0-9]/g, ''); }
-function dateOnly(value: string) { return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : ''; }
-
 async function getJson(url: string): Promise<unknown> {
   const response = await fetch(url, { headers: { accept: 'application/json', 'user-agent': 'DJ-NOA/1.0' } });
   if (!response.ok) throw new Error(`upstream_${response.status}`);

@@ -155,3 +155,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Inspección de los dos módulos confirmó **seis bloques equivalentes** (cinco idénticos byte a byte y uno con diferencias únicamente de espacios) que contienen **12 funciones**: `rec`, `list`, `str`, `num`, `int`, `nextDate`, `statusView`, `marketMoneyLine`, `marketView`, `impliedProbability`, `americanFromProbability`, `marketConsensus`.
 - Se mueven a `worker/src/sports/shared/espnCore.ts`, fuente única; `mlb.ts` y `nba.ts` importan el helper sin wrappers/copias paralelas. Se conservan abreviaturas de equipos, normalización de API oficial, `getJson`, `sortGames` y fuentes de datos específicas de cada liga.
 - Pruebas nuevas de parsing, fechas bisiestas, valores vacíos, status, odds y consenso en `tests/dj-noa-sports-shared.test.mjs`. **Validar Cloudflare antes de declarar VERIFICADO**. No altera Dexie, fotos, CSS, Worker entry, rutas ni bindings.
+
+## 18/11/2026 · P01/DUP-01b: utilidades comunes Context, Live y Analysis
+- Context y Live importan desde `sports/shared/espnCore.ts` los cuatro parsers idénticos `rec/list/str/num`; Live además reutiliza el mismo `statusView`. Analysis utiliza los parsers `rec/str`, manteniendo `list` local por su firma TS distinta.
+- `normalize` y `dateOnly`, textualmente equivalentes, se consolidan en `worker/src/sports/shared/contextCore.ts`. La fecha conserva exactamente la validación lexical previa.
+- Nueva prueba `tests/dj-noa-sports-context-shared.test.mjs`. No se alteran rutas API, headers HTTP, proveedores, datos locales, ni CSS. Verificar Cloudflare antes del cierre.
