@@ -29,7 +29,7 @@
 | `src/noahImageReconcile.ts` y `src/noahVisionCommit.ts` | Extracción, conciliación, guardado atómico | Contratos claros entre análisis y persistencia | No guardar imágenes de Visión automáticamente |
 | `worker/src/entry.ts`, `worker/src/index.ts`, `worker/src/noahChat.ts`, `worker/src/noahImage.ts` | API, recordatorios y AI | Reducir acoplamiento entre rutas | No cambiar bindings ni introducir acceso público |
 | `src/ios-dark-redesign.css` y capas de diseño | Diseño final, Excel, deportes, overlays | Inventario de selectores con origen/orden | No corregir diseño por intuición |
-| `src/db.ts` | Dexie `dj-noa-local` (versions 1–6) | Fuente canónica de datos local | No resetear, migrar o borrar por limpieza |
+| `src/services/storage/db.ts` | Dexie `dj-noa-local` (versions 1–6) | Fuente canónica de datos local | No resetear, migrar o borrar por limpieza |
 | `src/main.tsx` y `vite.config.ts` | Bootstrap, SW, PWA | Preservar recarga/actualización y orientación Excel | No cambiar el scope de la PWA |
 
 ## Arquitectura objetivo progresiva (NO mover todo de inmediato)

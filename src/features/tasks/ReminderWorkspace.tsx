@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Bell, Check, Clock3, Mic, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { addDays, addMonths, addWeeks, format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { db, uid } from '../../db';
+import { db, uid } from '../../services/storage/db';
 import { eventScheduleDueAt, type EventScheduleAnchor } from '../../domains/events/eventSchedule';
 import { useNativeBack } from '../../app/navigationBack';
 import { notificationSupport, requestReminderPermission, syncRemoteReminders, testRemoteNotification } from './reminderNotifications';

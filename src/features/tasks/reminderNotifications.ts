@@ -1,4 +1,4 @@
-import { db } from '../../db';
+import { db } from '../../services/storage/db';
 import type { ReminderItem, ReminderRepeat } from '../../types';
 
 const MAX_DELAY = 24 * 60 * 60 * 1000;

@@ -20,7 +20,7 @@ const REQUIRED = [
   'src/main.tsx',
   'src/app/App.tsx',
   'src/app/navigationBack.ts',
-  'src/db.ts',
+  'src/services/storage/db.ts',
   'src/types.ts',
   'src/features/excel/SheetWorkspace.tsx',
   'src/domains/sheet/sheetValues.ts',
@@ -93,7 +93,7 @@ for (const binding of ['REMINDER_SCHEDULER','ASSETS','AI']) {
   if (!wrangler.includes('"'+binding+'"')) errors.push('Falta binding contractual ' + binding);
 }
 
-const db = existsSync(join(ROOT,'src/db.ts')) ? readFileSync(join(ROOT,'src/db.ts'),'utf8') : '';
+const db = existsSync(join(ROOT,'src/services/storage/db.ts')) ? readFileSync(join(ROOT,'src/services/storage/db.ts'),'utf8') : '';
 if (!/super\(['"]dj-noa-local['"]\)/.test(db)) errors.push('No modificar la identidad Dexie dj-noa-local.');
 if (!/this\.version\(6\)/.test(db)) errors.push('Revisar la conservación del esquema Dexie v6.');
 

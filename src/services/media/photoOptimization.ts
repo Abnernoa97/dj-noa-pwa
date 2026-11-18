@@ -1,4 +1,4 @@
-import { db } from '../../db';
+import { db } from '../storage/db';
 
 const MAX_SIDE = 1800;
 const QUALITY = 0.82;

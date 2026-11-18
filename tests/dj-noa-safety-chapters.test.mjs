@@ -21,5 +21,5 @@ assert.match(panel,/services\/storage\/dataBackup/);
 const backup=read('src/services/storage/dataBackup.ts');
 assert.match(backup,/downloadDjNoaBackup/);
 assert.match(backup,/restoreDjNoaBackup/);
-assert.match(read('src/db.ts'),/super\('dj-noa-local'\)/);
+assert.match(read('src/services/storage/db.ts'),/super\('dj-noa-local'\)/);
 });

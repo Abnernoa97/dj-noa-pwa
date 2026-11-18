@@ -84,3 +84,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - `src/main.tsx` sigue siendo el bootstrap PWA; todas las pantallas usan `src/app/navigationBack.ts` como única implementación.
 - Ajustados componentes, pruebas y auditor de estructura para las rutas canónicas. Se agregó prueba de capítulo y documentación.
 - P03 permanece EN CURSO: extracción semántica de responsabilidades y QA de retroceso nativo quedan pendientes. Cierre del traslado solo tras Cloudflare SUCCESS.
+
+## 18/11/2026 · P02-b · Base local en capítulo único
+- `src/db.ts` se traslada a `src/services/storage/db.ts` sin duplicaciones; la implementación es idéntica salvo la ruta del import de tipos.
+- Se conserva la identidad Dexie `dj-noa-local`, esquema de versiones 1–6 y sus siete tablas; no se hace migración, borrado de caché ni cambios de valores.
+- Los módulos de eventos, Excel, Noah, Tareas y respaldos apuntan al mismo archivo; se incorporó un test de contrato de almacenamiento. Publicación pendiente de Cloudflare SUCCESS y QA local posterior.

@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useNativeBack } from '../../app/navigationBack';
 import { Mic, Square } from 'lucide-react';
-import { db } from '../../db';
+import { db } from '../../services/storage/db';
 import type { EventItem, SheetColumn, SheetRow, SheetValue } from '../../types';
 import type { NoahEventAction, NoahEventActionResult } from '../../domains/noah/noahEvents';
 import { executeNoahSheetAction, isNoahSheetAction, type NoahChatAction } from '../../domains/noah/noahExcel';

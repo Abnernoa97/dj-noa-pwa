@@ -14,6 +14,6 @@ for(const p of ['src/app/App.tsx','src/features/excel/SheetWorkspace.tsx','src/f
  assert.match(s,/domains\/finance\/financialOverview/,p);
  assert.match(s,/domains\/finance\/moneyIntegrity/,p);
 }
-const db=read('src/db.ts');
+const db=read('src/services/storage/db.ts');
 assert.match(db,/super\('dj-noa-local'\)/);
 });

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { db } from '../src/db.ts';
+import { db } from '../src/services/storage/db.ts';
 import { commitNoahVision } from '../src/noahVisionCommit.ts';
 
 const title = 'Financial Test Event';

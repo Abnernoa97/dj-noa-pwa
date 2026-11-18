@@ -17,7 +17,7 @@ test('Excel components and orientation live in one chapter without legacy copies
 });
 
 test('Excel reorganization cannot change IndexedDB schema or skip Cloudflare build gate',()=>{
- const db=read('src/db.ts'),p=JSON.parse(read('package.json'));
+ const db=read('src/services/storage/db.ts'),p=JSON.parse(read('package.json'));
  assert.match(db,/super\('dj-noa-local'\)/);
  assert.match(db,/this\.version\(6\)/);
  assert.match(p.scripts.build,/npm run audit:structure/);

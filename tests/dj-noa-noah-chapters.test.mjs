@@ -25,7 +25,7 @@ test('App routes Noah actions to the same canonical implementation and storage i
  assert.match(app,/from '\.\.\/features\/noah\/NoahVoice'/);
  assert.match(app,/from '\.\.\/features\/noah\/NoahImageIntake'/);
  assert.match(app,/from '\.\.\/domains\/noah\/noahVisionCommit'/);
- const db=read('src/db.ts');
+ const db=read('src/services/storage/db.ts');
  assert.match(db,/super\('dj-noa-local'\)/);
  const commit=read('src/domains/noah/noahVisionCommit.ts');
  assert.match(commit,/db\.transaction/);

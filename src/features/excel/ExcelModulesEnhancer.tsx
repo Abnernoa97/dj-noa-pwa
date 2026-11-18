@@ -3,7 +3,7 @@ import { useNativeBack } from '../../app/navigationBack';
 import { createPortal } from 'react-dom';
 import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { db, uid } from '../../db';
+import { db, uid } from '../../services/storage/db';
 import { normalizeSheetText as normalize, numberValue, behaviorOf } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';

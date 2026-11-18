@@ -16,7 +16,7 @@ import NoahVoice, { type NoahVoiceHandle } from '../features/noah/NoahVoice';
 
 import ReminderWorkspace from '../features/tasks/ReminderWorkspace';
 import SheetWorkspace from '../features/excel/SheetWorkspace';
-import { db, uid } from '../db';
+import { db, uid } from '../services/storage/db';
 import { normalizedEventIdentity } from '../domains/events/eventIntegrity';
 import { formatMoneyAmount } from '../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../domains/finance/financialOverview';

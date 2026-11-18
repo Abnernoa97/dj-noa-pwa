@@ -23,5 +23,5 @@ test('one navigation implementation serves all chapters without changing the dat
   assert.match(home, /from '\.\/navigationBack'/);
   assert.match(sheet, /from '\.\.\/\.\.\/app\/navigationBack'/);
   assert.match(events, /from '\.\.\/\.\.\/app\/navigationBack'/);
-  assert.match(read('src/db.ts'), /super\('dj-noa-local'\)/);
+  assert.match(read('src/services/storage/db.ts'), /super\('dj-noa-local'\)/);
 });

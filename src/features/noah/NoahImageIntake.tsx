@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, ImagePlus, LoaderCircle, Sparkles, X } from 'lucide-react';
-import { db } from '../../db';
+import { db } from '../../services/storage/db';
 import { normalizedEventIdentity, isValidEventDate } from '../../domains/events/eventIntegrity';
 import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from '../../domains/noah/noahImageReconcile';
 import type { VisionSource } from '../../domains/noah/noahVisionCommit';
