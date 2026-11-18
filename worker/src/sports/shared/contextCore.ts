@@ -1,4 +1,4 @@
-import { rec, list, str, type AnyRecord } from './espnCore';
+import { rec, list, str, type AnyRecord } from './espnCore.ts';
 
 /** Sports context and live share identical text normalization and lexical ISO-day extraction. */
 export function normalize(value: string) { return value.toLowerCase().replace(/[^a-z0-9]/g, ''); }
