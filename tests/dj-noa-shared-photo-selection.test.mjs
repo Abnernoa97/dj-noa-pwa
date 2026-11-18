@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { toggleSetMember } from '../src/shared/collectionOps.ts';
+import { toggleSetMember, addSetMember } from '../src/shared/collectionOps.ts';
 import { replacePhotoPreviews, clearPhotoPreviews } from '../src/services/media/photoPreviews.ts';
 test('shared immutable selection keeps original Set and toggle insertion behavior',()=>{
  const original=new Set(['a','b']);
@@ -26,4 +26,11 @@ test('Events and Excel only delegate preview replacement and Set updates',()=>{
   assert.doesNotMatch(s,/const next = new Set\(current\)/);
   assert.doesNotMatch(s,/return stored\.map\(\(photo\) =>/);
  }
+});
+
+test('long-press insertion uses immutable Set and never toggles existing selection off',()=>{
+ const original=new Set(['a']);
+ assert.deepEqual([...addSetMember(original,'a')],['a']);
+ assert.deepEqual([...addSetMember(original,'b')],['a','b']);
+ assert.deepEqual([...original],['a']);
 });

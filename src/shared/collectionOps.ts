@@ -5,3 +5,10 @@ export function toggleSetMember<T>(current: ReadonlySet<T>, id: T): Set<T> {
   else next.add(id);
   return next;
 }
+
+/** Idempotent immutable Set insertion for long-press row selection. */
+export function addSetMember<T>(current: ReadonlySet<T>, id: T): Set<T> {
+  const next = new Set(current);
+  next.add(id);
+  return next;
+}

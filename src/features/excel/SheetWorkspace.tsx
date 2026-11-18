@@ -8,7 +8,7 @@ import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
 import { useNativeBack } from '../../app/navigationBack';
 import { replacePhotoPreviews, clearPhotoPreviews } from '../../services/media/photoPreviews';
-import { toggleSetMember } from '../../shared/collectionOps';
+import { toggleSetMember, addSetMember } from '../../shared/collectionOps';
 import type { EventItem, SheetColumn, SheetPhoto, SheetRow, SheetStatus, SheetValue } from '../../shared/types';
 
 const DEFAULT_CATEGORIES = ['Evento', 'Ganancia', 'Inversión', 'Retribución'];
@@ -261,11 +261,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
       longPressTimerRef.current = null;
       longPressStartRef.current = null;
       longPressTriggeredRef.current = true;
-      setSelectionIds((current) => {
-        const next = new Set(current);
-        next.add(id);
-        return next;
-      });
+      setSelectionIds((current) => addSetMember(current, id));
       if (typeof navigator.vibrate === 'function') navigator.vibrate(18);
     }, LONG_PRESS_MS);
   };
