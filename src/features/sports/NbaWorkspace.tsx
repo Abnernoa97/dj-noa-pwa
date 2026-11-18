@@ -1,7 +1,7 @@
+import { odd, impliedProbability, favoriteFromOdds, favoriteForGame, shortTeamName, gameClock, dateLabel, marketLabel } from './sportsPresentation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { useNativeBack } from '../../app/navigationBack';
 
 type NbaBookOdds = { provider: string; away: number; home: number };
@@ -39,7 +39,6 @@ type NbaSnapshot = {
   warnings?: string[];
 };
 type Props = { onBack: () => void };
-type FavoriteSide = 'away' | 'home' | null;
 
 const CACHE_KEY = 'dj-noa-nba-snapshot-v2';
 
@@ -47,38 +46,6 @@ function readCachedSnapshot(): NbaSnapshot | null {
   try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) as NbaSnapshot : null; } catch { return null; }
 }
 function writeCachedSnapshot(snapshot: NbaSnapshot) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot)); } catch { /* best effort */ } }
-function odd(value?: number) { if (typeof value !== 'number' || !Number.isFinite(value)) return '—'; return value > 0 ? `+${Math.round(value)}` : `${Math.round(value)}`; }
-function impliedProbability(value?: number) { if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return 0; return value < 0 ? (-value) / ((-value) + 100) : 100 / (value + 100); }
-function favoriteFromOdds(away?: number, home?: number): FavoriteSide {
-  const a = impliedProbability(away); const h = impliedProbability(home);
-  if (!a || !h || Math.abs(a - h) < 0.0001) return null;
-  return a > h ? 'away' : 'home';
-}
-function favoriteForGame(game: NbaGame): FavoriteSide {
-  if (game.books.length) {
-    let awayVotes = 0; let homeVotes = 0;
-    for (const book of game.books) { const favorite = favoriteFromOdds(book.away, book.home); if (favorite === 'away') awayVotes += 1; if (favorite === 'home') homeVotes += 1; }
-    if (awayVotes !== homeVotes) return awayVotes > homeVotes ? 'away' : 'home';
-  }
-  return favoriteFromOdds(game.consensusAway, game.consensusHome);
-}
-function shortTeamName(name: string) { const parts = name.trim().split(/\s+/); return parts.length > 1 ? parts.slice(-1)[0] : name; }
-function gameClock(game: NbaGame) {
-  if (game.status === 'live') return game.statusText || 'EN VIVO';
-  if (game.status === 'final') return game.statusText || 'FINAL';
-  const date = new Date(game.startTime);
-  if (!Number.isFinite(date.getTime())) return game.statusText || 'Programado';
-  return date.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' });
-}
-function dateLabel(date: string) {
-  const value = new Date(`${date}T12:00:00`);
-  return Number.isFinite(value.getTime()) ? format(value, "d 'de' MMMM", { locale: es }) : date;
-}
-function marketLabel(game: NbaGame) {
-  if (game.books.length > 1) return 'PROMEDIO';
-  if (game.books.length === 1) return game.books[0].provider.toUpperCase();
-  return 'MERCADO';
-}
 function seasonLabel(season?: number) {
   if (!season) return 'NBA';
   const start = season - 1;

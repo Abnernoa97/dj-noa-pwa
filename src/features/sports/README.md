@@ -12,3 +12,5 @@ La interfaz consume las APIs de la aplicación. No duplicar rutas de Worker ni s
 ## Servidor de deportes
 
 Las cinco rutas y cargas deportivas del Worker están en `worker/src/sports/`. El archivo `worker/src/entry.ts` conserva el ruteo de API y autenticación. No duplicar parsers/normalización dentro de la interfaz.
+
+- `sportsPresentation.ts`: una sola definición de ocho helpers visuales/mercado de la tarjeta MLB/NBA (favoritos, reloj, etiquetas, fecha, cuota). `MlbWorkspace` y `NbaWorkspace` conservan sus propios cachés, llamadas y pantallas.

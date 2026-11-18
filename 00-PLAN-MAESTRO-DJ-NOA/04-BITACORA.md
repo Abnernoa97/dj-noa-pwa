@@ -165,3 +165,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - `playerName` y `lineupFromBoxscoreSide` eran exactamente idénticas en `sportsContext` y `sportsLive` (572 caracteres de código repetidos). Se retiraron ambos originales y se dejaron en el único `sports/shared/contextCore.ts` conservando todas las condiciones de fallback, orden, límite nueve y comportamiento para datos ausentes.
 - Regresiones con orden de bateo, ID prefijados, nombres faltantes y rutas estáticas en `tests/dj-noa-sports-lineup-shared.test.mjs`.
 - No se fusionó `loadMlbGameContext` todavía: sus matchers de equipo y expectativas pueden diferir; requiere fixture de red/semántica y no una mera coincidencia textual. Confirmar Cloudflare antes de marcar este paso verificado.
+
+## 18/11/2026 · P01/DUP-03a: presentación deportiva unificada
+- Extraídas las 8 funciones equivalentes de tarjetas MLB/NBA: `odd`, `impliedProbability`, `favoriteFromOdds`, `favoriteForGame`, `shortTeamName`, `gameClock`, `dateLabel`, `marketLabel` a `src/features/sports/sportsPresentation.ts`.
+- Sustituidas definiciones locales por importación común en `MlbWorkspace` y `NbaWorkspace`. Se conservan los tipos de respuesta por liga, claves caché diferentes, peticiones a sus endpoints, navegación, CSS y lógica NBA de temporada anterior.
+- Añadida prueba `tests/dj-noa-sports-presentation.test.mjs` con cuotas, votos, empates, fecha/estado y política de cache diferenciado. Requiere test/Cloudflare SUCCESS; no se tocó Dexie, Noah ni finanzas.
