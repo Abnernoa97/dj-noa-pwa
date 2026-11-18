@@ -24,3 +24,12 @@ export function lineupFromBoxscoreSide(side: AnyRecord) {
   return names.slice(0, 9);
 }
 
+
+/** Common W/L aggregation used by historical context and live views. */
+export function aggregateForm(items: readonly {result: 'W' | 'L'}[]) {
+  return {
+    wins: items.filter((game) => game.result === 'W').length,
+    losses: items.filter((game) => game.result === 'L').length,
+    sequence: items.map((game) => game.result)
+  };
+}

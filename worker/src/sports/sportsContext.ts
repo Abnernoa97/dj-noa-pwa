@@ -1,6 +1,6 @@
 import { json } from '../shared/http';
 import { rec, list, str, num } from './shared/espnCore';
-import { normalize, dateOnly, playerName, lineupFromBoxscoreSide } from './shared/contextCore';
+import { normalize, dateOnly, playerName, lineupFromBoxscoreSide, aggregateForm } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -95,14 +95,10 @@ function parseScheduleForm(payload: unknown, abbreviation: string, targetDate: s
   games.sort((a, b) => b.date.localeCompare(a.date));
   const recent = games.slice(0, 10);
   if (!recent.length) return null;
-  const aggregate = (items: FormGame[]) => ({
-    wins: items.filter((game) => game.result === 'W').length,
-    losses: items.filter((game) => game.result === 'L').length,
-    sequence: items.map((game) => game.result)
-  });
+
   return {
-    last5: aggregate(recent.slice(0, 5)),
-    last10: aggregate(recent),
+    last5: aggregateForm(recent.slice(0, 5)),
+    last10: aggregateForm(recent),
     games: recent,
     sourceSeason
   };
