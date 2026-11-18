@@ -1,53 +1,67 @@
-import 'fake-indexeddb/auto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { db } from '../src/services/storage/db.ts';
-import { deleteSheetRowWithPhotos, deleteSheetRowsWithPhotos } from '../src/services/storage/sheetMutations.ts';
+import { createSheetRowDeletion } from '../src/services/storage/sheetMutations.ts';
 
-const row=(id)=>({id,label:'Row '+id,category:'General',amount:20,currency:'USD',status:'pending',values:{},createdAt:'2026-11-18T12:00:00.000Z'});
-const photo=(id,rowId)=>({id,rowId,name:id+'.jpg',type:'image/jpeg',blob:new Blob(['photo-'+id],{type:'image/jpeg'}),createdAt:'2026-11-18T12:00:00.000Z'});
-async function reset(){await db.delete();await db.open();}
-async function finish(){await db.delete();}
-test('single deletion removes its attachments atomically but keeps unrelated rows and photos',async()=>{
- await reset();
- try{
-  await db.sheetRows.bulkAdd([row('one'),row('two')]);
-  await db.sheetPhotos.bulkAdd([photo('p1','one'),photo('p2','one'),photo('p3','two')]);
-  await deleteSheetRowWithPhotos('one');
-  assert.equal(await db.sheetRows.get('one'),undefined);
-  assert.equal(await db.sheetPhotos.where('rowId').equals('one').count(),0);
-  assert.equal(await db.sheetRows.count(),1);
-  assert.equal(await db.sheetPhotos.count(),1);
-  assert.equal((await db.sheetPhotos.get('p3')).name,'p3.jpg');
- } finally {await finish();}
+function fakeStore() {
+  let rows = new Map([['one',{id:'one'}],['two',{id:'two'}],['three',{id:'three'}]]);
+  let photos = new Map([['p1',{id:'p1',rowId:'one'}],['p2',{id:'p2',rowId:'one'}],['p3',{id:'p3',rowId:'two'}],['p4',{id:'p4',rowId:'three'}]]);
+  const calls = [];
+  let failRowDeletion = false;
+  const store = {
+    sheetRows: {
+      delete:async(id)=>{calls.push('single:'+id);if(failRowDeletion)throw new Error('row_delete_failed');rows.delete(id);},
+      bulkDelete:async(ids)=>{calls.push('bulk:'+ids.join(','));if(failRowDeletion)throw new Error('row_delete_failed');for(const id of ids)rows.delete(id);}
+    },
+    sheetPhotos: {
+      where:(key)=>{
+        assert.equal(key,'rowId');
+        return {equals:(rowId)=>({delete:async()=>{
+          calls.push('photos:'+rowId);
+          for(const [id,item] of photos)if(item.rowId===rowId)photos.delete(id);
+        }})};
+      }
+    },
+    transaction:async(mode,tables,fn)=>{
+      assert.equal(mode,'rw');
+      assert.equal(tables.length,2);
+      const oldRows=new Map(rows),oldPhotos=new Map(photos);
+      calls.push('begin');
+      try{const result=await fn();calls.push('commit');return result;}
+      catch(e){rows=oldRows;photos=oldPhotos;calls.push('rollback');throw e;}
+    }
+  };
+  return {store,calls,rows:()=>rows,photos:()=>photos,fail:()=>{failRowDeletion=true;}};
+}
+
+test('single-row deletion uses original Table.delete and atomic photo cleanup',async()=>{
+ const x=fakeStore();
+ await createSheetRowDeletion(x.store).deleteSheetRowWithPhotos('one');
+ assert.deepEqual(x.calls,['begin','photos:one','single:one','commit']);
+ assert.deepEqual([...x.rows().keys()],['two','three']);
+ assert.deepEqual([...x.photos().keys()],['p3','p4']);
 });
-test('selection deletion uses one transaction and leaves other photos intact',async()=>{
- await reset();
- try{
-  await db.sheetRows.bulkAdd([row('a'),row('b'),row('c')]);
-  await db.sheetPhotos.bulkAdd([photo('p-a','a'),photo('p-b','b'),photo('p-c','c')]);
-  await deleteSheetRowsWithPhotos(['a','b']);
-  assert.deepEqual((await db.sheetRows.toArray()).map(x=>x.id),['c']);
-  assert.deepEqual((await db.sheetPhotos.toArray()).map(x=>x.id),['p-c']);
-  await deleteSheetRowsWithPhotos([]);
-  assert.equal(await db.sheetRows.count(),1);
- } finally {await finish();}
+
+test('selected rows use original bulkDelete in one transaction, preserving unrelated photos',async()=>{
+ const x=fakeStore();
+ await createSheetRowDeletion(x.store).deleteSheetRowsWithPhotos(['one','two']);
+ assert.deepEqual(x.calls,['begin','photos:one','photos:two','bulk:one,two','commit']);
+ assert.deepEqual([...x.rows().keys()],['three']);
+ assert.deepEqual([...x.photos().keys()],['p4']);
+ await createSheetRowDeletion(x.store).deleteSheetRowsWithPhotos([]);
+ assert.equal(x.calls.filter(v=>v==='begin').length,1);
 });
-test('caller transaction abort restores both row and photo (no partial deletion)',async()=>{
- await reset();
- try {
-  await db.sheetRows.add(row('rollback'));
-  await db.sheetPhotos.add(photo('kept','rollback'));
-  await assert.rejects(db.transaction('rw',[db.sheetRows,db.sheetPhotos],async()=>{
-    await deleteSheetRowWithPhotos('rollback');
-    throw new Error('abort_outer_transaction');
-  }),/abort_outer_transaction/);
-  assert.equal(await db.sheetRows.count(),1);
-  assert.equal(await db.sheetPhotos.count(),1);
- } finally {await finish();}
+
+test('failed row deletion rolls back its photo deletions within transaction',async()=>{
+ const x=fakeStore();
+ x.fail();
+ await assert.rejects(createSheetRowDeletion(x.store).deleteSheetRowWithPhotos('one'),/row_delete_failed/);
+ assert.equal(x.calls.at(-1),'rollback');
+ assert.deepEqual([...x.rows().keys()],['one','two','three']);
+ assert.deepEqual([...x.photos().keys()],['p1','p2','p3','p4']);
 });
-test('all three Excel and Noah entrypoints use the one storage owner',()=>{
+
+test('all three Excel and Noah entrypoints delegate to one canonical storage owner',()=>{
  for(const path of ['src/domains/noah/noahExcel.ts','src/features/excel/ExcelModulesEnhancer.tsx','src/features/excel/SheetWorkspace.tsx']){
   const src=readFileSync(new URL('../'+path,import.meta.url),'utf8');
   assert.match(src,/services\/storage\/sheetMutations/);
