@@ -15,3 +15,5 @@ Consumidor externo único: `../entry.ts`. No usar estas funciones desde la PWA; 
 - La PWA usa la API existente; no se cambian nombres de ruta, precios de cuota, redondeos ni el fallback de proveedores.
 
 - `shared/contextCore.ts`: normalizador de identidad deportiva y fecha lexical común en Context y Live. `sportsAnalysis` reutiliza parsers `rec/str` sin alterar su tratamiento local de listas.
+
+- `shared/contextCore.ts` también es el único propietario de `playerName` y `lineupFromBoxscoreSide`, antes duplicadas literalmente en Context y Live. Extraídas sin modificar el orden de los nueve bateadores ni los fallback de nombres.

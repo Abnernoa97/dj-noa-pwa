@@ -1,5 +1,5 @@
 import { rec, list, str, num, statusView } from './shared/espnCore';
-import { normalize, dateOnly } from './shared/contextCore';
+import { normalize, dateOnly, playerName, lineupFromBoxscoreSide } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -342,24 +342,6 @@ async function loadMlbForm(name: string, abbreviation: string, targetDate: strin
   }
   games.sort((a, b) => b.date.localeCompare(a.date));
   return aggregateForm(games, season);
-}
-
-function playerName(value: unknown) {
-  const item = rec(value);
-  return str(item.fullName) || str(item.displayName) || str(item.name);
-}
-
-function lineupFromBoxscoreSide(side: AnyRecord) {
-  const players = rec(side.players);
-  const order = list(side.battingOrder).map((value) => String(value));
-  const names: string[] = [];
-  for (const rawId of order) {
-    const key = rawId.startsWith('ID') ? rawId : `ID${rawId}`;
-    const player = rec(players[key]);
-    const name = playerName(player.person);
-    if (name) names.push(name);
-  }
-  return names.slice(0, 9);
 }
 
 async function loadMlbGameContext(date: string, awayName: string, awayAbbr: string, homeName: string, homeAbbr: string) {

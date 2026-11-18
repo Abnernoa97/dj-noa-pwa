@@ -160,3 +160,8 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Context y Live importan desde `sports/shared/espnCore.ts` los cuatro parsers idénticos `rec/list/str/num`; Live además reutiliza el mismo `statusView`. Analysis utiliza los parsers `rec/str`, manteniendo `list` local por su firma TS distinta.
 - `normalize` y `dateOnly`, textualmente equivalentes, se consolidan en `worker/src/sports/shared/contextCore.ts`. La fecha conserva exactamente la validación lexical previa.
 - Nueva prueba `tests/dj-noa-sports-context-shared.test.mjs`. No se alteran rutas API, headers HTTP, proveedores, datos locales, ni CSS. Verificar Cloudflare antes del cierre.
+
+## 18/11/2026 · P01/DUP-02a · Nombres y alineaciones MLB unificados
+- `playerName` y `lineupFromBoxscoreSide` eran exactamente idénticas en `sportsContext` y `sportsLive` (572 caracteres de código repetidos). Se retiraron ambos originales y se dejaron en el único `sports/shared/contextCore.ts` conservando todas las condiciones de fallback, orden, límite nueve y comportamiento para datos ausentes.
+- Regresiones con orden de bateo, ID prefijados, nombres faltantes y rutas estáticas en `tests/dj-noa-sports-lineup-shared.test.mjs`.
+- No se fusionó `loadMlbGameContext` todavía: sus matchers de equipo y expectativas pueden diferir; requiere fixture de red/semántica y no una mera coincidencia textual. Confirmar Cloudflare antes de marcar este paso verificado.

@@ -1,5 +1,5 @@
 import { rec, list, str, num } from './shared/espnCore';
-import { normalize, dateOnly } from './shared/contextCore';
+import { normalize, dateOnly, playerName, lineupFromBoxscoreSide } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -190,24 +190,6 @@ function matchTeam(team: AnyRecord, queryName: string, queryAbbr: string) {
   const qName = normalize(queryName);
   const qAbbr = normalize(queryAbbr);
   return Boolean((qAbbr && normalize(abbreviation) === qAbbr) || (qName && (normalize(name) === qName || normalize(name).includes(qName) || qName.includes(normalize(name)))));
-}
-
-function playerName(value: unknown) {
-  const item = rec(value);
-  return str(item.fullName) || str(item.displayName) || str(item.name);
-}
-
-function lineupFromBoxscoreSide(side: AnyRecord) {
-  const players = rec(side.players);
-  const order = list(side.battingOrder).map((value) => String(value));
-  const names: string[] = [];
-  for (const rawId of order) {
-    const key = rawId.startsWith('ID') ? rawId : `ID${rawId}`;
-    const player = rec(players[key]);
-    const name = playerName(player.person);
-    if (name) names.push(name);
-  }
-  return names.slice(0, 9);
 }
 
 async function loadMlbGameContext(date: string, awayName: string, awayAbbr: string, homeName: string, homeAbbr: string) {
