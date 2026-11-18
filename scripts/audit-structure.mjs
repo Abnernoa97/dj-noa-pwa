@@ -23,6 +23,8 @@ const REQUIRED = [
   'src/types.ts',
   'src/SheetWorkspace.tsx',
   'src/domains/sheet/sheetValues.ts',
+  'src/shared/normalizeText.ts',
+  'scripts/audit-candidates.mjs',
   'src/ExcelModulesEnhancer.tsx',
   'src/finance.ts',
   'src/financialOverview.ts',

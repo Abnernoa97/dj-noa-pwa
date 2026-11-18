@@ -1,10 +1,7 @@
 import type { SheetColumn, SheetColumnBehavior } from '../../types';
+export { normalizeText as normalizeSheetText } from '../../shared/normalizeText';
 
 /** The only text/amount/column-behavior helpers shared by Excel and Noah. */
-export function normalizeSheetText(value: string): string {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
 /** Preserve existing Excel parsing exactly; this is NOT currency conversion. */
 export function numberValue(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;

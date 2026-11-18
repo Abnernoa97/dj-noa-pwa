@@ -1,3 +1,4 @@
+import { normalizeText as normalize } from './shared/normalizeText';
 import { isValidEventDate, normalizedEventIdentity } from './eventIntegrity.ts';
 import type { NoahChatAction } from './noahExcel';
 import type { EventItem } from './types';
@@ -39,9 +40,6 @@ const fields = ['showTime', 'callTime', 'soundcheckTime', 'venue', 'address'] as
 type Field = typeof fields[number];
 type Candidate = { title: string; date: string; sources: Set<string>; values: Record<Field, Map<string, Set<string>>>; confidence: 'high' | 'medium' | 'low'; notes: Set<string>; finances: Map<string, Set<string>> };
 
-function normalize(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
 function cleanTime(value: unknown) {
   const text = String(value || '').trim();
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(text) ? text : '';

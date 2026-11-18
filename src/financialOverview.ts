@@ -1,4 +1,5 @@
 import type { SheetRow } from './types';
+import { normalizeText as normalize } from './shared/normalizeText';
 
 /** USD is the sole operational currency. Historical records are preserved verbatim. */
 export function isUsdRow(row: Pick<SheetRow, 'currency'>): boolean {
@@ -7,11 +8,6 @@ export function isUsdRow(row: Pick<SheetRow, 'currency'>): boolean {
 
 export function legacyFinancialRowCount(rows: Pick<SheetRow, 'currency' | 'amount'>[]): number {
   return rows.filter((row) => !isUsdRow(row) && Number(row.amount) !== 0).length;
-}
-
-function normalize(value: string): string {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 export type UsdSettlement = {

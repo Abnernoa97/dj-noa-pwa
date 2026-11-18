@@ -27,6 +27,7 @@ Abrir [00 · LEER PRIMERO](00-PLAN-MAESTRO-DJ-NOA/00-LEER-PRIMERO.md) y seguir e
 ## Comandos
 - `npm ci`: instalación reproducible para builds.
 - `npm run audit:structure`: lectura y control de estructura (no elimina nada).
+- `npm run audit:candidates`: mapa de dependencias, posibles huérfanos y capas CSS (solo lectura; no borra nada).
 - `npm run typecheck`: TypeScript PWA y Worker.
 - `npm run typecheck:cloud`: TypeScript de la nube privada en pausa; verificación solamente.
 - `npm run test:ai`: regresiones locales.

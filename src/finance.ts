@@ -1,8 +1,5 @@
 import type { CurrencyCode, FinancialType, SheetRow } from './types';
-
-function normalize(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-}
+import { normalizeText as normalize } from './shared/normalizeText';
 
 const INCOME_WORDS = ['ganancia', 'ingreso', 'retribucion', 'cobro', 'venta', 'anticipo', 'deposito', 'honorario', 'comision'];
 const EXPENSE_WORDS = ['inversion', 'gasto', 'costo', 'pago', 'compra', 'proveedor', 'transporte', 'audio', 'produccion', 'publicidad'];

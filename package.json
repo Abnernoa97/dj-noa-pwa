@@ -7,12 +7,13 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "test:ai": "node --test tests/*.test.mjs",
-    "build": "npm run audit:structure && npm run typecheck && npm run typecheck:cloud && npm run test:ai && vite build",
+    "build": "npm run audit:structure && npm run audit:candidates && npm run typecheck && npm run typecheck:cloud && npm run test:ai && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
     "typecheck:cloud": "tsc -p dj-noa-cloud/tsconfig.json --noEmit",
     "test:cloud": "node --test tests/dj-noa-cloud-*.test.mjs",
-    "audit:structure": "node scripts/audit-structure.mjs"
+    "audit:structure": "node scripts/audit-structure.mjs",
+    "audit:candidates": "node scripts/audit-candidates.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

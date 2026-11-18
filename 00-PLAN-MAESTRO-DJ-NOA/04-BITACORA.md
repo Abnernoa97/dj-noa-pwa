@@ -24,5 +24,10 @@ Este documento registra **hechos verificados**; no equivale a un nuevo plan. No 
 - Se preparó un helper puro en `src/domains/sheet/sheetValues.ts` y pruebas de regresión en `tests/dj-noa-sheet-shared.test.mjs` para retirar esas copias sin alterar valores USD, contratos ni el UI. **El cierre de este paso depende del build de Cloudflare del nuevo commit.**
 - El build previo avisó de 11 vulnerabilidades de dependencias (1 baja, 4 moderadas y 6 altas) y de un chunk Vite mayor que 500 kB. Son **riesgos a clasificar**, no instrucciones para ejecutar `npm audit fix --force`.
 
+## P01-c · referencia de dependencias y CSS
+- Se añadió el analizador no destructivo `scripts/audit-candidates.mjs` a la comprobación de Cloudflare, más `tests/dj-noa-audit-readonly.test.mjs`.
+- Contadores y posibles archivos huérfanos se archivarán tras leer los logs del build real; **no se borran fuentes por una sospecha de ausencia de imports**.
+- P01 permanece EN CURSO; finanzas, Visión y Excel conservan sus contratos.
+
 ## Próximo bloque
 **P01:** mapa de importaciones reales, CSS con propietarios, escritor canónico de cada dato y catálogo de candidatos. No borrar por similitud de nombres. Conservar esta bitácora como referencia única para otros chats.

@@ -49,6 +49,11 @@
 
 Estas rutas son **objetivo**, no reflejan implementación terminada. Antes de cada traslado verificar imports directos/dinámicos, aliases, CSS, assets y bundles. Conservar nombres exportados mientras tengan consumidores reales; borrar el origen **en el mismo cambio** solo tras equivalencia.
 
+## Inventario automatizado P01-c
+- `scripts/audit-candidates.mjs` analiza el grafo de importaciones desde las entradas PWA y Worker y reporta candidatos sin referencia, **no** confirma que estén muertos.
+- También registra número de hojas CSS, `!important`, reglas `@media` y capas más sobreescritas; estos conteos no se interpretan como defectos.
+- Se ejecuta durante el build de Cloudflare antes del typecheck para que el resultado permanezca en los logs de publicación. No tiene escrituras ni efectos en producción.
+
 ## Cómo decidir si se borra
 - **ACTIVO:** está referenciado por código, HTML, Service Worker, configuración o tests necesarios.
 - **HISTÓRICO:** archivo/rama deliberadamente retenido para rollback o datos, no código que se ejecuta.
