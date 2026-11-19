@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Camera, Check, Columns3, Download, Mic, Pencil, Plus, RotateCw, Search, Trash2, Upload, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowsWithPhotos } from '../../services/storage/sheetMutations';
+import { deleteSheetColumnAndValues } from '../../services/storage/sheetColumnMutations';
 import { normalizeSheetText as normalize, numberValue } from '../../domains/sheet/sheetValues';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
@@ -338,13 +339,7 @@ export default function SheetWorkspace({ rows, events, onChanged, onAssistant, o
 
   const deleteColumn = async (column: SheetColumn) => {
     if (!window.confirm(`¿Eliminar la columna “${column.name}”?`)) return;
-    await db.sheetColumns.delete(column.id);
-    const allRows = await db.sheetRows.toArray();
-    await Promise.all(allRows.map((row) => {
-      const values = { ...(row.values || {}) };
-      delete values[column.key];
-      return db.sheetRows.update(row.id, { values, updatedAt: new Date().toISOString() });
-    }));
+    await deleteSheetColumnAndValues(column);
     await loadColumns();
     await onChanged();
   };

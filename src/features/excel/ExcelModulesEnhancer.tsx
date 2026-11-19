@@ -5,6 +5,7 @@ import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
+import { deleteSheetColumnAndValues } from '../../services/storage/sheetColumnMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../../domains/sheet/sheetValues';
 import { sheetFinancialPatch } from '../../domains/sheet/sheetFinancial';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
@@ -212,15 +213,7 @@ export default function ExcelModulesEnhancer() {
 
   const deleteColumn = async (column: SheetColumn) => {
     if (!window.confirm(`¿Eliminar la columna “${column.name}” y sus datos?`)) return;
-    await db.transaction('rw', [db.sheetColumns, db.sheetRows], async () => {
-      await db.sheetColumns.delete(column.id);
-      const allRows = await db.sheetRows.toArray();
-      for (const row of allRows) {
-        const values = { ...(row.values || {}) };
-        delete values[column.key];
-        await db.sheetRows.update(row.id, { values, updatedAt: new Date().toISOString() });
-      }
-    });
+    await deleteSheetColumnAndValues(column);
     setEditingColumnId(null);
     window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
   };

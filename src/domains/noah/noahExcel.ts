@@ -1,5 +1,6 @@
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
+import { deleteSheetColumnAndValues } from '../../services/storage/sheetColumnMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../sheet/sheetValues';
 import { sheetFinancialPatch } from '../sheet/sheetFinancial';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
@@ -107,17 +108,7 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
   if (action.type === 'delete_sheet_column') {
     const column = await db.sheetColumns.get(action.columnId);
     if (!column) return { ok: false, message: 'No encontré esa columna.' };
-    await db.transaction('rw', [db.sheetColumns, db.sheetRows], async () => {
-      await db.sheetColumns.delete(column.id);
-      const remaining = await db.sheetColumns.orderBy('position').toArray();
-      const rows = await db.sheetRows.toArray();
-      const now = new Date().toISOString();
-      for (const row of rows) {
-        const values = { ...(row.values || {}) };
-        delete values[column.key];
-        await db.sheetRows.update(row.id, { values, ...sheetFinancialPatch(remaining, values), updatedAt: now });
-      }
-    });
+    await deleteSheetColumnAndValues(column);
     announce({ type: action.type, columnId: column.id, columnName: column.name });
     return { ok: true, message: `Listo, eliminé la columna ${column.name}.` };
   }
