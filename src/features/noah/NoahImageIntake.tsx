@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, ImagePlus, LoaderCircle, Sparkles, X } from 'lucide-react';
 import { db } from '../../services/storage/db';
+import { blobToDataUrl } from '../../services/media/blobDataUrl';
 import { normalizedEventIdentity, isValidEventDate } from '../../domains/events/eventIntegrity';
 import { reconcilePhotoReads, type PhotoVisualItem, type ReviewAction } from '../../domains/noah/noahImageReconcile';
 import type { VisionSource } from '../../domains/noah/noahVisionCommit';
@@ -69,15 +70,6 @@ function actionKind(action: NoahChatAction) {
   if (action.type === 'create_sheet_row' || action.type === 'create_sheet_grid_row') return 'EXCEL';
   if (action.type === 'navigate_section') return 'VISTA';
   return 'NOAH';
-}
-
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('file_read_failed'));
-    reader.readAsDataURL(blob);
-  });
 }
 
 function wait(ms: number) {

@@ -1,4 +1,6 @@
 import { db } from './db';
+import { blobToDataUrl } from '../media/blobDataUrl';
+const PHOTO_READ_OPTIONS = { errorMessage: 'photo_read_failed', preferNativeError: true } as const;
 import type { EventItem, EventPhoto, ReminderItem, SheetColumn, SheetPhoto, SheetRow } from '../../shared/types';
 
 type EncodedPhoto = Omit<EventPhoto, 'blob'> & { dataUrl: string };
@@ -18,15 +20,6 @@ type DjNoaBackup = {
     history: unknown[];
   };
 };
-
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('photo_read_failed'));
-    reader.readAsDataURL(blob);
-  });
-}
 
 function dataUrlToBlob(dataUrl: string) {
   const match = /^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.*)$/i.exec(dataUrl);
@@ -51,13 +44,13 @@ export async function buildDjNoaBackup(): Promise<DjNoaBackup> {
   const encodedEventPhotos: EncodedPhoto[] = [];
   for (const photo of eventPhotos) {
     const { blob, ...rest } = photo;
-    encodedEventPhotos.push({ ...rest, dataUrl: await blobToDataUrl(blob) });
+    encodedEventPhotos.push({ ...rest, dataUrl: await blobToDataUrl(blob, PHOTO_READ_OPTIONS) });
   }
 
   const encodedSheetPhotos: EncodedSheetPhoto[] = [];
   for (const photo of sheetPhotos) {
     const { blob, ...rest } = photo;
-    encodedSheetPhotos.push({ ...rest, dataUrl: await blobToDataUrl(blob) });
+    encodedSheetPhotos.push({ ...rest, dataUrl: await blobToDataUrl(blob, PHOTO_READ_OPTIONS) });
   }
 
   return {
