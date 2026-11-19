@@ -62,11 +62,13 @@ test('new blank Excel concept uses eventId, date and neutral zero amount', () =>
 
 test('app delegates all event writes to central transactional store', () => {
   const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  const controller = readFileSync(new URL('../src/app/controllers/noahActionCoordinator.ts', import.meta.url), 'utf8');
   const mut = readFileSync(new URL('../src/domains/events/eventMutations.ts', import.meta.url), 'utf8');
-  assert.match(app, /createEventsWithRelations\(/);
-  assert.match(app, /createEventWithRelations\(/);
-  assert.match(app, /updateEventWithRelations\(/);
-  assert.match(app, /deleteEventWithRelations\(/);
+  assert.match(app, /createNoahActionExecutor\(/);
+  assert.match(controller, /createEventsWithRelations\(/);
+  assert.match(controller, /createEventWithRelations\(/);
+  assert.match(controller, /updateEventWithRelations\(/);
+  assert.match(controller, /deleteEventWithRelations\(/);
   assert.match(app, /liveQuery\(/);
   assert.doesNotMatch(app, /db\.events\.(add|put|update|delete|bulkAdd|bulkPut)\(/);
   assert.match(mut, /db\.transaction\('rw', \[db\.events, db\.sheetRows\]/);

@@ -28,8 +28,10 @@ test('Noah matrix and calendar series keep the same finance/currency display wit
 
 test('Noah step presentations have a single implementation outside the App coordinator',()=>{
  const app=readFileSync(new URL('../src/app/App.tsx', import.meta.url),'utf8');
+ const coordinator=readFileSync(new URL('../src/app/controllers/noahActionCoordinator.ts',import.meta.url),'utf8');
  const steps=readFileSync(new URL('../src/features/noah/noahActionSteps.ts', import.meta.url),'utf8');
- assert.match(app,/from '\.\.\/features\/noah\/noahActionSteps'/);
+ assert.match(app,/createNoahActionExecutor\(/);
+ assert.match(coordinator,/from '\.\.\/\.\.\/features\/noah\/noahActionSteps'/);
  for(const fn of ['financeText','patchEntries','progressSteps','matrixSteps','calendarSeriesSteps']){
   assert.doesNotMatch(app,new RegExp('function '+fn+'\\('),fn);
   assert.match(steps,new RegExp('export function '+fn+'\\('),fn);
