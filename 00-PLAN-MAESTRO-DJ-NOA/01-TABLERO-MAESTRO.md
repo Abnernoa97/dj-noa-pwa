@@ -15,13 +15,13 @@
 | P08 | Worker y API | PENDIENTE | Un ruteo de API, seguridad preservada y módulos de IA / recordatorios sin cambios de bindings |
 | P09 | Deportes MLB/NBA y contexto | EN CURSO | Servicios, caché y presentación sin llamadas duplicadas ni cambios de resultados |
 | P10 | CSS y diseño | EN CURSO | Sustituir capas duplicadas **con QA visual** Android/iPhone y conservar diseño aprobado |
-| P11 | Velocidad, scroll, orientación y PWA offline | PENDIENTE | Mediciones comparativas, service worker, navegación y Excel horizontal funcionando |
+| P11 | Velocidad, scroll, orientación y PWA offline | EN CURSO · rutas divididas y compiladas | Mediciones comparativas, service worker, navegación y Excel horizontal funcionando |
 | P12 | Aceptación final, documentación y poda de ramas | EN CURSO | Build Cloudflare, QA real, revisión de backups y candidatos de ramas uno por uno |
 
 ## Estado de la estructura, 18/11/2026
 
 - `src/` raíz: solo `main.tsx` y declaraciones de TypeScript (`react-css.d.ts`, `vite-env.d.ts`).
-- `src/app/`: coordinador, navegación nativa e Inicio. `App.tsx` ahora tiene 687 líneas tras extraer 98 líneas de presentadores Noah.
+- `src/app/`: coordinador, navegación nativa e Inicio. `App.tsx` ahora tiene **281 líneas**; las 410 líneas de ejecución de acciones de Noah están en `src/app/controllers/noahActionCoordinator.ts` (solo un coordinador, sin segundo estado).
 - `src/features/`: Eventos, Calendario, Excel, Tareas, Noah, Deportes, Seguridad e Inicio; sus componentes y CSS tienen carpetas de propietario.
 - `src/domains/`: Finanzas USD, Eventos, Noah, Excel/sheet y probabilidades deportivas; reglas sin elementos visuales.
 - `src/services/`: instancia Dexie, respaldos y optimización de medios manuales.
@@ -95,6 +95,21 @@
 **Decisión de cierre:** P01 **VERIFICADO como auditoría de dependencias y consolidación de duplicados equivalentes**. No significa que P03/P04/P07/P10/P11/P12 estén terminadas. Los **8 similares + 1 exacto** detectados son coincidencias que requieren mantener contratos distintos o una refactorización explícita de componentes, no implementaciones que se deban borrar sin más. Clasificados en `08-REGISTRO-EXCEPCIONES.md`.
 
 **CSS P10 EN CURSO:** 33 hojas y 182 selectores compartidos, 11 bloques CSS idénticos, 175 coincidencias selector/contexto con propiedades comunes y 600 comparaciones de valores diferentes; 2,978 `!important`. Se retiraron 36 declaraciones exactas y el auditor PostCSS da **0 candidatas idénticas del tipo seguro**. Para reestructurar el resto se necesita verificación de cascada y QA real iOS/Android, no sólo bajar números. `src/app/App.tsx` y la escritura de columnas Excel siguen siendo deuda P03/P04. No tocar `dj-noa-cloud/` (pausada).
+
+## Corte P03/P04/P10/P11 · consolidación de 19/11/2026 (publicada)
+
+**Entrega verificable:** commit `7c796f7`, Cloudflare Workers Builds **SUCCESS**, Worker versión `b7e2fc9e-6262-49d5-9408-da8090659af6` al **100 %**. **167/167 pruebas aprobadas**, cero fallos, typecheck frontend/Worker/cloud y Vite production OK. GitHub sigue en **una sola `main` y cero Actions**.
+
+| Área | Acción aplicada | Estado |
+|---|---|---|
+| **P03 · Coordinación** | Extraído ejecutor de Noah de `App.tsx` a `src/app/controllers/noahActionCoordinator.ts`; `App.tsx` de 682 a **281** líneas. Solo una navegación/DB, sin duplicar flujos. | Extracción VERIFICADA; P03 EN CURSO para aceptar el resto del coordinador |
+| **P04 · Excel** | Una función de borrado de columnas **atómica**, compartida por clásica, grid y Noah; elimina las claves, recalcula sólo montos USD afectados. Creación de columnas financieras compartida entre grid/Noah, con nombre normalizado único bajo transacción. | Operaciones VERIFICADAS; P04 EN CURSO para escritor de metadatos y fórmulas clásicas |
+| **P11 · Carga** | Rutas `CalendarWorkspace`, `MlbWorkspace`, `ReminderWorkspace`, `SheetWorkspace`, `EventsView`, `EventHub` y `EventEditor` bajo `React.lazy`; ejecutor Noah con `import()` al usarse. `vite-plugin-pwa` precache de chunks JS, sin activar otra PWA. | Carga y build VERIFICADOS; falta QA en móviles/offline real |
+| **P10 · CSS** | Se conserva **exacto** el orden de los 33 CSS en `src/main.tsx`, ahora etiquetado por capas; nuevo mapa `src/styles/core/STYLE-CASCADE.md` y pruebas de propietario/prelación. | Organización VERIFICADA; reducción de 2,978 `!important` y QA visual pendientes |
+
+**Medición del empaquetado:** `dist/assets/index` JavaScript **569.58 kB → 482.08 kB** (reducción ~15.4 %; gzip ~172.60 → 149.95 kB). Los trozos de las siete pantallas y del ejecutor Noah se cargan bajo demanda. `xlsx` se mantiene como chunk separado de **500.06 kB** por su motor de hojas de cálculo; no se ha suprimido ni reemplazado funcionalidad. No se confunde tamaño sin comprimir con transferencia gzip, ni build con medición de inicio real de dispositivo.
+
+**Pendiente concreto de la fase siguiente:** `App` todavía coordina estado de UI; Excel clásico y editor financiero difieren en estructura de columnas, la actualización de columnas/comportamientos debe centralizarse con tests; el CSS `ios-dark-redesign.css` sigue cargado y no se han hecho capturas comparativas. La limpieza no autoriza resetear IndexedDB ni cambiar identidad o permisos de la IA.
 
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.

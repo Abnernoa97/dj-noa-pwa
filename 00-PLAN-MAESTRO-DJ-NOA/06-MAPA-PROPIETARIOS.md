@@ -103,3 +103,11 @@ Las referencias a un método o tabla no constituyen un segundo propietario. Las 
 **Separaciones deliberadas:** `MLB` y `NBA` mantienen adaptadores de feeds, Noah chat/visión mantienen permisos y datos específicos, Eventos/Excel mantienen entidades propias. `dj-noa-cloud/` permanece pausado. El catálogo `08` especifica las 8 similitudes y 1 callback detectados, sin instrucciones de borrado automático.
 
 **Siguiente fase:** P03/04/10 con auditoría de tipos, pruebas y QA móvil; no crear una segunda `main`, segunda Dexie ni segunda cascada global para resolver un contador.
+
+## Corte P03/P04/P10/P11 · propietarios nuevos y rutas asíncronas
+
+- `src/app/App.tsx`: **único orquestador de navegación y estado** (281 líneas después de extracción); `src/app/controllers/noahActionCoordinator.ts`: único coordinador de acciones de Noah (carga por import dinámico al ejecutar una orden), delega persistencia a eventos y Excel, no crea estado duplicado.
+- `src/services/storage/sheetColumnMutations.ts`: propietario de **crear columnas de la grilla (Excel y Noah)** y **eliminar columnas de cualquier vista junto con sus claves**. Dentro de transacciones; `SheetWorkspace` conserva su propia definición de fórmulas clásicas.
+- `src/features/calendar/CalendarWorkspace.tsx`, `src/features/sports/MlbWorkspace.tsx`, `src/features/tasks/ReminderWorkspace.tsx`, `src/features/excel/SheetWorkspace.tsx` y `src/features/events/EventWorkspace.tsx`: pantallas que App solicita con `lazy()`. Una misma vista de Eventos atiende lista/detalle/editor sin copias.
+- `src/styles/core/STYLE-CASCADE.md`: catálogo único de las 33 hojas CSS y sus propietarios, ordenado según los imports efectivos de `src/main.tsx`; la precedencia no se modifica por documentación. El CSS sigue siendo deuda P10 hasta QA visual.
+- Rendimiento: el chunk principal `index` pasó de **569.58 a 482.08 kB**; XLSX permanece en chunk separado. P11 no se cierra sin pruebas reales offline, scroll y apertura de pantallas.
