@@ -23,8 +23,8 @@ test('Event mutation contract stays single and Event/Calendar/Tasks routes remai
 const app=read('src/app/App.tsx');
 assert.match(app,/from '\.\.\/domains\/events\/eventMutations'/);
 assert.match(app,/from '\.\.\/features\/events\/EventWorkspace'/);
-assert.match(app,/from '\.\.\/features\/calendar\/CalendarWorkspace'/);
-assert.match(app,/from '\.\.\/features\/tasks\/ReminderWorkspace'/);
+assert.match(app,/lazy\(\(\) => import\('\.\.\/features\/calendar\/CalendarWorkspace'\)\)/);
+assert.match(app,/lazy\(\(\) => import\('\.\.\/features\/tasks\/ReminderWorkspace'\)\)/);
 const mutations=read('src/domains/events/eventMutations.ts');
 assert.match(mutations,/db\.transaction\('rw', \[db\.events, db\.sheetRows, db\.reminders\]/);
 assert.match(mutations,/eventLinkedReminderPatch\(/);

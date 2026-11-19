@@ -7,7 +7,7 @@ const coordinator=readFileSync(new URL('../src/app/controllers/noahActionCoordin
 
 test('App delegates the complete Noah command implementation to one cross-feature coordinator',()=>{
  assert.match(app,/createNoahActionExecutor\(\{/);
- assert.doesNotMatch(app,/const executeNoahEventAction = async/);
+ assert.match(app,/await import\('\.\/controllers\/noahActionCoordinator'\)/);
  assert.doesNotMatch(app,/action\.type === 'create_calendar_series'/);
  assert.doesNotMatch(app,/action\.type === 'delete_event'/);
  assert.match(coordinator,/export function createNoahActionExecutor\(/);
