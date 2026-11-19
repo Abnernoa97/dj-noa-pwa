@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { ChevronLeft } from 'lucide-react';
 import { performNativeBack, useNativeBack, useSystemBack } from './navigationBack';
@@ -6,17 +6,17 @@ import { useExcelLandscape } from '../features/excel/useExcelLandscape';
 import { format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { nextReminderOccurrence } from '../domains/reminders/reminderRecurrence';
 import { es } from 'date-fns/locale';
-import CalendarWorkspace from '../features/calendar/CalendarWorkspace';
+
 import { EventEditor, EventHub, EventsView, type EventDraft } from '../features/events/EventWorkspace';
-import MlbWorkspace from '../features/sports/MlbWorkspace';
+
 import NoahActionOverlay from '../features/noah/NoahActionOverlay';
 import NoahImageIntake from '../features/noah/NoahImageIntake';
 import { commitNoahVision, type VisionSource } from '../domains/noah/noahVisionCommit';
 import type { ReviewAction } from '../domains/noah/noahImageReconcile';
 import NoahVoice, { type NoahVoiceHandle } from '../features/noah/NoahVoice';
 
-import ReminderWorkspace from '../features/tasks/ReminderWorkspace';
-import SheetWorkspace from '../features/excel/SheetWorkspace';
+
+
 import { db } from '../services/storage/db';
 import { formatMoneyAmount } from '../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../domains/finance/financialOverview';
@@ -24,9 +24,16 @@ import { createEventWithRelations, updateEventWithRelations, deleteEventWithRela
 import { scheduleReminderNotifications } from '../features/tasks/reminderNotifications';
 import type { AppView, EventItem, ReminderItem, SheetRow } from '../shared/types';
 import type { NoahActionActivity } from '../domains/noah/noahEvents';
-import { createNoahActionExecutor } from './controllers/noahActionCoordinator';
+import type { NoahEventAction, NoahEventActionResult } from '../domains/noah/noahEvents';
 import BottomNav from './BottomNav';
 import HomeView from './HomeView';
+// Feature screens are loaded only when visited; VitePWA precaches their chunks
+// for subsequent offline visits without duplicating the local Dexie store.
+const CalendarWorkspace = lazy(() => import('../features/calendar/CalendarWorkspace'));
+const MlbWorkspace = lazy(() => import('../features/sports/MlbWorkspace'));
+const ReminderWorkspace = lazy(() => import('../features/tasks/ReminderWorkspace'));
+const SheetWorkspace = lazy(() => import('../features/excel/SheetWorkspace'));
+
 
 function safeDate(value?: string) {
   if (!value) return null;
@@ -160,12 +167,17 @@ export default function App() {
     setEventEditorOpen(true);
   };
 
-  const executeNoahEventAction = createNoahActionExecutor({
-    events, sheetRows, eventHubId,
-    navigateTo, refresh, showNoahActivity,
-    setMlbOpen, setEventEditorOpen, setSelectedEvent, setEventCreateDate,
-    setEventHubId, setMonth, setNoahCalendarDates, setEvents, setSheetRows, setSelectedSheetRowId
-  });
+  const executeNoahEventAction = async (action: NoahEventAction): Promise<NoahEventActionResult> => {
+    // Noah's long-running write coordinator is required only when an action
+    // is executed, not during initial navigation or ordinary voice playback.
+    const { createNoahActionExecutor } = await import('./controllers/noahActionCoordinator');
+    return createNoahActionExecutor({
+      events, sheetRows, eventHubId,
+      navigateTo, refresh, showNoahActivity,
+      setMlbOpen, setEventEditorOpen, setSelectedEvent, setEventCreateDate,
+      setEventHubId, setMonth, setNoahCalendarDates, setEvents, setSheetRows, setSelectedSheetRowId
+    })(action);
+  };
 
   const executeNoahImageActions = async (proposals: ReviewAction[], sources: VisionSource[]) => {
     // One guarded transaction binds original source photos, event records
@@ -226,6 +238,7 @@ export default function App() {
       <header className="topbar"><div><h1>DJ NOA</h1><p className="topbar-date">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p></div></header>
 
       <main className="content">
+        <Suspense fallback={<div className="empty-state" role="status">Abriendo sección…</div>}>
         {mlbOpen ? <MlbWorkspace onBack={() => setMlbOpen(false)} /> : <>
           {view === 'home' && <HomeView
             todayEventCount={todayEventCount}
@@ -246,6 +259,7 @@ export default function App() {
           {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={startNoah} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} landscapePortrait={excelPortrait} onLandscapeRequest={() => { void requestLandscape(); }} />}
           {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={startNoah} />}
         </>}
+        </Suspense>
       </main>
 
       <BottomNav view={view} onView={(next) => { setMlbOpen(false); setEventHubId(null); setNoahCalendarDates([]); navigateTo(next); }} />
