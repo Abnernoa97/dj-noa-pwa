@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNativeBack } from '../../app/navigationBack';
+import { useSportsAutoRefresh } from './useSportsAutoRefresh';
+import SportsBookRows from './SportsBookRows';
 
 type MlbBookOdds = {
   provider: string;
@@ -99,11 +101,7 @@ export default function MlbWorkspace({ onBack }: Props) {
     }
   }, [today]);
 
-  useEffect(() => {
-    void load(false);
-    const timer = window.setInterval(() => void load(false), 3 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  useSportsAutoRefresh(load);
 
   const divisions = useMemo(() => {
     const grouped = new Map<string, MlbStanding[]>();
@@ -245,10 +243,7 @@ export default function MlbWorkspace({ onBack }: Props) {
 
                   {game.books.length ? <div className="mlb-books">
                     <div className="mlb-books-head"><span>CASA</span><b>{game.away.abbreviation}</b><b>{game.home.abbreviation}</b></div>
-                    {game.books.slice(0, 5).map((book) => {
-                      const bookFavorite = favoriteFromOdds(book.away, book.home);
-                      return <div key={`${game.id}-${book.provider}`}><span>{book.provider}</span><b className={bookFavorite === 'away' ? 'is-favorite' : ''}>{odd(book.away)}</b><b className={bookFavorite === 'home' ? 'is-favorite' : ''}>{odd(book.home)}</b></div>;
-                    })}
+                    <SportsBookRows gameId={game.id} books={game.books} />
                   </div> : <div className="mlb-no-odds">Momio todavía no publicado por las casas.</div>}
                 </article>
               );

@@ -1,8 +1,10 @@
 import { odd, impliedProbability, favoriteFromOdds, favoriteForGame, shortTeamName, gameClock, dateLabel, marketLabel } from './sportsPresentation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNativeBack } from '../../app/navigationBack';
+import { useSportsAutoRefresh } from './useSportsAutoRefresh';
+import SportsBookRows from './SportsBookRows';
 
 type NbaBookOdds = { provider: string; away: number; home: number };
 type NbaGame = {
@@ -131,11 +133,7 @@ export default function NbaWorkspace({ onBack }: Props) {
     } finally { setLoading(false); setRefreshing(false); }
   }, [today]);
 
-  useEffect(() => {
-    void load(false);
-    const timer = window.setInterval(() => void load(false), 3 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  useSportsAutoRefresh(load);
 
   const activeRows = useMemo(() => (snapshot?.standings || []).filter((row) => row.conference === conference).sort((a, b) => a.rank - b.rank), [snapshot, conference]);
   const todayGames = useMemo(() => futureGames(snapshot?.games).sort((a, b) => {
@@ -229,10 +227,7 @@ export default function NbaWorkspace({ onBack }: Props) {
 
                   {game.books.length ? <div className="mlb-books">
                     <div className="mlb-books-head"><span>CASA</span><b>{game.away.abbreviation}</b><b>{game.home.abbreviation}</b></div>
-                    {game.books.slice(0, 5).map((book) => {
-                      const bookFavorite = favoriteFromOdds(book.away, book.home);
-                      return <div key={`${game.id}-${book.provider}`}><span>{book.provider}</span><b className={bookFavorite === 'away' ? 'is-favorite' : ''}>{odd(book.away)}</b><b className={bookFavorite === 'home' ? 'is-favorite' : ''}>{odd(book.home)}</b></div>;
-                    })}
+                    <SportsBookRows gameId={game.id} books={game.books} />
                   </div> : <div className="mlb-no-odds">Momio todavía no publicado.</div>}
                 </article>
               );
