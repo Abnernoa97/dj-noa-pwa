@@ -273,8 +273,8 @@ export default function App() {
       <Suspense fallback={null}>
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); navigateTo('calendar'); }} onOpenReminders={() => { setEventHubId(null); navigateTo('reminders'); }} onOpenSheet={() => { setEventHubId(null); navigateTo('sheet'); }} onToggleReminder={toggleReminder} />}
 
-      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={closeEventEditor} onSave={saveEvent} />
-      </Suspense>}
+      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={closeEventEditor} onSave={saveEvent} />}
+      </Suspense>
     </div>
   );
 }
