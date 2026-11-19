@@ -11,12 +11,14 @@ export function num(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 export function int(value: unknown, fallback = 0) { const parsed = num(value); return parsed === undefined ? fallback : Math.trunc(parsed); }
-export function nextDate(value: string) {
+/** Calendar-day shift in UTC for all server sports requests. */
+export function shiftIsoUtcDate(value: string, days: number): string {
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + 1);
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+export function nextDate(value: string) { return shiftIsoUtcDate(value, 1); }
 
 export function statusView(value: unknown) {
   const status = rec(value);

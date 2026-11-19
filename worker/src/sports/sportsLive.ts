@@ -1,5 +1,5 @@
 import { json } from '../shared/http';
-import { rec, list, str, num, statusView } from './shared/espnCore';
+import { rec, list, str, num, statusView, shiftIsoUtcDate as shiftDate } from './shared/espnCore';
 import { normalize, dateOnly, aggregateForm as summarizeResults, createMlbGameContextLoader } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
@@ -53,12 +53,7 @@ async function getJson(url: string): Promise<unknown> {
 
 
 
-function shiftDate(value: string, days: number) {
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
+
 
 function teamMatches(team: AnyRecord, queryName: string, queryAbbr: string) {
   const name = str(team.displayName) || str(team.name) || str(team.teamName) || str(team.shortDisplayName);
