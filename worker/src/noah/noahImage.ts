@@ -1,4 +1,5 @@
 import { json } from '../shared/http';
+import { readText, parseJsonObject } from './aiResponse';
 import { sanitizeActions } from './noahChat';
 
 type AiBinding = {
@@ -19,28 +20,6 @@ const ALLOWED_IMPORT_ACTIONS = new Set([
 ]);
 
 
-
-function readText(result: unknown) {
-  const value = result as {
-    response?: string;
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return String(value?.choices?.[0]?.message?.content || value?.response || '').trim();
-}
-
-function parseJsonObject(text: string) {
-  const clean = text.trim();
-  try {
-    return JSON.parse(clean) as Record<string, unknown>;
-  } catch {
-    const first = clean.indexOf('{');
-    const last = clean.lastIndexOf('}');
-    if (first >= 0 && last > first) {
-      try { return JSON.parse(clean.slice(first, last + 1)) as Record<string, unknown>; } catch { return null; }
-    }
-    return null;
-  }
-}
 
 function cleanString(value: unknown, max = 600) {
   if (typeof value !== 'string') return '';

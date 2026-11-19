@@ -1,4 +1,5 @@
 import { json } from '../shared/http';
+import { readText, parseJsonObject } from './aiResponse';
 type AiBinding = {
   run: (model: string, input: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
 };
@@ -15,25 +16,6 @@ type CurrencyCode = 'MXN' | 'USD';
 type SheetColumnBehavior = 'income' | 'expense' | 'investment' | 'neutral';
 
 
-
-function readText(result: unknown) {
-  const value = result as { response?: string; choices?: Array<{ message?: { content?: string } }> };
-  return String(value?.choices?.[0]?.message?.content || value?.response || '').trim();
-}
-
-function parseJsonObject(text: string) {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    const first = trimmed.indexOf('{');
-    const last = trimmed.lastIndexOf('}');
-    if (first >= 0 && last > first) {
-      try { return JSON.parse(trimmed.slice(first, last + 1)) as Record<string, unknown>; } catch { return null; }
-    }
-    return null;
-  }
-}
 
 function cleanString(value: unknown, max = 500) {
   if (typeof value !== 'string') return undefined;
