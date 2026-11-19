@@ -5,7 +5,7 @@ import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
-import { deleteSheetColumnAndValues } from '../../services/storage/sheetColumnMutations';
+import { deleteSheetColumnAndValues, createGridSheetColumn } from '../../services/storage/sheetColumnMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../../domains/sheet/sheetValues';
 import { sheetFinancialPatch } from '../../domains/sheet/sheetFinancial';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
@@ -173,17 +173,7 @@ export default function ExcelModulesEnhancer() {
   const createColumn = async () => {
     const name = newColumnName.trim();
     if (!name) return;
-    const now = new Date().toISOString();
-    const position = columns.length ? Math.max(...columns.map((column) => column.position)) + 1 : 0;
-    await db.sheetColumns.add({
-      id: uid(),
-      name,
-      key: makeGridColumnKey(name, uid()),
-      type: newColumnBehavior === 'neutral' ? 'text' : 'currency',
-      behavior: newColumnBehavior,
-      position,
-      createdAt: now
-    });
+    await createGridSheetColumn(name, newColumnBehavior);
     setNewColumnName('');
     setNewColumnBehavior('expense');
     setNewColumnOpen(false);

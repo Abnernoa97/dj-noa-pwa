@@ -1,7 +1,7 @@
-import { db } from './db.ts';
-import { behaviorOf } from '../../domains/sheet/sheetValues.ts';
+import { db, uid } from './db.ts';
+import { behaviorOf, normalizeSheetText, makeGridColumnKey } from '../../domains/sheet/sheetValues.ts';
 import { sheetFinancialPatch } from '../../domains/sheet/sheetFinancial.ts';
-import type { SheetColumn } from '../../shared/types';
+import type { SheetColumn, SheetColumnBehavior } from '../../shared/types';
 
 /** Only owner of deleting an Excel column AND its values from rows.
  * This transaction is used identically by both Excel interfaces and Noah.
@@ -32,3 +32,36 @@ export function createSheetColumnDeletion(store: Pick<typeof db, 'sheetColumns' 
 }
 
 export const { deleteSheetColumnAndValues } = createSheetColumnDeletion(db);
+
+/** One grid column creator for manual Excel and Noah AI.
+ * A single column transaction protects name uniqueness across concurrent creators.
+ * Classic formula/text columns follow a different key contract and are not silently migrated.
+ */
+export function createGridColumnWriter(
+  store: Pick<typeof db, 'sheetColumns' | 'transaction'>,
+  newId: () => string = uid
+) {
+  async function createGridSheetColumn(name: string, behavior: SheetColumnBehavior): Promise<{column: SheetColumn; created: boolean}> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('empty_column_name');
+    return store.transaction('rw', store.sheetColumns, async () => {
+      const columns = await store.sheetColumns.orderBy('position').toArray();
+      const duplicate = columns.find((column) => normalizeSheetText(column.name) === normalizeSheetText(trimmed));
+      if (duplicate) return { column: duplicate, created: false };
+      const column: SheetColumn = {
+        id: newId(),
+        name: trimmed,
+        key: makeGridColumnKey(trimmed, newId()),
+        type: behavior === 'neutral' ? 'text' : 'currency',
+        behavior,
+        position: columns.length ? Math.max(...columns.map((item) => item.position)) + 1 : 0,
+        createdAt: new Date().toISOString()
+      };
+      await store.sheetColumns.add(column);
+      return { column, created: true };
+    });
+  }
+  return { createGridSheetColumn };
+}
+
+export const { createGridSheetColumn } = createGridColumnWriter(db);

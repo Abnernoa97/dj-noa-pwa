@@ -1,7 +1,7 @@
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
-import { deleteSheetColumnAndValues } from '../../services/storage/sheetColumnMutations';
-import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../sheet/sheetValues';
+import { deleteSheetColumnAndValues, createGridSheetColumn } from '../../services/storage/sheetColumnMutations';
+import { numberValue, behaviorOf } from '../sheet/sheetValues';
 import { sheetFinancialPatch } from '../sheet/sheetFinancial';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
 import type { SheetColumn, SheetColumnBehavior, SheetRow, SheetValue } from '../../shared/types';
@@ -66,22 +66,8 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
   if (action.type === 'create_sheet_column') {
     const name = action.name.trim();
     if (!name) return { ok: false, message: 'Falta el nombre de la columna.' };
-    const columns = await db.sheetColumns.orderBy('position').toArray();
-    const duplicate = columns.find((column) => normalize(column.name) === normalize(name));
-    if (duplicate) return { ok: true, message: `La columna ${duplicate.name} ya existe.` };
-    const now = new Date().toISOString();
-    const behavior = action.behavior || 'neutral';
-    const position = columns.length ? Math.max(...columns.map((column) => column.position)) + 1 : 0;
-    const column: SheetColumn = {
-      id: uid(),
-      name,
-      key: makeGridColumnKey(name, uid()),
-      type: behavior === 'neutral' ? 'text' : 'currency',
-      behavior,
-      position,
-      createdAt: now
-    };
-    await db.sheetColumns.add(column);
+    const { column, created } = await createGridSheetColumn(name, action.behavior || 'neutral');
+    if (!created) return { ok: true, message: `La columna ${column.name} ya existe.` };
     announce({ type: action.type, columnId: column.id, columnName: column.name });
     return { ok: true, message: `Listo, creé la columna ${name}.` };
   }

@@ -37,8 +37,10 @@ test('both Excel grid and Noah use the same canonical key builder without local 
   const noah = readFileSync(new URL('../src/domains/noah/noahExcel.ts', import.meta.url), 'utf8');
   assert.match(excel, /makeGridColumnKey\('Ingreso', uid\(\)\)/);
   assert.match(excel, /makeGridColumnKey\('Gasto', uid\(\)\)/);
-  assert.match(excel, /makeGridColumnKey\(name, uid\(\)\)/);
-  assert.match(noah, /makeGridColumnKey\(name, uid\(\)\)/);
+  const owner = readFileSync(new URL('../src/services/storage/sheetColumnMutations.ts', import.meta.url), 'utf8');
+  assert.match(owner, /makeGridColumnKey\(trimmed, newId\(\)\)/);
+  assert.match(excel, /createGridSheetColumn\(name, newColumnBehavior\)/);
+  assert.match(noah, /createGridSheetColumn\(name, action\.behavior \|\| 'neutral'\)/);
   assert.doesNotMatch(excel, /function makeKey\(/);
   assert.doesNotMatch(noah, /function makeColumnKey\(/);
 });
