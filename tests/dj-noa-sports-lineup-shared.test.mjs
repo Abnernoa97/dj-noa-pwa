@@ -19,10 +19,14 @@ test('MLB boxscore lineup keeps explicit battingOrder and maximum nine names',()
  assert.deepEqual(lineupFromBoxscoreSide({players,battingOrder:['ID1']}),['Player 1']);
  assert.deepEqual(lineupFromBoxscoreSide({}),[]);
 });
-test('live and context delegate lineup parsing to the same helper',()=>{
+test('live and context delegate lineup parsing through the single MLB game context loader',()=>{
  for(const file of ['sportsContext','sportsLive']){
   const code=readFileSync(new URL('../worker/src/sports/'+file+'.ts',import.meta.url),'utf8');
-  assert.match(code,/playerName, lineupFromBoxscoreSide.*contextCore/);
-  assert.doesNotMatch(code,/\bfunction (playerName|lineupFromBoxscoreSide)\(/);
+  assert.match(code,/createMlbGameContextLoader/);
+  assert.doesNotMatch(code,/\bfunction (playerName|lineupFromBoxscoreSide|loadMlbGameContext)\(/);
  }
+ const shared=readFileSync(new URL('../worker/src/sports/shared/contextCore.ts',import.meta.url),'utf8');
+ assert.match(shared,/createMlbGameContextLoader/);
+ assert.match(shared,/lineupFromBoxscoreSide\(rec\(boxTeams\.away\)\)/);
+ assert.match(shared,/playerName\(rec\(teams\.away\)\.probablePitcher\)/);
 });
