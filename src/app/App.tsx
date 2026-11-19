@@ -7,7 +7,7 @@ import { format, isAfter, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { nextReminderOccurrence } from '../domains/reminders/reminderRecurrence';
 import { es } from 'date-fns/locale';
 
-import { EventEditor, EventHub, EventsView, type EventDraft } from '../features/events/EventWorkspace';
+import type { EventDraft } from '../features/events/EventWorkspace';
 
 import NoahActionOverlay from '../features/noah/NoahActionOverlay';
 import NoahImageIntake from '../features/noah/NoahImageIntake';
@@ -33,6 +33,9 @@ const CalendarWorkspace = lazy(() => import('../features/calendar/CalendarWorksp
 const MlbWorkspace = lazy(() => import('../features/sports/MlbWorkspace'));
 const ReminderWorkspace = lazy(() => import('../features/tasks/ReminderWorkspace'));
 const SheetWorkspace = lazy(() => import('../features/excel/SheetWorkspace'));
+const EventsView = lazy(() => import('../features/events/EventWorkspace').then((module) => ({ default: module.EventsView })));
+const EventHub = lazy(() => import('../features/events/EventWorkspace').then((module) => ({ default: module.EventHub })));
+const EventEditor = lazy(() => import('../features/events/EventWorkspace').then((module) => ({ default: module.EventEditor })));
 
 
 function safeDate(value?: string) {
@@ -267,9 +270,11 @@ export default function App() {
       <NoahImageIntake onApply={executeNoahImageActions} />
       <NoahActionOverlay activity={noahActivity} />
 
+      <Suspense fallback={null}>
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); navigateTo('calendar'); }} onOpenReminders={() => { setEventHubId(null); navigateTo('reminders'); }} onOpenSheet={() => { setEventHubId(null); navigateTo('sheet'); }} onToggleReminder={toggleReminder} />}
 
-      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={closeEventEditor} onSave={saveEvent} />}
+      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={closeEventEditor} onSave={saveEvent} />
+      </Suspense>}
     </div>
   );
 }

@@ -20,3 +20,11 @@ test('Noah action coordinator loads only when needed, keeping one async action c
 test('service worker precache includes JS chunks for offline route navigation',()=>{
  assert.match(pwa,/globPatterns:\s*\[[^\]]*\*\.\{js,css/);
 });
+
+test('event list, hub and editor share one on-demand feature module with an overlay suspense boundary',()=>{
+ for(const name of ['EventsView','EventHub','EventEditor']) {
+  assert.match(app,new RegExp('const '+name+' = lazy\\(\\(\\) => import\\(\\x27\\.\\.\\/features\\/events\\/EventWorkspace\\x27\\)'));
+ }
+ assert.match(app,/import type \{ EventDraft \} from/);
+ assert.match(app,/<Suspense fallback=\{null\}>/);
+});
