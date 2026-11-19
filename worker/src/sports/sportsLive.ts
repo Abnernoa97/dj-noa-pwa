@@ -1,5 +1,5 @@
 import { json } from '../shared/http';
-import { rec, list, str, num, statusView, shiftIsoUtcDate as shiftDate } from './shared/espnCore';
+import { rec, list, str, num, statusView, shiftIsoUtcDate as shiftDate, marketConsensus as consensus } from './shared/espnCore';
 import { normalize, dateOnly, aggregateForm as summarizeResults, createMlbGameContextLoader } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
@@ -172,23 +172,6 @@ async function loadCoreOdds(sport: Sport, eventId: string, competitionId: string
     return aPreferred - bPreferred;
   });
   return candidates.slice(0, 5);
-}
-
-function impliedProbability(american: number) {
-  return american < 0 ? (-american) / ((-american) + 100) : 100 / (american + 100);
-}
-
-function americanFromProbability(probability: number) {
-  if (!(probability > 0 && probability < 1)) return undefined;
-  return Math.round(probability >= 0.5 ? -(100 * probability) / (1 - probability) : (100 * (1 - probability)) / probability);
-}
-
-function consensus(books: BookView[]) {
-  if (!books.length) return {};
-  if (books.length === 1) return { away: books[0].away, home: books[0].home };
-  const away = books.reduce((sum, book) => sum + impliedProbability(book.away), 0) / books.length;
-  const home = books.reduce((sum, book) => sum + impliedProbability(book.home), 0) / books.length;
-  return { away: americanFromProbability(away), home: americanFromProbability(home) };
 }
 
 function competitionFrom(value: unknown) {
