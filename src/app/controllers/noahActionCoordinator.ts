@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { addDays, format, parseISO, startOfMonth } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { db, uid } from '../../services/storage/db';
 import { normalizedEventIdentity } from '../../domains/events/eventIntegrity';
 import { financeText, patchEntries, progressSteps, matrixSteps, calendarSeriesSteps } from '../../features/noah/noahActionSteps';
