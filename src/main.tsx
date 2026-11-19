@@ -7,6 +7,7 @@ import DataSafetyPanel from './features/safety/DataSafetyPanel';
 import ExcelModulesEnhancer from './features/excel/ExcelModulesEnhancer';
 import HardRockMarketEnhancer from './features/sports/HardRockMarketEnhancer';
 import SportsEnhancer from './features/sports/SportsEnhancer';
+// CSS layer 1: foundations and individual feature bases. Order is part of the UI contract.
 import './styles/core/styles.css';
 import './features/events/styles/events.css';
 import './features/events/styles/event-hub.css';
@@ -20,9 +21,11 @@ import './features/noah/styles/noah-image.css';
 import './features/noah/styles/noah-actions.css';
 import './features/noah/styles/noah-calendar-live.css';
 import './features/safety/styles/data-safety.css';
+// CSS layer 2: visual refinements and touch/scroll corrections.
 import './styles/core/visual-polish.css';
 import './features/excel/styles/excel-scroll-fix.css';
 import './styles/core/scroll-fix.css';
+// CSS layer 3: feature-specific focused layouts and sports UI.
 import './features/calendar/styles/calendar-focus.css';
 import './features/calendar/styles/calendar-week-day.css';
 import './features/events/styles/events-focus.css';
@@ -38,6 +41,7 @@ import './features/sports/styles/sports-detail.css';
 import './features/sports/styles/hard-rock-market.css';
 import './features/sports/styles/sports-context.css';
 import './features/sports/styles/sports-realtime.css';
+// CSS layer 4: mobile/iOS and final Excel landscape overrides; MUST remain last.
 import './styles/core/ios-dark-redesign.css';
 import './features/excel/styles/excel-landscape.css';
 
