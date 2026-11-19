@@ -15,6 +15,14 @@ Los seis commits de consolidación son `7480b1e`, `9e2c573`, `9087af4`, `b350a96
 - El auditor registra **14 grupos exactos y 24 parejas similares**, frente a 31/31 inicialmente. El CSS no ha cambiado.
 - La eliminación de columnas requiere un protocolo específico: Noah recalcula todas las filas en esa acción y puede alterar históricos MXN, mientras las demás interfaces no hacen lo mismo. No fusionar automáticamente.
 
+## Corte FINAL de auditoría P01 y clasificación — 18/11/2026
+
+- Resultado del auditor en Cloudflare SUCCESS `3ea1565`: **1 grupo de función exacta detectado y 8 pares similares**, contra 31/31 históricos. El último grupo exacto pertenece a **callbacks de formularios diferentes**, NO es un bloque de negocio que se pueda fusionar directamente.
+- Los ocho pares similares están individualmente clasificados, con responsabilidad y razón para conservarlos, en `08-REGISTRO-EXCEPCIONES.md`. No confundir similitud sintáctica con duplicación funcional.
+- CSS: **182 selectores transversales** y **2,978 `!important`**; el barrido PostCSS retiró **36 declaraciones anteriores** idénticas (mismo selector, media, propiedad, valor y prioridad), redujo 3,008→2,978 `!important` y reporta ahora **0 eliminaciones seguras del mismo tipo**. Las 11 reglas completas idénticas y 600 diferencias siguen en P10 hasta QA visual.
+- **P01 VERIFICADO** para su alcance de inventario, clasificación y eliminación de clones equivalentes con tests. P03/P04/P05/P07/P08/P09/P10/P11/P12 mantienen sus criterios específicos y no heredan cierre automático.
+- Código canónico ya consolidado: `src/domains/reminders/reminderRecurrence.ts`, `src/services/media/{photoPreviews,blobDataUrl}.ts`, `src/shared/collectionOps.ts`, `src/domains/sheet/sheetFinancial.ts`, `src/services/storage/sheetMutations.ts`, `src/features/sports/{SportsBookRows,useSportsAutoRefresh}`, `worker/src/shared/http.ts`, `worker/src/noah/{aiResponse,aiNormalization}.ts`, `worker/src/sports/shared/{espnCore,contextCore}.ts`.
+
 ## Alcance exacto, no estimaciones
 
 | Evidencia | Resultado |

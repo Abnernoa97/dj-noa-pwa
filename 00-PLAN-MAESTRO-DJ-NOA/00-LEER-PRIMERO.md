@@ -1,8 +1,10 @@
 # 00 · DJ NOA — LEER PRIMERO
 
-**Corte inicial histórico:** 18 de noviembre de 2026. El tablero `01-TABLERO-MAESTRO.md` es el único plan vigente; los documentos `05`, `06` y `07` son sus inventarios técnicos, NO planes paralelos.
+**Corte inicial histórico:** 18 de noviembre de 2026. El tablero `01-TABLERO-MAESTRO.md` es el único plan vigente; los documentos `05`, `06`, `07` y `08` son sus inventarios técnicos, NO planes paralelos.
 
 **Actualización verificada 18/11/2026:** una sola `main` (74 ramas eliminadas y auditadas), `src/` organizado por dominios/funciones, Worker con carpetas `sports/` y `noah/`, auditor semántico permanente y **97/97 pruebas + Cloudflare SUCCESS** en la reorganización. Cualquier cifra de ramas/archivos siguiente corresponde a la línea base histórica, no al estado de hoy.
+
+**Corte posterior auditado (18/11/2026):** P01 inventario y consolidación equivalentes **VERIFICADO**; `main` única, 0 workflows, 153/153 pruebas y Cloudflare SUCCESS (`3ea1565`), 31→1 grupo exacto (el único es un falso positivo de callbacks), 31→8 pares similares clasificados y 36 declaraciones CSS anteriores redundantes retiradas. Las cifras iniciales de esta página son **históricas**. P10 (CSS), P03 (App), P04 (Excel), P11 (QA móvil) y P12 siguen EN CURSO/PENDIENTES.
 
 ## Misión
 Reducir duplicaciones reales, acoplamiento, archivos innecesarios y complejidad del mantenimiento de DJ NOA **sin cambiar su comportamiento, borrar datos, reinventar la interfaz o consumir minutos de GitHub Actions**.
@@ -36,4 +38,4 @@ No hay en la lista de repositorios conectados un repositorio identificable llama
 - No limpiar automáticamente ramas: cada respaldo o investigación tiene que catalogarse como conservable, fusionada, obsoleta comprobada o incierta.
 - Antes de dar una fase por cerrada: auditoría de referencias, pruebas, resultado Cloudflare, rollback y QA relevante.
 
-**Siguiente paso tras la fase de gobernanza:** abrir `01-TABLERO-MAESTRO.md`, comenzar P01 y registrar evidencia de cada candidato. Nada de declarar «100 %» mientras P01–P12 sigan abiertas.
+**Siguiente fase:** continuar P03 (coordinación App), P04 (motor de edición de columnas Excel) y especialmente P10 (CSS / scroll / diseños adaptativos). Ver el tablero `01`, el registro `08` y la bitácora `04`. P01 auditoría técnica está verificada; **la aplicación completa no está terminada** hasta la aceptación P11/P12.

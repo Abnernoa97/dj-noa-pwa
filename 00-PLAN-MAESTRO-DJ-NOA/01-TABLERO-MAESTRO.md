@@ -5,7 +5,7 @@
 | ID | Fase | Estado inicial | Cierre exigido |
 |---|---|---|---|
 | P00 | Respaldo, inventario y Cloudflare sin GitHub Actions | VERIFICADO | Sin workflows, build Cloudflare SUCCESS, respaldo confirmado |
-| P01 | Mapa del código, importaciones, referencias y duplicados | EN CURSO | Inventario de consumidores, huérfanos solo candidatos y duplicaciones demostradas |
+| P01 | Mapa del código, importaciones, referencias y duplicados | VERIFICADO · auditoría y consolidación segura | Inventario de consumidores, huérfanos solo candidatos y duplicaciones demostradas |
 | P02 | Contrato de datos, offline y respaldo | EN CURSO | Dexie 1–6, blobs manuales, PWA SW, recuperación y transacciones sin pérdida |
 | P03 | Coordinador App y navegación | EN CURSO | Reducir `src/app/App.tsx` por extracción, sin nuevos estados ni pantallas duplicadas |
 | P04 | Excel único y complementos | EN CURSO | `SheetWorkspace` + `ExcelModulesEnhancer` comparten fórmulas, filas y columnas |
@@ -77,6 +77,24 @@
 - **Regresiones y publicación**: 121/121 pruebas aprobadas; Cloudflare SUCCESS, commit aff2ebd, despliegue 100 %. El primer intento falló solo por dependencia ausente en la prueba, y fue reemplazado por un store simulado; no se añadió dependencia.
 - **Auditor de duplicaciones**: 31 grupos idénticos iniciales → 15 en el corte anterior → **14 grupos ahora**. Permanecen 24 pares similares; los 183 selectores CSS y 3,008 declaraciones !important siguen intactos.
 - **Riesgo identificado y sin modificar**: borrar columnas se hace de tres maneras no equivalentes. Noah puede recalcular registros históricos MXN al borrar una columna; las otras interfaces no recalculan igual. Requiere contrato y pruebas de integridad antes de tocar esa ruta. P01/P04/P05 siguen EN CURSO, no hay QA física Android/iPhone.
+
+## P01 · CIERRE DEL INVENTARIO Y LA CONSOLIDACIÓN DEMOSTRABLE (18/11/2026)
+
+**Fuente:** compilación Cloudflare SUCCESS commit `3ea1565`, **153/153 pruebas**, Worker desplegado al 100 %. Auditor `scripts/audit-semantic.mjs`, 100 fuentes TS/CSS analizadas (67 código, 33 CSS). `scripts/audit-candidates.mjs`: 96 fuentes seguidas, 96 alcanzables, **0 archivos huérfanos confirmados**.
+
+| Indicador auditor | Inicio | Corte verificado |
+|---|---:|---:|
+| Grupos de funciones sintácticamente idénticas | 31 | **1** (callback de formulario no intercambiable) |
+| Pares de funciones similares | 31 | **8** (clasificados en el registro de excepciones) |
+| Selectores presentes en varios CSS | 183 | **182** (no equivale a 182 duplicados borrables) |
+| Reglas `!important` | 3,008 | **2,978** |
+| Declaraciones anteriores inequívocamente repetidas, misma prioridad/medio/selector/valor | 36 | **0** pendientes de esta clase |
+
+**Unificaciones efectivas:** utilidades ESPN, contexto MLB, resultados/mercado y fechas UTC; UI de cuota y refresco MLB/NBA; HTTP JSON Worker; funciones IA de texto/JSON y normalización con política de dólares separada; recurrencia cliente; Excel/Noah cálculo monetario y borrado de fila+foto; fotos/blob/DataURL y selección de filas. Publicación por Cloudflare, sin GitHub Actions ni ramas auxiliares.
+
+**Decisión de cierre:** P01 **VERIFICADO como auditoría de dependencias y consolidación de duplicados equivalentes**. No significa que P03/P04/P07/P10/P11/P12 estén terminadas. Los **8 similares + 1 exacto** detectados son coincidencias que requieren mantener contratos distintos o una refactorización explícita de componentes, no implementaciones que se deban borrar sin más. Clasificados en `08-REGISTRO-EXCEPCIONES.md`.
+
+**CSS P10 EN CURSO:** 33 hojas y 182 selectores compartidos, 11 bloques CSS idénticos, 175 coincidencias selector/contexto con propiedades comunes y 600 comparaciones de valores diferentes; 2,978 `!important`. Se retiraron 36 declaraciones exactas y el auditor PostCSS da **0 candidatas idénticas del tipo seguro**. Para reestructurar el resto se necesita verificación de cascada y QA real iOS/Android, no sólo bajar números. `src/app/App.tsx` y la escritura de columnas Excel siguen siendo deuda P03/P04. No tocar `dj-noa-cloud/` (pausada).
 
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
