@@ -1,6 +1,6 @@
 import { json } from '../shared/http';
 import { rec, list, str, num } from './shared/espnCore';
-import { normalize, dateOnly, playerName, lineupFromBoxscoreSide, aggregateForm } from './shared/contextCore';
+import { normalize, dateOnly, aggregateForm, createMlbGameContextLoader } from './shared/contextCore';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -189,42 +189,7 @@ function matchTeam(team: AnyRecord, queryName: string, queryAbbr: string) {
   return Boolean((qAbbr && normalize(abbreviation) === qAbbr) || (qName && (normalize(name) === qName || normalize(name).includes(qName) || qName.includes(normalize(name)))));
 }
 
-async function loadMlbGameContext(date: string, awayName: string, awayAbbr: string, homeName: string, homeAbbr: string) {
-  const schedule = rec(await getJson(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${encodeURIComponent(date)}&hydrate=probablePitcher,team`));
-  const games = list(rec(list(schedule.dates)[0]).games).map(rec);
-  const game = games.find((candidate) => {
-    const teams = rec(candidate.teams);
-    const awayTeam = rec(rec(teams.away).team);
-    const homeTeam = rec(rec(teams.home).team);
-    return matchTeam(awayTeam, awayName, awayAbbr) && matchTeam(homeTeam, homeName, homeAbbr);
-  });
-  if (!game) return { probablePitchers: {}, lineups: { away: [], home: [], status: 'unavailable' as const } };
-
-  const teams = rec(game.teams);
-  const awayPitcher = playerName(rec(teams.away).probablePitcher);
-  const homePitcher = playerName(rec(teams.home).probablePitcher);
-  const gamePk = num(game.gamePk);
-  let awayLineup: string[] = [];
-  let homeLineup: string[] = [];
-  if (gamePk !== undefined) {
-    try {
-      const boxscore = rec(await getJson(`https://statsapi.mlb.com/api/v1/game/${Math.trunc(gamePk)}/boxscore`));
-      const boxTeams = rec(boxscore.teams);
-      awayLineup = lineupFromBoxscoreSide(rec(boxTeams.away));
-      homeLineup = lineupFromBoxscoreSide(rec(boxTeams.home));
-    } catch {
-      // Lineups may not be published yet.
-    }
-  }
-  return {
-    probablePitchers: { away: awayPitcher || undefined, home: homePitcher || undefined },
-    lineups: {
-      away: awayLineup,
-      home: homeLineup,
-      status: awayLineup.length || homeLineup.length ? 'published' as const : 'unavailable' as const
-    }
-  };
-}
+const loadMlbGameContext = createMlbGameContextLoader(getJson, matchTeam);
 
 function collectStarters(value: unknown, output: string[], seen: Set<string>, depth = 0) {
   if (depth > 7 || output.length >= 10) return;
