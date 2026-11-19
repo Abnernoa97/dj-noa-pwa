@@ -1,5 +1,6 @@
 import { json } from '../shared/http';
 import { readText, parseJsonObject } from './aiResponse';
+import { normalizeChatText as normalize } from './aiNormalization';
 type AiBinding = {
   run: (model: string, input: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
 };
@@ -21,10 +22,6 @@ function cleanString(value: unknown, max = 500) {
   if (typeof value !== 'string') return undefined;
   const clean = value.trim().slice(0, max);
   return clean || undefined;
-}
-
-function normalize(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9$]+/g, ' ').trim();
 }
 
 function cleanTime(value: unknown) {

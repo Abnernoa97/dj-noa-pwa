@@ -11,3 +11,5 @@
 - Entrada externa **única**: `../entry.ts` con autorización de origen y rate limit.
 
  y la visión no. No guardar fotografías automáticamente.
+
+- `aiNormalization.ts`: un único limpiador de acentos con dos políticas explícitas: Chat conserva `$` para importes; Visión no. Reutiliza la implementación sin mezclar criterios de búsqueda.

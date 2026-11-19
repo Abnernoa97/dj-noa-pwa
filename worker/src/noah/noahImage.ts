@@ -1,5 +1,6 @@
 import { json } from '../shared/http';
 import { readText, parseJsonObject } from './aiResponse';
+import { normalizeVisionText as normalize } from './aiNormalization';
 import { sanitizeActions } from './noahChat';
 
 type AiBinding = {
@@ -37,15 +38,6 @@ function validImageDataUrl(value: unknown) {
 
 function compactArray(value: unknown, limit: number) {
   return Array.isArray(value) ? value.slice(0, limit) : [];
-}
-
-function normalize(value: unknown) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
 }
 
 type DraftEvent = {
