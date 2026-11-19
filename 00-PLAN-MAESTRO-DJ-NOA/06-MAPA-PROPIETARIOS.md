@@ -79,3 +79,27 @@ Las referencias a un método o tabla no constituyen un segundo propietario. Las 
 - src/services/storage/sheetMutations.ts: único propietario de eliminar filas y fotos en transacción, utilizado por las tres superficies de Excel/Noah.
 - src/domains/sheet/sheetFinancial.ts: cálculo neto y clasificación de ingresos, gastos e inversiones, utilizado por Noah y grilla.
 - Pendiente: borrado de columnas, históricos MXN, importación y sincronización financiera. No unificar sin contrato y pruebas.
+
+## Corte P01-k · propietarios finales de la auditoría (18/11/2026)
+
+| Responsabilidad única | Archivo canónico |
+|---|---|
+| Próxima repetición de recordatorios cliente | `src/domains/reminders/reminderRecurrence.ts` |
+| Eliminar filas y fotos Excel de modo transaccional | `src/services/storage/sheetMutations.ts` |
+| Calcular suma neta financiera Excel/Noah | `src/domains/sheet/sheetFinancial.ts` |
+| Previsualizar y revocar URLs temporales de fotos | `src/services/media/photoPreviews.ts` |
+| Convertir Blob en data URL con error de cada consumidor | `src/services/media/blobDataUrl.ts` |
+| Mutar Sets de selección sin tocar el original | `src/shared/collectionOps.ts` |
+| Refrescar vistas MLB/NBA cada tres minutos | `src/features/sports/useSportsAutoRefresh.ts` |
+| Dibujar la tabla de cuotas por casa MLB/NBA | `src/features/sports/SportsBookRows.tsx` |
+| Formatear probabilidades, favoritos y etiquetas deportivas | `src/features/sports/sportsPresentation.ts` |
+| Construir respuestas JSON HTTP del Worker | `worker/src/shared/http.ts` |
+| Extraer mensajes/model JSON de Cloudflare IA | `worker/src/noah/aiResponse.ts` |
+| Normalizar texto chat/visión bajo dos políticas de dólar | `worker/src/noah/aiNormalization.ts` |
+| ESPN eventos, equipos, cuotas y fecha UTC | `worker/src/sports/shared/espnCore.ts` |
+| MLB calendario, pitchers y lineups Context/Live | `worker/src/sports/shared/contextCore.ts` |
+| Auditor de redundancias CSS exactas y orden de imports | `scripts/audit-css-prunable.mjs` |
+
+**Separaciones deliberadas:** `MLB` y `NBA` mantienen adaptadores de feeds, Noah chat/visión mantienen permisos y datos específicos, Eventos/Excel mantienen entidades propias. `dj-noa-cloud/` permanece pausado. El catálogo `08` especifica las 8 similitudes y 1 callback detectados, sin instrucciones de borrado automático.
+
+**Siguiente fase:** P03/04/10 con auditoría de tipos, pruebas y QA móvil; no crear una segunda `main`, segunda Dexie ni segunda cascada global para resolver un contador.

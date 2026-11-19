@@ -385,3 +385,20 @@
 4. Borrar solo después de comparar Android/iPhone, apertura/cierre, scroll vertical/horizontal, vistas Excel e inicio. Prohibido limpiar `!important` indiscriminadamente.
 
 Este anexo es un inventario completo de **coincidencias identificadas por el scanner**, no prueba de ausencia de equivalencias más complejas.
+
+## Corte de poda segura P10 (18/11/2026): actualización del inventario histórico
+
+La tabla larga de este documento **permanece como fotografía inicial** del commit `56f7464`; sus rutas y líneas pueden cambiar. El auditor de Cloudflare del commit `3ea1565`, **153/153 pruebas y SUCCESS**, registra ahora:
+
+| Indicador CSS | Inventario inicial | Después de eliminación exacta |
+|---|---:|---:|
+| Archivos CSS cargados | 33 | 33 |
+| Selectores en más de una hoja | 183 | **182** |
+| Comparaciones de propiedades con valores diferentes | 624 | **600** |
+| `!important` | 3,008 | **2,978** |
+| Declaraciones más tempranas idénticas que puede quitar el escáner sin cambiar selector, media, propiedad, valor o prioridad | 36 | **0** |
+| Bloques CSS enteros con cuerpos idénticos | 11 | **11** |
+
+**Acción aplicada:** retiradas exactamente 36 declaraciones redundantes en `styles.css`, `events.css`, `viewport-layout.css`, `excel-scroll-fix.css` y `mlb.css`. De ellas, 30 usaban `!important`. El valor de scroll Excel que dejó de escribirse en `excel-scroll-fix.css` permanece en su propietario posterior `sheet-focus.css`, y las pruebas se adaptaron para evaluar cascada real de imports. Se mantuvo intacto el orden CSS de `src/main.tsx`.
+
+**Importante:** las otras 2,978 declaraciones `!important`, 182 selectores de capas distintas y 11 bloques completos similares NO son «código muerto confirmado»; la revisión detallada de P10 exige screenshot y QA manual en Android/iPhone, scroll, teclado, overlays, calendario, iOS dark y Excel vertical/horizontal antes de borrar prioridades diferentes. P10 continúa EN CURSO hasta esa comprobación.
