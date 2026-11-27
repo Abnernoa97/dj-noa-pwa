@@ -21,8 +21,9 @@ import { db } from '../services/storage/db';
 import { formatMoneyAmount } from '../domains/finance/moneyIntegrity';
 import { portfolioUsdSettlement } from '../domains/finance/financialOverview';
 import { createEventWithRelations, updateEventWithRelations, deleteEventWithRelations } from '../domains/events/eventMutations';
+import { moveToTrash, restoreFromTrash } from '../domains/events/eventTrash';
 import { scheduleReminderNotifications } from '../features/tasks/reminderNotifications';
-import type { AppView, EventItem, ReminderItem, SheetRow } from '../shared/types';
+import type { AppView, EventItem, EventStatus, ReminderItem, SheetRow } from '../shared/types';
 import type { NoahActionActivity } from '../domains/noah/noahEvents';
 import type { NoahEventAction, NoahEventActionResult } from '../domains/noah/noahEvents';
 import BottomNav from './BottomNav';
@@ -57,12 +58,14 @@ export default function App() {
   };
   const [mlbOpen, setMlbOpen] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [trashedEvents, setTrashedEvents] = useState<EventItem[]>([]);
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [sheetRows, setSheetRows] = useState<SheetRow[]>([]);
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [eventCreateDate, setEventCreateDate] = useState<string | null>(null);
+  const [eventCreateStatus, setEventCreateStatus] = useState<EventStatus>('confirmed');
   const [eventHubId, setEventHubId] = useState<string | null>(null);
   const [selectedSheetRowId, setSelectedSheetRowId] = useState<string | null>(null);
   const { isPortrait: excelPortrait, requestLandscape } = useExcelLandscape(view === 'sheet' && !mlbOpen && !eventEditorOpen && !eventHubId);
@@ -75,6 +78,7 @@ export default function App() {
     setEventEditorOpen(false);
     setSelectedEvent(null);
     setEventCreateDate(null);
+    setEventCreateStatus('confirmed');
   };
 
   const goBack = () => {
@@ -92,13 +96,18 @@ export default function App() {
   useNativeBack(view !== 'home' || mlbOpen || Boolean(eventHubId) || eventEditorOpen, goBack, 10);
   useSystemBack();
 
+  const acceptEventSnapshot = (all: EventItem[]) => {
+    setEvents(all.filter(event => !event.trashedAt));
+    setTrashedEvents(all.filter(event => !!event.trashedAt));
+  };
+
   const refresh = async () => {
     const [eventData, reminderData, sheetData] = await Promise.all([
       db.events.orderBy('date').toArray(),
       db.reminders.orderBy('createdAt').reverse().toArray(),
       db.sheetRows.orderBy('createdAt').reverse().toArray()
     ]);
-    setEvents(eventData);
+    acceptEventSnapshot(eventData);
     setReminders(reminderData);
     setSheetRows(sheetData);
   };
@@ -112,7 +121,7 @@ export default function App() {
       db.sheetRows.orderBy('createdAt').reverse().toArray()
     ])).subscribe({
       next: ([eventData, reminderData, sheetData]) => {
-        setEvents(eventData);
+        acceptEventSnapshot(eventData);
         setReminders(reminderData);
         setSheetRows(sheetData);
       },
@@ -164,9 +173,10 @@ export default function App() {
     setSelectedEvent(null);
   };
 
-  const openEventEditor = (event?: EventItem, createDate?: string) => {
+  const openEventEditor = (event?: EventItem, createDate?: string, createStatus: EventStatus = 'confirmed') => {
     setSelectedEvent(event || null);
     setEventCreateDate(event ? null : createDate || null);
+    setEventCreateStatus(createStatus);
     setEventEditorOpen(true);
   };
 
@@ -206,6 +216,25 @@ export default function App() {
 
   const deleteSelectedEvents = async (selected: EventItem[]) => {
     for (const event of selected) await deleteEventWithRelations(event.id);
+    await refresh();
+  };
+
+  const changeCalendarStatus = async (event: EventItem, status: EventStatus) => {
+    await updateEventWithRelations(event.id, { status });
+    await refresh();
+  };
+
+  const trashCalendarEvents = async (selected: EventItem[]) => {
+    await moveToTrash(selected.map(event => event.id));
+    await refresh();
+  };
+  const restoreCalendarEvent = async (event: EventItem) => {
+    await restoreFromTrash(event.id);
+    await refresh();
+  };
+  const deleteTrashedCalendarEvent = async (event: EventItem) => {
+    if (!event.trashedAt) return;
+    await deleteEventWithRelations(event.id);
     await refresh();
   };
 
@@ -258,7 +287,7 @@ export default function App() {
             onToggleReminder={toggleReminder}
           />}
           {view === 'events' && <EventsView events={events} onOpen={openEventHub} onCreate={() => openEventEditor()} onEdit={(event) => openEventEditor(event)} onDelete={deleteSelectedEvents} />}
-          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} reminders={reminders} sheetRows={sheetRows} noahHighlightDates={noahCalendarDates} onOpenEvent={openEventHub} onCreateEvent={(date) => openEventEditor(undefined, date)} onToggleReminder={toggleReminder} onOpenReminders={() => navigateTo('reminders')} onOpenSheetRow={openSheetRow} />}
+          {view === 'calendar' && <CalendarWorkspace month={month} setMonth={setMonth} events={events} trashedEvents={trashedEvents} reminders={reminders} sheetRows={sheetRows} noahHighlightDates={noahCalendarDates} onOpenEvent={openEventHub} onCreateEvent={(date, status) => openEventEditor(undefined, date, status)} onChangeStatus={changeCalendarStatus} onTrashEvents={trashCalendarEvents} onRestoreEvent={restoreCalendarEvent} onPermanentlyDelete={deleteTrashedCalendarEvent} onToggleReminder={toggleReminder} onOpenReminders={() => navigateTo('reminders')} onOpenSheetRow={openSheetRow} onAssistant={startNoah} />}
           {view === 'sheet' && <SheetWorkspace rows={sheetRows} events={events} onChanged={refresh} onAssistant={startNoah} openRowId={selectedSheetRowId} onOpenRowHandled={() => setSelectedSheetRowId(null)} landscapePortrait={excelPortrait} onLandscapeRequest={() => { void requestLandscape(); }} />}
           {view === 'reminders' && <ReminderWorkspace items={reminders} events={events} onChanged={refresh} onAssistant={startNoah} />}
         </>}
@@ -273,7 +302,7 @@ export default function App() {
       <Suspense fallback={null}>
       {hubEvent && <EventHub event={hubEvent} reminders={reminders} sheetRows={sheetRows} onClose={() => setEventHubId(null)} onEdit={() => openEventEditor(hubEvent)} onOpenCalendar={() => { setMonth(parseISO(hubEvent.date)); setEventHubId(null); navigateTo('calendar'); }} onOpenReminders={() => { setEventHubId(null); navigateTo('reminders'); }} onOpenSheet={() => { setEventHubId(null); navigateTo('sheet'); }} onToggleReminder={toggleReminder} />}
 
-      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} onClose={closeEventEditor} onSave={saveEvent} />}
+      {eventEditorOpen && <EventEditor event={selectedEvent} initialDate={eventCreateDate} initialStatus={eventCreateStatus} onClose={closeEventEditor} onSave={saveEvent} />}
       </Suspense>
     </div>
   );
