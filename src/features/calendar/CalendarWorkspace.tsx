@@ -1,203 +1,104 @@
-import { useMemo, useState } from 'react';
-import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, FileSpreadsheet, MapPin, Plus, X } from 'lucide-react';
-import type { EventItem, ReminderItem, SheetRow } from '../../shared/types';
-import { useNativeBack } from '../../app/navigationBack';
-import { formatMoneyAmount, formatMoneyTotals } from '../../domains/finance/moneyIntegrity';
-import { portfolioUsdSettlement } from '../../domains/finance/financialOverview';
+import {useEffect,useState} from 'react';
+import {BarChart3,CalendarDays,Check,ChevronLeft,FileSpreadsheet,Plus,RotateCcw,Trash2} from 'lucide-react';
+import {format} from 'date-fns';
+import {useNativeBack} from '../../app/navigationBack';
+import type {EventItem,EventStatus,ReminderItem,SheetRow} from '../../shared/types';
+import {DEFAULT_CALENDAR_COLORS,CALENDAR_STATUS_LABELS,calendarCounters} from './havanaCalendarModel';
+import type {HavanaCalendarTab} from './havanaCalendarModel';
+import HavanaMonthView from './HavanaMonthView';
+import HavanaListView from './HavanaListView';
+import HavanaSummaryView from './HavanaSummaryView';
 
-type CalendarMode = 'month' | 'week' | 'day';
-type DatePickerMode = 'month' | 'year' | null;
-
+type Tab = HavanaCalendarTab | 'trash';
 type Props = {
-  month: Date;
-  setMonth: (date: Date) => void;
-  events: EventItem[];
-  reminders: ReminderItem[];
-  sheetRows: SheetRow[];
-  noahHighlightDates?: string[];
-  onOpenEvent: (event: EventItem) => void;
-  onCreateEvent: (date: string) => void;
-  onToggleReminder: (item: ReminderItem) => Promise<void> | void;
-  onOpenReminders: () => void;
-  onOpenSheetRow: (rowId?: string) => void;
+  month:Date;setMonth:(date:Date)=>void;
+  events:EventItem[];trashedEvents?:EventItem[];
+  reminders:ReminderItem[];sheetRows:SheetRow[];noahHighlightDates?:string[];
+  onOpenEvent:(event:EventItem)=>void;
+  onCreateEvent:(date:string,status?:EventStatus)=>void;
+  onChangeStatus:(event:EventItem,status:EventStatus)=>Promise<void>;
+  onTrashEvents:(events:EventItem[])=>Promise<void>;
+  onRestoreEvent:(event:EventItem)=>Promise<void>;
+  onPermanentlyDelete:(event:EventItem)=>Promise<void>;
+  onToggleReminder:(item:ReminderItem)=>Promise<void>|void;
+  onOpenReminders:()=>void;
+  onOpenSheetRow:(rowId?:string)=>void;
+  onAssistant:()=>void;
 };
+const COLOR_KEY='dj-noa-calendar-status-colors-v1';
 
-const MONTH_NAMES = Array.from({ length: 12 }, (_, index) => format(new Date(2026, index, 1), 'MMMM', { locale: es }));
-const YEARS = Array.from({ length: 111 }, (_, index) => 1990 + index);
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function loadColors():Record<EventStatus,string>{
+  const result={...DEFAULT_CALENDAR_COLORS};
+  if(typeof localStorage==='undefined')return result;
+  try {
+    const value=JSON.parse(localStorage.getItem(COLOR_KEY)||'null') as Partial<Record<EventStatus,string>>|null;
+    for(const status of Object.keys(result) as EventStatus[]){
+      const color=value?.[status];
+      if(typeof color==='string'&&/^#[0-9a-f]{6}$/i.test(color))result[status]=color;
+    }
+  } catch { /* Preference is optional; never block the app. */ }
+  return result;
 }
 
-function dateKeyFromIso(value?: string) {
-  if (!value) return null;
-  try { return format(parseISO(value), 'yyyy-MM-dd'); } catch { return null; }
-}
-
-export default function CalendarWorkspace({ month, setMonth, events, reminders, sheetRows, noahHighlightDates = [], onOpenEvent, onCreateEvent, onToggleReminder, onOpenReminders, onOpenSheetRow }: Props) {
-  const [mode, setMode] = useState<CalendarMode>('month');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [datePicker, setDatePicker] = useState<DatePickerMode>(null);
-  useNativeBack(summaryOpen, () => setSummaryOpen(false), 80);
-  useNativeBack(Boolean(datePicker), () => setDatePicker(null), 50);
-  const noahHighlightSet = useMemo(() => new Set(noahHighlightDates), [noahHighlightDates]);
-
-  const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
-
-  const reminderDate = (item: ReminderItem) => dateKeyFromIso(item.dueAt) || (item.eventId ? eventById.get(item.eventId)?.date || null : null);
-  const sheetDate = (row: SheetRow) => row.calendarDate || (row.eventId ? eventById.get(row.eventId)?.date || null : null);
-
-  const itemsForDate = (dateKey: string) => {
-    const dayEvents = events.filter((event) => event.date === dateKey).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-    const dayReminders = reminders.filter((item) => reminderDate(item) === dateKey).sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999'));
-    const dayRows = sheetRows.filter((row) => sheetDate(row) === dateKey);
-    return { events: dayEvents, reminders: dayReminders, rows: dayRows };
-  };
-
-  const monthStart = startOfMonth(month);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
-  const monthDays: Date[] = [];
-  for (let day = gridStart; day <= gridEnd; day = addDays(day, 1)) monthDays.push(day);
-  const calendarWeekCount = monthDays.length / 7;
-
-  const weekStart = startOfWeek(month, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  const activeDay = mode === 'month' ? selectedDate : month;
-  const activeDateKey = format(activeDay, 'yyyy-MM-dd');
-  const activeItems = itemsForDate(activeDateKey);
-
-  const visibleMonthKey = format(month, 'yyyy-MM');
-  const monthEvents = events.filter((event) => event.date.startsWith(visibleMonthKey));
-  const monthReminders = reminders.filter((item) => reminderDate(item)?.startsWith(visibleMonthKey));
-  const monthRows = sheetRows.filter((row) => sheetDate(row)?.startsWith(visibleMonthKey));
-  const monthContracted = portfolioUsdSettlement(monthRows).contracted;
-  const monthFinanceTotal = monthContracted === null ? 'Por revisar' : formatMoneyAmount(monthContracted, 'USD') + ' USD';
-
-  const title = mode === 'week'
-    ? `${format(weekStart, 'd MMM', { locale: es })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: es })}`
-    : format(month, "EEEE d 'de' MMMM", { locale: es });
-
-  const move = (direction: -1 | 1) => {
-    setDatePicker(null);
-    if (mode === 'month') setMonth(addMonths(month, direction));
-    if (mode === 'week') setMonth(addDays(month, 7 * direction));
-    if (mode === 'day') setMonth(addDays(month, direction));
-  };
-
-  const goToday = () => {
-    const now = new Date();
-    setDatePicker(null);
-    setSelectedDate(now);
-    setMonth(mode === 'month' ? startOfMonth(now) : now);
-  };
-
-  const selectMode = (next: CalendarMode) => {
-    setDatePicker(null);
-    setMode(next);
-    if (next !== 'month') setMonth(selectedDate);
-  };
-
-  const selectMonth = (monthIndex: number) => {
-    const next = new Date(month.getFullYear(), monthIndex, 1);
-    setMonth(next);
-    setSelectedDate(next);
-    setDatePicker(null);
-  };
-
-  const selectYear = (year: number) => {
-    const next = new Date(year, month.getMonth(), 1);
-    setMonth(next);
-    setSelectedDate(next);
-    setDatePicker(null);
-  };
-
-  const openDay = (day: Date, openSummary = true) => {
-    setDatePicker(null);
-    setSelectedDate(day);
-    if (day.getMonth() !== month.getMonth() || day.getFullYear() !== month.getFullYear()) setMonth(day);
-    if (mode !== 'month') setMonth(day);
-    if (openSummary) setSummaryOpen(true);
-  };
-
-  return (
-    <section className="page-card calendar-page calendar-integrated">
-      <div className="calendar-topline">
-        <div className="calendar-title-wrap">
-          <p className="eyebrow">TODO EN UN SOLO DÍA</p>
-          {mode === 'month' ? <div className="calendar-date-selector" aria-label="Seleccionar mes y año">
-            <button className="calendar-date-trigger calendar-month-trigger" onClick={() => setDatePicker((current) => current === 'month' ? null : 'month')} aria-expanded={datePicker === 'month'}>
-              <span>{capitalize(format(month, 'MMMM', { locale: es }))}</span><ChevronDown size={18} />
-            </button>
-            <button className="calendar-date-trigger calendar-year-trigger" onClick={() => setDatePicker((current) => current === 'year' ? null : 'year')} aria-expanded={datePicker === 'year'}>
-              <span>{format(month, 'yyyy')}</span><ChevronDown size={17} />
-            </button>
-            {datePicker && <div className="calendar-date-dropdown" role="listbox" aria-label={datePicker === 'month' ? 'Meses' : 'Años'}>
-              <div className="calendar-date-dropdown-head"><span>{datePicker === 'month' ? 'ELIGE MES' : 'ELIGE AÑO'}</span><button onClick={() => setDatePicker(null)} aria-label="Cerrar"><X size={16} /></button></div>
-              <div className="calendar-date-options">
-                {datePicker === 'month' ? MONTH_NAMES.map((name, index) => <button key={name} className={month.getMonth() === index ? 'active' : ''} onClick={() => selectMonth(index)}>{capitalize(name)}</button>) : YEARS.map((year) => <button key={year} className={month.getFullYear() === year ? 'active' : ''} onClick={() => selectYear(year)}>{year}</button>)}
-              </div>
-            </div>}
-          </div> : <h2>{title}</h2>}
-        </div>
-        <div className="calendar-actions"><button className="calendar-today-button" onClick={goToday}>Hoy</button><button className="calendar-nav-button" onClick={() => move(-1)} aria-label="Anterior"><ChevronLeft size={20} /></button><button className="calendar-nav-button" onClick={() => move(1)} aria-label="Siguiente"><ChevronRight size={20} /></button></div>
+export default function CalendarWorkspace({
+  month,setMonth,events,trashedEvents=[],reminders,sheetRows,noahHighlightDates=[],
+  onOpenEvent,onCreateEvent,onChangeStatus,onTrashEvents,onRestoreEvent,onPermanentlyDelete,
+  onToggleReminder,onOpenReminders,onOpenSheetRow,onAssistant
+}:Props){
+  const [tab,setTab]=useState<Tab>('calendar');
+  const [selectedDate,setSelectedDate]=useState(()=>format(new Date(),'yyyy-MM-dd'));
+  const [colors,setColors]=useState<Record<EventStatus,string>>(loadColors);
+  useNativeBack(tab==='trash',()=>setTab('summary'),65);
+  useEffect(()=>{
+    try {localStorage.setItem(COLOR_KEY,JSON.stringify(colors));}
+    catch { /* Local-only preference. */ }
+  },[colors]);
+  const today=format(new Date(),'yyyy-MM-dd');
+  const counters=calendarCounters(events,today);
+  const create=(date:string)=>onCreateEvent(date,tab==='quotes'?'tentative':'confirmed');
+  const changeTab=(next:Tab)=>setTab(next);
+  return <section className="hn-calendar" aria-label="Calendario completo DJ NOA">
+    <header className="hc-header">
+      <div className="hc-eyebrow"><CalendarDays size={14}/> DJ NOA · AGENDA PRIVADA</div>
+      <div className="hc-heading">
+        <div><h1>{tab==='calendar'?'Tu calendario':tab==='events'?'Eventos':tab==='quotes'?'Cotizaciones':tab==='summary'?'Resumen':'Papelera'}</h1>
+          <p>Todo organizado en un solo lugar</p></div>
+        <button type="button" className="hc-primary" onClick={()=>create(selectedDate)}><Plus size={17}/> {tab==='quotes'?'Cotización':'Nuevo'}</button>
       </div>
-
-      <div className="calendar-overview">
-        <div><span>EVENTOS</span><strong>{monthEvents.length}</strong></div>
-        <div><span>TAREAS</span><strong>{monthReminders.filter((item) => !item.done).length}</strong></div>
-        <div><span>CONTRATADO USD</span><strong>{monthFinanceTotal}</strong></div>
-      </div>
-
-      <div className="calendar-legend"><span><i className="event" /> Eventos</span><span><i className="task" /> Tareas</span><span><i className="sheet" /> Excel</span></div>
-
-      <div className="calendar-view-switch"><button className={mode === 'month' ? 'active' : ''} onClick={() => selectMode('month')}>Mes</button><button className={mode === 'week' ? 'active' : ''} onClick={() => selectMode('week')}>Semana</button><button className={mode === 'day' ? 'active' : ''} onClick={() => selectMode('day')}>Día</button></div>
-
-      {mode === 'month' && <><div className="weekday-row weekday-row-full">{['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((day) => <span key={day}>{day}</span>)}</div><div className={`calendar-grid calendar-grid-rich weeks-${calendarWeekCount}`}>{monthDays.map((day) => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        const outside = day.getMonth() !== month.getMonth();
-        const bundle = outside ? { events: [], reminders: [], rows: [] } : itemsForDate(dateKey);
-        const selected = !outside && isSameDay(day, selectedDate);
-        const totalItems = bundle.events.length + bundle.reminders.length + bundle.rows.length;
-        const noahWriting = !outside && noahHighlightSet.has(dateKey);
-        return <button key={dateKey} type="button" disabled={outside} aria-hidden={outside ? true : undefined} className={`calendar-day rich-day ${outside ? 'outside' : ''} ${!outside && isSameDay(day, new Date()) ? 'today' : ''} ${selected ? 'selected' : ''} ${noahWriting ? 'noah-writing' : ''}`} onClick={() => openDay(day)}>{!outside && <><span className="rich-day-number">{format(day, 'd')}</span><div className="rich-day-dots">{bundle.events.length > 0 && <i className="event" />}{bundle.reminders.length > 0 && <i className="task" />}{bundle.rows.length > 0 && <i className="sheet" />}</div>{totalItems > 0 && <small>{totalItems}</small>}</>}</button>;
-      })}</div></>}
-
-      {mode === 'week' && <div className="calendar-week rich-week">{weekDays.map((day) => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        const bundle = itemsForDate(dateKey);
-        const firstEvent = bundle.events[0];
-        return <button key={dateKey} className={`week-day ${isSameDay(day, new Date()) ? 'today' : ''} ${isSameDay(day, selectedDate) ? 'selected' : ''} ${noahHighlightSet.has(dateKey) ? 'noah-writing' : ''}`} onClick={() => openDay(day)}><div className="week-day-head"><span>{format(day, 'EEE', { locale: es })}</span><strong>{format(day, 'd')}</strong></div><div className="week-counts"><span className="event">{bundle.events.length}</span><span className="task">{bundle.reminders.length}</span><span className="sheet">{bundle.rows.length}</span></div>{firstEvent ? <div className="week-preview"><strong>{firstEvent.title}</strong><span>{firstEvent.time || 'Sin hora'}</span></div> : <div className="week-empty">Sin eventos</div>}</button>;
-      })}</div>}
-
-      {mode === 'day' && <DaySummary date={month} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={onOpenEvent} onToggleReminder={onToggleReminder} onOpenReminders={onOpenReminders} onOpenSheetRow={onOpenSheetRow} onCreateEvent={onCreateEvent} />}
-
-      {mode !== 'day' && <button className="calendar-selected-preview" onClick={() => setSummaryOpen(true)}><span>{format(selectedDate, "EEE d MMM", { locale: es })}</span><strong>{activeItems.events.length + activeItems.reminders.length + activeItems.rows.length} elementos</strong><ChevronRight size={18} /></button>}
-
-      {summaryOpen && <div className="calendar-summary-backdrop" onClick={() => setSummaryOpen(false)}><section className="calendar-summary-sheet" onClick={(event) => event.stopPropagation()}><div className="calendar-summary-handle" /><button className="calendar-summary-close" onClick={() => setSummaryOpen(false)} aria-label="Volver al calendario"><ChevronLeft size={22} /></button><DaySummary date={selectedDate} events={activeItems.events} reminders={activeItems.reminders} rows={activeItems.rows} onOpenEvent={(event) => { setSummaryOpen(false); onOpenEvent(event); }} onToggleReminder={onToggleReminder} onOpenReminders={() => { setSummaryOpen(false); onOpenReminders(); }} onOpenSheetRow={(id) => { setSummaryOpen(false); onOpenSheetRow(id); }} onCreateEvent={(date) => { setSummaryOpen(false); onCreateEvent(date); }} /></section></div>}
-    </section>
-  );
-}
-
-function DaySummary({ date, events, reminders, rows, onOpenEvent, onToggleReminder, onOpenReminders, onOpenSheetRow, onCreateEvent }: { date: Date; events: EventItem[]; reminders: ReminderItem[]; rows: SheetRow[]; onOpenEvent: (event: EventItem) => void; onToggleReminder: (item: ReminderItem) => Promise<void> | void; onOpenReminders: () => void; onOpenSheetRow: (rowId?: string) => void; onCreateEvent: (date: string) => void }) {
-  const dateKey = format(date, 'yyyy-MM-dd');
-  const financeTotal = formatMoneyTotals(rows);
-  const empty = !events.length && !reminders.length && !rows.length;
-
-  return <div className="day-summary">
-    <header className="day-summary-head"><div className="day-summary-date"><strong>{format(date, 'dd')}</strong><div><span>{format(date, 'MMMM', { locale: es })}</span><b>{format(date, 'EEEE', { locale: es })}</b></div></div><button onClick={() => onCreateEvent(dateKey)}><Plus size={15} /> Evento</button></header>
-
-    <div className="day-summary-metrics"><div><span>EVENTOS</span><strong>{events.length}</strong></div><div><span>TAREAS</span><strong>{reminders.length}</strong></div><div><span>EXCEL</span><strong>{financeTotal}</strong></div></div>
-
-    {empty && <div className="day-summary-empty"><span>Este día está limpio.</span><small>Cuando agregues un evento, recordatorio o movimiento relacionado, aparecerá aquí automáticamente.</small></div>}
-
-    {events.length > 0 && <section className="day-summary-section"><div className="day-summary-label"><MapPin size={14} /><span>EVENTOS</span></div>{events.map((event) => <button className="day-summary-item event-item" key={event.id} onClick={() => onOpenEvent(event)}><span className="summary-time">{event.time || '—'}</span><span className="summary-copy"><strong>{event.title}</strong><span>{event.venue || 'Lugar pendiente'}</span></span><ChevronRight size={15} /></button>)}</section>}
-
-    {reminders.length > 0 && <section className="day-summary-section"><div className="day-summary-label"><Bell size={14} /><span>TAREAS Y RECORDATORIOS</span><button onClick={onOpenReminders}>Ver todo</button></div>{reminders.map((item) => <div className={`day-summary-item task-item ${item.done ? 'done' : ''}`} key={item.id}><button className="summary-task-check" onClick={() => void onToggleReminder(item)}>{item.done ? '✓' : ''}</button><button className="summary-copy" onClick={onOpenReminders}><strong>{item.title}</strong><span>{item.dueAt ? format(parseISO(item.dueAt), 'HH:mm') : 'Vinculado al evento'}{item.priority === 'high' ? ' · Alta prioridad' : ''}</span></button></div>)}</section>}
-
-    {rows.length > 0 && <section className="day-summary-section"><div className="day-summary-label"><FileSpreadsheet size={14} /><span>EXCEL RELACIONADO</span><button onClick={() => onOpenSheetRow()}>Ver Excel</button></div>{rows.map((row) => <button className="day-summary-item sheet-item" key={row.id} onClick={() => onOpenSheetRow(row.id)}><span className="summary-copy"><strong>{row.label}</strong><span>{row.category}{row.status === 'paid' ? ' · Pagado' : row.status === 'pending' ? ' · Pendiente' : ''}</span></span><span className="summary-money">{formatMoneyAmount(row.amount, row.currency || 'MXN')}</span><ChevronRight size={15} /></button>)}</section>}
-  </div>;
+    </header>
+    <nav className="hc-tabs" aria-label="Secciones de calendario">
+      {([
+        ['calendar','Calendario',CalendarDays],['events','Eventos',Check],
+        ['quotes','Cotizaciones',FileSpreadsheet],['summary','Resumen',BarChart3]
+      ] as const).map(([id,label,Icon])=><button type="button" key={id} onClick={()=>changeTab(id)}
+        className={tab===id?'active':''} aria-current={tab===id?'page':undefined}>
+          <Icon size={17}/><span>{label}</span>
+          {id==='events'&&<small>{counters.events}</small>}
+          {id==='quotes'&&<small>{counters.quotes}</small>}
+        </button>)}
+    </nav>
+    {tab==='calendar'&&<HavanaMonthView
+      month={month} setMonth={setMonth} selectedDate={selectedDate} setSelectedDate={setSelectedDate}
+      events={events} reminders={reminders} rows={sheetRows} colors={colors}
+      highlightedDates={noahHighlightDates} onOpenEvent={onOpenEvent} onCreateEvent={date=>onCreateEvent(date,'confirmed')}
+      onToggleReminder={onToggleReminder} onOpenReminders={onOpenReminders} onOpenSheetRow={onOpenSheetRow}/>}
+    {(tab==='events'||tab==='quotes')&&<HavanaListView key={tab} tab={tab} events={events} colors={colors}
+      onOpenEvent={onOpenEvent} onChangeStatus={onChangeStatus} onTrashEvents={onTrashEvents}/>}
+    {tab==='summary'&&<HavanaSummaryView events={events} rows={sheetRows} trashCount={trashedEvents.length}
+      colors={colors} setColors={setColors} onAssistant={onAssistant} onOpenTrash={()=>changeTab('trash')}/>}
+    {tab==='trash'&&<section className="hc-panel hc-trash-panel">
+      <header className="hc-section-head"><div><span className="hc-overline">REGISTROS RECUPERABLES</span><h2>Papelera <small>{trashedEvents.length}</small></h2></div>
+        <button type="button" className="hc-outline" onClick={()=>changeTab('summary')}><ChevronLeft size={16}/> Resumen</button>
+      </header>
+      <p className="hc-muted">Restaurar conserva el mismo ID, fotos, recordatorios y Excel vinculados.</p>
+      {!trashedEvents.length&&<p className="hc-empty">La papelera está vacía.</p>}
+      {trashedEvents.map(event=><article className="hc-trash-row" key={event.id}>
+        <div><strong>{event.title}</strong><small>{event.date} · {CALENDAR_STATUS_LABELS[event.status]}</small></div>
+        <button type="button" onClick={()=>void onRestoreEvent(event)}><RotateCcw size={15}/> Restaurar</button>
+        <button type="button" className="hc-delete-forever" onClick={()=>{
+          if(window.confirm('¿Eliminar definitivamente el evento, sus fotos y datos vinculados? Esta acción no se puede deshacer.'))void onPermanentlyDelete(event);
+        }}><Trash2 size={15}/> Eliminar</button>
+      </article>)}
+    </section>}
+  </section>;
 }
