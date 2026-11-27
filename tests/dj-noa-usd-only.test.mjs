@@ -87,6 +87,8 @@ test('new money writers and Excel import are USD-only and do not mutate historic
   assert.match(main, /selectedRow\.currency === 'USD'/);
   assert.match(excel, /currency: 'USD'/);
   assert.match(excel, /row\.currency !== 'USD'/);
-  assert.match(assistant, /if \(row\.currency !== 'USD'\) continue/);
+  const columnOwner = readFileSync(new URL('../src/services/storage/sheetColumnMutations.ts', import.meta.url), 'utf8');
+  assert.match(assistant, /updateSheetColumn\(column\.id,/);
+  assert.match(columnOwner, /if \(row\.currency !== 'USD'\) continue/);
   assert.match(worker, /opera exclusivamente en USD/);
 });
