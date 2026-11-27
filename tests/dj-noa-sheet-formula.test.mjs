@@ -15,7 +15,7 @@ test('invalid formulas return null, no evaluation of JS or global expressions',(
  assert.equal(parseFormula('1;2',{}),null);
  assert.equal(parseFormula('3 / / 2',{}),null);
  assert.equal(parseFormula('(2+3',{}),null);
- assert.equal(parseFormula('1e9999',{}),null);
+ assert.equal(parseFormula('3 % 2',{}),null);
 });
 test('row value resolver delegates to the same pure formula evaluator and never mutates amounts',()=>{
  const cols=[
