@@ -332,14 +332,17 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
             {event.callTime && <div><span>LLAMADA</span><strong>{event.callTime}</strong></div>}
             {event.soundcheckTime && <div><span>SONIDO</span><strong>{event.soundcheckTime}</strong></div>}
             <div className="event-hub-info-wide"><span>LUGAR</span><strong>{event.venue || 'Pendiente'}</strong></div>
+            {event.city && <div><span>CIUDAD</span><strong>{event.city}</strong></div>}
+            {event.weddingPlanner && <div><span>PLANNER</span><strong>{event.weddingPlanner}</strong></div>}
           </div>
           {mapUrl && <a className="event-hub-map" href={mapUrl} target="_blank" rel="noreferrer"><Navigation size={15} /> Cómo llegar</a>}
         </section>
 
-        {(event.details || event.dressCode || event.contactName || event.contactPhone) && <section className="event-hub-card">
+        {(event.details || event.quote || event.dressCode || event.contactName || event.contactPhone) && <section className="event-hub-card">
           <div className="event-hub-section-head"><div><MapPin size={16} /><span>INFORMACIÓN DEL EVENTO</span></div><button onClick={onEdit}>Editar</button></div>
           {event.dressCode && <p className="event-hub-notes"><strong>Vestuario:</strong> {event.dressCode}</p>}
           {event.details && <p className="event-hub-notes">{event.details}</p>}
+          {event.quote && <p className="event-hub-notes"><strong>Cotización:</strong> {event.quote}</p>}
           {(event.contactName || event.contactPhone) && <p className="event-hub-notes"><strong>Contacto:</strong> {event.contactName || 'Sin nombre'}{event.contactPhone ? ` · ${event.contactPhone}` : ''}</p>}
         </section>}
 
@@ -371,7 +374,7 @@ export function EventHub({ event, reminders, sheetRows, onClose, onEdit, onOpenC
   );
 }
 
-export function EventEditor({ event, initialDate, onClose, onSave }: { event: EventItem | null; initialDate?: string | null; onClose: () => void; onSave: (draft: EventDraft) => Promise<void> }) {
+export function EventEditor({ event, initialDate, initialStatus = 'confirmed', onClose, onSave }: { event: EventItem | null; initialDate?: string | null; initialStatus?: EventStatus; onClose: () => void; onSave: (draft: EventDraft) => Promise<void> }) {
   useNativeBack(true, onClose, 100);
   const [draft, setDraft] = useState<EventDraft>(() => ({
     title: event?.title || '',
@@ -381,6 +384,9 @@ export function EventEditor({ event, initialDate, onClose, onSave }: { event: Ev
     soundcheckTime: event?.soundcheckTime || '',
     showTime: event?.showTime || event?.time || '',
     venue: event?.venue || '',
+    weddingPlanner: event?.weddingPlanner || '',
+    city: event?.city || '',
+    quote: event?.quote || '',
     address: event?.address || '',
     details: event?.details || '',
     dressCode: event?.dressCode || '',
@@ -388,7 +394,7 @@ export function EventEditor({ event, initialDate, onClose, onSave }: { event: Ev
     contactPhone: event?.contactPhone || '',
     mapUrl: event?.mapUrl || '',
     notes: event?.notes || '',
-    status: event?.status || 'confirmed'
+    status: event?.status || initialStatus
   }));
   const update = <K extends keyof EventDraft>(key: K, value: EventDraft[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const submit = async () => {
@@ -402,6 +408,9 @@ export function EventEditor({ event, initialDate, onClose, onSave }: { event: Ev
       soundcheckTime: draft.soundcheckTime?.trim(),
       showTime: show,
       venue: draft.venue?.trim(),
+      weddingPlanner: draft.weddingPlanner?.trim(),
+      city: draft.city?.trim(),
+      quote: draft.quote?.trim(),
       address: draft.address?.trim(),
       details: draft.details?.trim(),
       dressCode: draft.dressCode?.trim(),
@@ -422,12 +431,14 @@ export function EventEditor({ event, initialDate, onClose, onSave }: { event: Ev
           <label><span>EVENTO / NOMBRE</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} placeholder="Ej. Evento concretado" /></label>
           <label><span>FECHA</span><input type="date" value={draft.date} onChange={(e) => update('date', e.target.value)} /></label>
           <label><span>LUGAR / VENUE</span><input value={draft.venue || ''} onChange={(e) => update('venue', e.target.value)} placeholder="Nombre del venue o lugar" /></label>
+          <div className="event-form-grid"><label><span>WEDDING PLANNER / ORGANIZADOR</span><input value={draft.weddingPlanner || ''} onChange={(e) => update('weddingPlanner', e.target.value)} placeholder="Nombre de la planner" /></label><label><span>CIUDAD</span><input value={draft.city || ''} onChange={(e) => update('city', e.target.value)} placeholder="Ciudad del evento" /></label></div>
           <div className="event-time-grid">
             <label><span>HORA DE LLAMADA</span><input type="time" value={draft.callTime || ''} onChange={(e) => update('callTime', e.target.value)} /></label>
             <label><span>PRUEBA DE SONIDO</span><input type="time" value={draft.soundcheckTime || ''} onChange={(e) => update('soundcheckTime', e.target.value)} /></label>
             <label><span>SHOW</span><input type="time" value={draft.showTime || ''} onChange={(e) => update('showTime', e.target.value)} /></label>
           </div>
           <label><span>DETALLES</span><textarea rows={4} value={draft.details || ''} onChange={(e) => update('details', e.target.value)} placeholder="Información general del trabajo" /></label>
+          <label><span>COTIZACIÓN / INFORMACIÓN COMERCIAL</span><textarea rows={3} value={draft.quote || ''} onChange={(e) => update('quote', e.target.value)} placeholder="Propuesta, condiciones o detalles. Los cobros reales se registran en Excel." /></label>
           <div className="event-form-grid"><label><span>VESTUARIO</span><input value={draft.dressCode || ''} onChange={(e) => update('dressCode', e.target.value)} placeholder="Ej. Formal / negro" /></label><label><span>ESTADO</span><select value={draft.status} onChange={(e) => update('status', e.target.value as EventStatus)}><option value="confirmed">Confirmado</option><option value="tentative">Por confirmar</option><option value="done">Terminado</option></select></label></div>
           <div className="event-form-grid"><label><span>CONTACTO</span><input value={draft.contactName || ''} onChange={(e) => update('contactName', e.target.value)} placeholder="Nombre del contacto" /></label><label><span>TELÉFONO</span><input type="tel" value={draft.contactPhone || ''} onChange={(e) => update('contactPhone', e.target.value)} placeholder="WhatsApp / teléfono" /></label></div>
           <label><span>NOTAS INTERNAS</span><textarea rows={3} value={draft.notes || ''} onChange={(e) => update('notes', e.target.value)} placeholder="Notas importantes" /></label>
