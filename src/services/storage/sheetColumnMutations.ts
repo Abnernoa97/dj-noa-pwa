@@ -65,3 +65,54 @@ export function createGridColumnWriter(
 }
 
 export const { createGridSheetColumn } = createGridColumnWriter(db);
+
+/** Sole owner of editing column labels / financial behavior.
+ * Update and dependent USD recalculations are one Dexie transaction; do not
+ * reset manual totals or touch historical non-USD amounts.
+ */
+export function createSheetColumnEditor(store: Pick<typeof db, 'sheetColumns' | 'sheetRows' | 'transaction'>) {
+  async function updateSheetColumn(
+    columnId: string,
+    input: { name?: string; behavior?: SheetColumnBehavior }
+  ): Promise<{ column: SheetColumn | null; changed: boolean; duplicateName?: string }> {
+    return store.transaction('rw', [store.sheetColumns, store.sheetRows], async () => {
+      const current = await store.sheetColumns.get(columnId);
+      if (!current) return { column: null, changed: false };
+      const patch: Partial<SheetColumn> = {};
+      if (typeof input.name === 'string') {
+        const name = input.name.trim().slice(0, 120);
+        if (name && name !== current.name) {
+          const existing = await store.sheetColumns.orderBy('position').toArray();
+          const duplicate = existing.find((other) =>
+            other.id !== current.id && normalizeSheetText(other.name) === normalizeSheetText(name));
+          if (duplicate) return { column: current, changed: false, duplicateName: duplicate.name };
+          patch.name = name;
+        }
+      }
+      if (input.behavior && input.behavior !== behaviorOf(current)) {
+        patch.behavior = input.behavior;
+        patch.type = input.behavior === 'neutral' ? 'text' : 'currency';
+      }
+      if (!Object.keys(patch).length) return { column: current, changed: false };
+      await store.sheetColumns.update(current.id, patch);
+      const column = { ...current, ...patch };
+      if (patch.behavior && (behaviorOf(current) !== 'neutral' || patch.behavior !== 'neutral')) {
+        const columns = await store.sheetColumns.orderBy('position').toArray();
+        const rows = await store.sheetRows.toArray();
+        const updatedAt = new Date().toISOString();
+        for (const row of rows) {
+          if (row.currency !== 'USD') continue;
+          if (!Object.prototype.hasOwnProperty.call(row.values || {}, column.key)) continue;
+          await store.sheetRows.update(row.id, {
+            ...sheetFinancialPatch(columns, row.values || {}),
+            updatedAt
+          });
+        }
+      }
+      return { column, changed: true };
+    });
+  }
+  return { updateSheetColumn };
+}
+
+export const { updateSheetColumn } = createSheetColumnEditor(db);

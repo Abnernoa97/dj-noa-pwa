@@ -1,6 +1,6 @@
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
-import { deleteSheetColumnAndValues, createGridSheetColumn } from '../../services/storage/sheetColumnMutations';
+import { deleteSheetColumnAndValues, createGridSheetColumn, updateSheetColumn } from '../../services/storage/sheetColumnMutations';
 import { numberValue, behaviorOf } from '../sheet/sheetValues';
 import { sheetFinancialPatch } from '../sheet/sheetFinancial';
 import type { NoahEventAction, NoahEventActionResult } from './noahEvents';
@@ -43,17 +43,6 @@ function coerceCellValue(column: SheetColumn, value: NoahSheetCellInput['value']
   return numberValue(value);
 }
 
-async function recalculateRows(columns: SheetColumn[]) {
-  const rows = await db.sheetRows.toArray();
-  const now = new Date().toISOString();
-  for (const row of rows) {
-    if (row.currency !== 'USD') continue; // Protect archived amounts from recalculation.
-    const values = { ...(row.values || {}) };
-    const patch = sheetFinancialPatch(columns, values);
-    await db.sheetRows.update(row.id, { ...patch, updatedAt: now });
-  }
-}
-
 function announce(detail: Record<string, unknown>) {
   window.dispatchEvent(new CustomEvent('djnoa:excel-ai-action', { detail }));
 }
@@ -75,20 +64,11 @@ export async function executeNoahSheetAction(action: NoahSheetAction): Promise<N
   if (action.type === 'update_sheet_column') {
     const column = await db.sheetColumns.get(action.columnId);
     if (!column) return { ok: false, message: 'No encontré esa columna.' };
-    const patch: Partial<SheetColumn> = {};
-    if (typeof action.name === 'string' && action.name.trim()) patch.name = action.name.trim().slice(0, 120);
-    if (action.behavior) {
-      patch.behavior = action.behavior;
-      patch.type = action.behavior === 'neutral' ? 'text' : 'currency';
-    }
-    if (!Object.keys(patch).length) return { ok: true, message: 'No había nada que cambiar.' };
-    await db.sheetColumns.update(column.id, patch);
-    if (action.behavior) {
-      const columns = await db.sheetColumns.orderBy('position').toArray();
-      await recalculateRows(columns);
-    }
-    announce({ type: action.type, columnId: column.id, columnName: patch.name || column.name });
-    return { ok: true, message: `Listo, actualicé ${patch.name || column.name}.` };
+    const result = await updateSheetColumn(column.id, { name: action.name, behavior: action.behavior });
+    if (result.duplicateName) return { ok: false, message: `La columna ${result.duplicateName} ya existe. No hice cambios.` };
+    if (!result.changed) return { ok: true, message: 'No había nada que cambiar.' };
+    announce({ type: action.type, columnId: column.id, columnName: result.column?.name || column.name });
+    return { ok: true, message: `Listo, actualicé ${result.column?.name || column.name}.` };
   }
 
   if (action.type === 'delete_sheet_column') {

@@ -5,7 +5,7 @@ import { liveQuery } from 'dexie';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../services/storage/db';
 import { deleteSheetRowWithPhotos } from '../../services/storage/sheetMutations';
-import { deleteSheetColumnAndValues, createGridSheetColumn } from '../../services/storage/sheetColumnMutations';
+import { deleteSheetColumnAndValues, createGridSheetColumn, updateSheetColumn } from '../../services/storage/sheetColumnMutations';
 import { normalizeSheetText as normalize, numberValue, behaviorOf, makeGridColumnKey } from '../../domains/sheet/sheetValues';
 import { sheetFinancialPatch } from '../../domains/sheet/sheetFinancial';
 import { formatMoneyAmount } from '../../domains/finance/moneyIntegrity';
@@ -189,16 +189,17 @@ export default function ExcelModulesEnhancer() {
   const renameColumn = async (column: SheetColumn) => {
     const name = editingName.trim();
     if (!name || name === column.name) return;
-    await db.sheetColumns.update(column.id, { name });
-    window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
+    const result = await updateSheetColumn(column.id, { name });
+    if (result.duplicateName) {
+      window.alert(`Ya existe una columna llamada “${result.duplicateName}”.`);
+      return;
+    }
+    if (result.changed) window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
   };
 
   const changeColumnBehavior = async (column: SheetColumn, behavior: SheetColumnBehavior) => {
-    await db.sheetColumns.update(column.id, {
-      behavior,
-      type: behavior === 'neutral' ? 'text' : 'currency'
-    });
-    window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
+    const result = await updateSheetColumn(column.id, { behavior });
+    if (result.changed) window.dispatchEvent(new Event('djnoa:sheet-columns-changed'));
   };
 
   const deleteColumn = async (column: SheetColumn) => {

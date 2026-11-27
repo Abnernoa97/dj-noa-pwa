@@ -12,3 +12,5 @@
 - `sheetColumnMutations.ts`: único borrado de columna y limpieza de valores por transacción para las dos vistas Excel y Noah. Si se borra una columna financiera, recalcula solo filas USD que tenían una celda de esa columna; conserva registros manuales y montos MXN. Columnas neutrales no modifican dinero.
 
 - `sheetColumnMutations.ts` también concentra `createGridSheetColumn`: creación única para el Excel financiero y las órdenes de Noah, con comprobación de nombre existente dentro de una transacción. El editor de columnas clásicas conserva su contrato de claves de fórmula.
+
+- `updateSheetColumn` en `sheetColumnMutations.ts`: único cambio de nombre y comportamiento para la grilla Excel y Noah, con nombres normalizados sin colisiones. Cambio financiero y actualización de filas USD afectadas ocurren en **una misma transacción**. Las filas sin esa celda, importes manuales y registros históricos MXN mantienen su valor.
