@@ -14,6 +14,8 @@ test('invalid formulas return null, no evaluation of JS or global expressions',(
  assert.equal(parseFormula('process.exit(1)',{}),null);
  assert.equal(parseFormula('1;2',{}),null);
  assert.equal(parseFormula('3 / / 2',{}),null);
+ assert.equal(parseFormula('1 +',{}),null);
+ assert.equal(parseFormula('3 * -',{}),null);
  assert.equal(parseFormula('(2+3',{}),null);
  assert.equal(parseFormula('3 % 2',{}),null);
 });

@@ -24,7 +24,10 @@ export function parseFormula(expression: string, vars: Record<string, number>): 
     const start = i;
     if (source[i] === '+' || source[i] === '-') i += 1;
     while (/[0-9.]/.test(source[i] || '')) i += 1;
-    const value = Number(source.slice(start, i));
+    const token = source.slice(start, i);
+    // A missing operand must not be interpreted as Number('') === 0.
+    if (!/[0-9]/.test(token)) throw new Error('number');
+    const value = Number(token);
     if (!Number.isFinite(value)) throw new Error('number');
     return value;
   };
