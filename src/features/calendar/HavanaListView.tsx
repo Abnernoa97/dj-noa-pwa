@@ -46,6 +46,7 @@ export default function HavanaListView({tab,events,colors,onOpenEvent,onChangeSt
   const [quoteFilter,setQuoteFilter]=useState<HavanaQuoteFilter>('future');
   const [search,setSearch]=useState('');
   const [selectionMode,setSelectionMode]=useState(false);
+  const [openYears,setOpenYears]=useState<Record<string,boolean>>({});
   const [selectedIds,setSelectedIds]=useState<Set<string>>(()=>new Set());
   const today=new Date();
   const todayKey=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
@@ -102,7 +103,7 @@ export default function HavanaListView({tab,events,colors,onOpenEvent,onChangeSt
     {!years.length&&<p className="hc-empty">{tab==='events'?
       (eventFilter==='upcoming'?'Aún no hay eventos por realizar.':'Aún no hay eventos realizados.'):
       (quoteFilter==='future'?'No hay cotizaciones futuras.':'No hay cotizaciones pasadas.')}</p>}
-    <div className="hc-year-list">{years.map((group,index)=><details key={tab+eventFilter+quoteFilter+group.year} className="hc-year" defaultOpen={index===0}>
+    <div className="hc-year-list">{years.map((group,index)=><details key={tab+eventFilter+quoteFilter+group.year} className="hc-year" open={openYears[tab+eventFilter+quoteFilter+group.year] ?? index===0} onToggle={event=>{const key=tab+eventFilter+quoteFilter+group.year;const expanded=event.currentTarget.open;setOpenYears(current=>current[key]===expanded?current:{...current,[key]:expanded});}}>
       <summary><span>Año {group.year}</span><span>{group.events.length}<ChevronRight size={18}/></span></summary>
       <div className="hc-year-records">{group.events.map(event=><article key={event.id}
         className={'hc-record'+(selectedIds.has(event.id)?' is-selected':'')}
