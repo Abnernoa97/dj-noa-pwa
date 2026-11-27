@@ -72,10 +72,12 @@ test('currency sums never merge USD with MXN', () => {
 });
 
 test('calendar, event, excel and home share currency-aware summaries', () => {
-  for (const path of ['features/events/EventWorkspace.tsx', 'features/calendar/CalendarWorkspace.tsx', 'features/excel/SheetWorkspace.tsx']) {
+  for (const path of ['features/events/EventWorkspace.tsx', 'features/calendar/HavanaSummaryView.tsx', 'features/excel/SheetWorkspace.tsx']) {
     const s = readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
     assert.match(s, /UsdSettlement/, path);
   }
+  const calendar = readFileSync(new URL('../src/features/calendar/CalendarWorkspace.tsx',import.meta.url),'utf8');
+  assert.match(calendar,/HavanaSummaryView/);
   const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
   assert.match(app, /portfolioUsdSettlement\(sheetRows\)/);
   const mut = readFileSync(new URL('../src/domains/events/eventMutations.ts', import.meta.url), 'utf8');

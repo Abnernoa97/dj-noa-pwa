@@ -1,4 +1,4 @@
-import { db } from '../../services/storage/db';
+import { db } from '../../services/storage/db.ts';
 import type { EventItem } from '../../shared/types';
 
 /** Calendar trash never deletes linked Excel rows, reminders or photographs.
