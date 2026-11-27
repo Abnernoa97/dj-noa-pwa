@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
-    "test:ai": "node --test tests/*.test.mjs",
+    "test:ai": "node --test --test-concurrency=4 tests/*.test.mjs",
     "build": "npm run audit:structure && npm run audit:candidates && npm run audit:semantics && npm run typecheck && npm run typecheck:cloud && npm run test:ai && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
