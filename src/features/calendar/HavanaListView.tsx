@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {CSSProperties} from 'react';
 import {Camera,ChevronRight,Trash2,X} from 'lucide-react';
 import {db} from '../../services/storage/db';
+import {useNativeBack} from '../../app/navigationBack';
 import type {EventItem,EventStatus} from '../../shared/types';
 import {
   CALENDAR_STATUS_LABELS,calendarCounters,groupCalendarYears,selectCalendarRecords
@@ -69,6 +70,7 @@ export default function HavanaListView({tab,events,colors,onOpenEvent,onChangeSt
     });
   };
   const exitSelection=()=>{setSelectedIds(new Set());setSelectionMode(false);};
+  useNativeBack(selectionMode,exitSelection,80);
   const moveSelected=async()=>{
     if(!selected.length)return;
     if(!window.confirm('¿Mover '+selected.length+' registro(s) a la papelera? Se conservan fotos, tareas y Excel.'))return;

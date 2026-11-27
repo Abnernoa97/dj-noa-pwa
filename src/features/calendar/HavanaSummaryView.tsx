@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {useNativeBack} from '../../app/navigationBack';
 import {BarChart3,Mic,Settings2,Trash2,X} from 'lucide-react';
 import {formatMoneyAmount} from '../../domains/finance/moneyIntegrity';
 import {portfolioUsdSettlement} from '../../domains/finance/financialOverview';
@@ -26,6 +27,7 @@ function rankBy(events:EventItem[],field:'venue'|'city'|'weddingPlanner') {
 
 export default function HavanaSummaryView({events,rows,trashCount,colors,setColors,onAssistant,onOpenTrash}:Props) {
   const [colorsOpen,setColorsOpen]=useState(false);
+  useNativeBack(colorsOpen,()=>setColorsOpen(false),85);
   const today=new Date();
   const date=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
   const counts=calendarCounters(events,date);
