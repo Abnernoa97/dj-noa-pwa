@@ -9,6 +9,12 @@ export interface EventItem {
   soundcheckTime?: string;
   showTime?: string;
   venue?: string;
+  weddingPlanner?: string;
+  city?: string;
+  /** Notes about the quote, not money received or an independent payment. */
+  quote?: string;
+  /** Soft archive only: preserve ID, linked rows, reminders and photos. */
+  trashedAt?: string;
   address?: string;
   details?: string;
   dressCode?: string;
