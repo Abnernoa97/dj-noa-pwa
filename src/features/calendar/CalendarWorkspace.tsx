@@ -47,6 +47,14 @@ export default function CalendarWorkspace({
 }:Props){
   const [tab,setTab]=useState<Tab>('calendar');
   const [selectedDate,setSelectedDate]=useState(()=>format(new Date(),'yyyy-MM-dd'));
+  // The parent can focus a date from an event or a Noah action. Keep the
+  // selected-day agenda synchronized when the visible month changes.
+  useEffect(()=>{
+    const monthDate=format(month,'yyyy-MM-dd');
+    setSelectedDate(current =>
+      monthDate.slice(0,7)===current.slice(0,7) && month.getDate()===1 ? current : monthDate
+    );
+  },[month]);
   const [colors,setColors]=useState<Record<EventStatus,string>>(loadColors);
   useNativeBack(tab==='trash',()=>setTab('summary'),65);
   useEffect(()=>{

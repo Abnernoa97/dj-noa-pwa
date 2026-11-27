@@ -125,6 +125,18 @@
 
 **Importante:** 178 pruebas y compilación SUCCESS verifican código y publicación; no acreditan capturas o pruebas físicas de la PWA. No se modificaron `src/services/storage/db.ts`, migraciones Dexie 1–6, `dj-noa-cloud/`, esquema USD ni CSS. P03/P04/P11 permanecen **EN CURSO** hasta cerrar sus criterios reales, no se declaran artificialmente terminados.
 
+## P06 · Sustitución del calendario por interfaz HAVANA V31 adaptada (27/11/2026)
+
+**Origen solo como referencia de código y UX:** `Abnernoa97/havana-nice-events` (read-only); no se copiaron datos ni se tocó su despliegue, D1, R2, IA o configuración. **Destino único:** `Abnernoa97/dj-noa-pwa` → `main` → Cloudflare Worker.
+
+- Se eliminó el `CalendarWorkspace` visual anterior de Mes/Semana/Día y se escribió una nueva coordinación de **Calendario, Eventos, Cotizaciones y Resumen**, con papelera recuperable, filtros por estado/fecha, años, miniaturas de fotos locales, búsqueda, selección múltiple, colores de estados y agenda por día con tareas y Excel.
+- La navegación se divide en `CalendarWorkspace`, `HavanaMonthView`, `HavanaListView`, `HavanaSummaryView` y reglas puras `havanaCalendarModel`. Los tres CSS del mismo capítulo sustituyeron los antiguos estilos, sin importar CSS global ni servicios de Havana.
+- Nuevo formulario con campos opcionales **weddingPlanner, city y quote**, en el objeto de DJ NOA (misma tabla y ID); cotización nueva comienza en estado `tentative`. El importe de texto de cotización no equivale a un cobro; el resumen consulta únicamente `portfolioUsdSettlement(sheetRows)`.
+- Papelera implementada con `trashedAt`, sin borrar fotos/eventos/tareas/filas al archivar; restauración conserva las relaciones. Eliminación permanente mediante el dueño anterior `deleteEventWithRelations` y confirmación. `App.tsx` entrega a las pantallas/Noah solo eventos activos, más una colección separada de archivados para la papelera.
+- **IA:** solamente `startNoah` y la arquitectura actual de DJ NOA. HAVANA ANALYTIC, su historial, D1, R2 y bridge Quotes quedan expresamente excluidos.
+- **Conservación:** no se alteraron `src/services/storage/db.ts`, migraciones Dexie ni backend. Las relaciones antiguas (Excel, calendario, recordatorios y fotos) se mantienen. Cambios por contratos opcionales y UI; sin migración de datos.
+- QA requerida: pruebas Android/iOS reales, presentación móvil, selección por fecha, papelera de eventos con fotos/finanzas, enlazado de Noah y actualización offline. **P06 continúa EN CURSO hasta esa aceptación**; las pruebas unitarias/compilación no equivalen a QA física.
+
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
 

@@ -75,7 +75,7 @@ export default function HavanaMonthView({
   const dayRows=rowsByDay.get(selectedDate)||[];
   const selectDay=(date:Date)=>{
     setSelectedDate(dayKey(date));
-    if(format(date,'yyyy-MM')!==monthKey)setMonth(startOfMonth(date));
+    if(format(date,'yyyy-MM')!==monthKey)setMonth(date);
   };
   const selectedAsDate=parseISO(selectedDate);
   return <div className="hc-month-layout">
