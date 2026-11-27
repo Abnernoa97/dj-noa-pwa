@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { CalendarDays, CalendarCheck2, ChevronRight, CheckCircle2, FileSpreadsheet, ImagePlus, Mic, Plus } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import NbaWorkspace from '../features/sports/NbaWorkspace';
+
 import { useNativeBack } from './navigationBack';
 import type { AppView, EventItem, ReminderItem } from '../shared/types';
+
+// Keep NBA outside the initial Home bundle; PWA precaches its chunk for offline use.
+const NbaWorkspace = lazy(() => import('../features/sports/NbaWorkspace'));
 
 type Props = {
   todayEventCount: number;
@@ -37,7 +40,7 @@ export default function HomeView({
 }: Props) {
   const [nbaOpen, setNbaOpen] = useState(false);
   useNativeBack(nbaOpen, () => setNbaOpen(false), 50);
-  if (nbaOpen) return <NbaWorkspace onBack={() => setNbaOpen(false)} />;
+  if (nbaOpen) return <Suspense fallback={<div className="empty-state" role="status">Abriendo NBA…</div>}><NbaWorkspace onBack={() => setNbaOpen(false)} /></Suspense>;
 
   const openImageIntake = () => document.querySelector<HTMLButtonElement>('.noah-image-trigger')?.click();
 

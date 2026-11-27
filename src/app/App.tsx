@@ -251,7 +251,7 @@ export default function App() {
             openReminders={openReminders}
             focusReminders={focusReminders}
             onVoice={startNoah}
-            onView={setView}
+            onView={navigateTo}
             onOpenMlb={() => setMlbOpen(true)}
             onOpenEvent={openEventHub}
             onCreateEvent={() => openEventEditor()}
