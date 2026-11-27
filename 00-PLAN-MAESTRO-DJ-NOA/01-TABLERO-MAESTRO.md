@@ -111,6 +111,20 @@
 
 **Pendiente concreto de la fase siguiente:** `App` todavía coordina estado de UI; Excel clásico y editor financiero difieren en estructura de columnas, la actualización de columnas/comportamientos debe centralizarse con tests; el CSS `ios-dark-redesign.css` sigue cargado y no se han hecho capturas comparativas. La limpieza no autoriza resetear IndexedDB ni cambiar identidad o permisos de la IA.
 
+## Corte P03/P04/P11 · 27/11/2026 · edición Excel, fórmulas y rutas de Inicio
+
+**Confirmación de producción:** commit `59f6472f9518cd03fd7413f9d98bfefbb51c07d8`, Cloudflare Worker `dj-noa-pwa`, build `caa923f8-ea2f-44d2-aa51-d59da886994c` **SUCCESS**, **178/178 pruebas**, 0 fallos; versión desplegada `410a1767-5c8e-4fa2-bffc-2404b3bd4998` al **100 %**. GitHub sigue con una única `main`, cero workflows.
+
+| Módulo | Mejora verificada | Pendiente para cierre integral |
+|---|---|---|
+| **P04 · Columnas** | `updateSheetColumn` en `src/services/storage/sheetColumnMutations.ts` se usa desde grilla Excel y Noah; nombre y comportamiento financiero editados en **una transacción**. Valida nombres equivalentes, recalcula sólo filas USD que contengan la celda afectada, protege totales manuales y montos históricos MXN. Tests con rollback y cobertura negativa. | La vista clásica y la grilla aún tienen modos de edición de columna distintos y deben comprobarse en la PWA real |
+| **P04 · Fórmulas** | Evaluador y resolución de celdas movidos de `SheetWorkspace` a `src/domains/sheet/sheetFormula.ts` (módulo sin React ni DB). Corregidos operandos vacíos para evitar tratarlos como cero. `SheetWorkspace`: **524→462 líneas**. | QA en fórmulas reales, importaciones y exportaciones XLSX |
+| **P03 · Navegación** | Inicio envía `onView` a `navigateTo` en vez de `setView`, con una sola pila de regreso y el mismo estado para Inicio/BottomNav. | Validar el gesto/botón nativo atrás en cada pantalla |
+| **P11 · Carga** | NBA usa `React.lazy` en `HomeView`; el paquete `index` baja de **482.08→473.65 kB** (gzip **149.95→147.65 kB**). Chunk NBA `8.06 kB` separado. XLSX continúa separado y sin cambios. | Medir apertura real y verificar modo offline en Android/iPhone |
+| **P12 · Pruebas** | `npm run test:ai` limita a 4 workers concurrentes pero sigue ejecutando `tests/*.test.mjs`. Auditorías, typecheck, pruebas y despliegue se realizan en Cloudflare sin gastar GitHub Actions. | QA física y aceptación total de P02–P11 |
+
+**Importante:** 178 pruebas y compilación SUCCESS verifican código y publicación; no acreditan capturas o pruebas físicas de la PWA. No se modificaron `src/services/storage/db.ts`, migraciones Dexie 1–6, `dj-noa-cloud/`, esquema USD ni CSS. P03/P04/P11 permanecen **EN CURSO** hasta cerrar sus criterios reales, no se declaran artificialmente terminados.
+
 ## Orden obligatorio
 P00 → P01 → P02. Después trabajar por dominio en secuencia P03 a P11; P12 cierra, no sustituye la verificación de cada bloque. Un problema crítico de seguridad/integridad puede adelantarse documentando el motivo.
 

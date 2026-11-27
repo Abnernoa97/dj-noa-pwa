@@ -111,3 +111,10 @@ Las referencias a un método o tabla no constituyen un segundo propietario. Las 
 - `src/features/calendar/CalendarWorkspace.tsx`, `src/features/sports/MlbWorkspace.tsx`, `src/features/tasks/ReminderWorkspace.tsx`, `src/features/excel/SheetWorkspace.tsx` y `src/features/events/EventWorkspace.tsx`: pantallas que App solicita con `lazy()`. Una misma vista de Eventos atiende lista/detalle/editor sin copias.
 - `src/styles/core/STYLE-CASCADE.md`: catálogo único de las 33 hojas CSS y sus propietarios, ordenado según los imports efectivos de `src/main.tsx`; la precedencia no se modifica por documentación. El CSS sigue siendo deuda P10 hasta QA visual.
 - Rendimiento: el chunk principal `index` pasó de **569.58 a 482.08 kB**; XLSX permanece en chunk separado. P11 no se cierra sin pruebas reales offline, scroll y apertura de pantallas.
+
+## Propietarios añadidos · corte 27/11/2026
+
+- `src/services/storage/sheetColumnMutations.ts` también es el **único editor transaccional de nombre/comportamiento** para columnas de la grilla y órdenes de Noah; no debe recrearse un `recalculateRows` de la IA. Solamente recalcula dinero USD cuando la columna está presente en la fila.
+- `src/domains/sheet/sheetFormula.ts` es el **único evaluador de fórmulas de columnas clásicas**, puro y sin almacenamiento; `src/features/excel/SheetWorkspace.tsx` presenta y exporta sus resultados.
+- `src/app/App.tsx` es el dueño del historial `navigateTo`; `HomeView` y `BottomNav` deben usarlo para navegar. `NbaWorkspace` se solicita por import dinámico desde Inicio, no duplicar otra pantalla.
+- El script `test:ai` ejecuta todas las pruebas `tests/*.test.mjs` con concurrencia de cuatro para evitar picos de recursos en builds Cloudflare. QA real de móvil sigue pendiente.
