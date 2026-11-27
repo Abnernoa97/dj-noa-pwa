@@ -10,11 +10,15 @@ for(const name of ['financialOverview.ts','moneyIntegrity.ts']){
  assert.equal(existsSync(new URL('src/domains/finance/finance.ts',root)),false,'obsolete category-based money summary must not return');
 });
 test('USD reconciliation remains shared by Excel, Calendar, Events and App',()=>{
-for(const p of ['src/app/App.tsx','src/features/excel/SheetWorkspace.tsx','src/features/calendar/CalendarWorkspace.tsx','src/features/events/EventWorkspace.tsx']){
+for(const p of ['src/app/App.tsx','src/features/excel/SheetWorkspace.tsx','src/features/calendar/HavanaSummaryView.tsx','src/features/events/EventWorkspace.tsx']){
  const s=read(p);
  assert.match(s,/domains\/finance\/financialOverview/,p);
  assert.match(s,/domains\/finance\/moneyIntegrity/,p);
 }
+const calendar=read('src/features/calendar/CalendarWorkspace.tsx');
+assert.match(calendar,/HavanaSummaryView/);
+const month=read('src/features/calendar/HavanaMonthView.tsx');
+assert.match(month,/domains\/finance\/moneyIntegrity/);
 const db=read('src/services/storage/db.ts');
 assert.match(db,/super\('dj-noa-local'\)/);
 });
